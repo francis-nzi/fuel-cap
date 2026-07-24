@@ -7,6 +7,12 @@ transaction, and QR-redemption flows.
 All fuel, pricing, balance, lock, refund, and redemption activity is simulated.
 No payment is taken and no fuel is purchased.
 
+## Architecture
+
+The target pricing, station/provider/country scope, pump settlement, and
+end-of-day hedging design is documented in
+[`docs/system-workflow-and-pricing.md`](docs/system-workflow-and-pricing.md).
+
 ## Local development
 
 Requirements:
