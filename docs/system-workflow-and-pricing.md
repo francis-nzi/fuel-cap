@@ -1,6 +1,8 @@
 # FuelCap System Workflow and Pricing Architecture
 
-Status: proposed target design based on the prototype as of 24 July 2026.
+Status: target design, with scoped station/provider/country quote selection
+implemented in the prototype on 24 July 2026. Purchase matching, settlement
+ledger, benchmark finalization, and hedging remain target-state work.
 
 This document separates four values that the prototype currently treats as one:
 
@@ -701,9 +703,9 @@ proposed -> approved -> executing -> executed -> allocated -> reconciled
 | Area | Current prototype | Required target |
 | --- | --- | --- |
 | Price source | One synthetic snapshot per market | Station-level immutable observations |
-| Provider | Station name text only | Canonical provider and effective mapping |
-| Scope | Market only | Station, provider, or country |
-| Quote | Fixed discount in code/SQL | Immutable versioned quote decision |
+| Provider | Canonical demo providers and station mappings | Effective-dated production mapping |
+| Scope | Station, provider, and country quote selection | Production eligibility enforcement at purchase |
+| Quote | Immutable scoped demo quote | Versioned production pricing decision |
 | Benchmark | None | Running, preliminary, and final daily runs |
 | Pump price | Seed value labelled live | Station observation plus actual purchase price |
 | Purchase | Manual QR simulation | Authorization, completion, enrichment, matching |

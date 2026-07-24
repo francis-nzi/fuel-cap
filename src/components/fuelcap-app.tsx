@@ -12,6 +12,29 @@ import { demoLockedPrice, MarketCode, markets, money } from "@/lib/markets";
 import { createClient } from "@/lib/supabase/client";
 
 type View = "home" | "tank" | "lock" | "activity" | "settings";
+type LockScope = "station" | "provider" | "country";
+type PriceOption = {
+  scopeType: LockScope;
+  scopeId: string | null;
+  label: string;
+  providerName: string | null;
+  unitPrice: number;
+  currency: string;
+  unit: string;
+  stationCount: number;
+  observedAt: string;
+};
+type LockOptionRow = {
+  scope_type: LockScope;
+  scope_id: string | null;
+  label: string;
+  provider_name: string | null;
+  unit_price: number | string;
+  currency: string;
+  unit: string;
+  station_count: number | string;
+  observed_at: string;
+};
 type LockRecord = {
   id: string;
   volume: number;
@@ -19,6 +42,8 @@ type LockRecord = {
   unitPrice: number;
   total: number;
   status: string;
+  scopeType: LockScope;
+  scopeLabel: string;
   createdAt: string;
 };
 type TransactionRecord = {
@@ -30,6 +55,61 @@ type TransactionRecord = {
   description: string;
   createdAt: string;
 };
+
+const demoStations: Record<MarketCode, { id: string; providerId: string; provider: string; label: string; price: number }[]> = {
+  US: [
+    { id: "11000000-0000-0000-0000-000000000001", providerId: "10000000-0000-0000-0000-000000000001", provider: "Shell", label: "Shell Downtown - 101 Main St, Austin, TX", price: 3.42 },
+    { id: "11000000-0000-0000-0000-000000000002", providerId: "10000000-0000-0000-0000-000000000001", provider: "Shell", label: "Shell Riverside - 480 River Rd, Austin, TX", price: 3.49 },
+    { id: "11000000-0000-0000-0000-000000000003", providerId: "10000000-0000-0000-0000-000000000002", provider: "BP", label: "BP Central - 220 Congress Ave, Austin, TX", price: 3.39 },
+    { id: "11000000-0000-0000-0000-000000000004", providerId: "10000000-0000-0000-0000-000000000002", provider: "BP", label: "BP North - 8150 Burnet Rd, Austin, TX", price: 3.53 },
+    { id: "11000000-0000-0000-0000-000000000005", providerId: "10000000-0000-0000-0000-000000000003", provider: "Chevron", label: "Chevron Airport - 2901 Airport Blvd, Austin, TX", price: 3.47 },
+    { id: "11000000-0000-0000-0000-000000000006", providerId: "10000000-0000-0000-0000-000000000003", provider: "Chevron", label: "Chevron South - 7300 S Congress Ave, Austin, TX", price: 3.58 },
+  ],
+  CA: [
+    { id: "21000000-0000-0000-0000-000000000001", providerId: "20000000-0000-0000-0000-000000000001", provider: "Shell", label: "Shell King Street - 548 King St W, Toronto, ON", price: 1.589 },
+    { id: "21000000-0000-0000-0000-000000000002", providerId: "20000000-0000-0000-0000-000000000001", provider: "Shell", label: "Shell Lakeshore - 1250 Lake Shore Blvd, Toronto, ON", price: 1.629 },
+    { id: "21000000-0000-0000-0000-000000000003", providerId: "20000000-0000-0000-0000-000000000002", provider: "Petro-Canada", label: "Petro-Canada Bloor - 55 Bloor St E, Toronto, ON", price: 1.609 },
+    { id: "21000000-0000-0000-0000-000000000004", providerId: "20000000-0000-0000-0000-000000000002", provider: "Petro-Canada", label: "Petro-Canada Danforth - 1675 Danforth Ave, Toronto, ON", price: 1.649 },
+    { id: "21000000-0000-0000-0000-000000000005", providerId: "20000000-0000-0000-0000-000000000003", provider: "Esso", label: "Esso Front Street - 200 Front St W, Toronto, ON", price: 1.619 },
+    { id: "21000000-0000-0000-0000-000000000006", providerId: "20000000-0000-0000-0000-000000000003", provider: "Esso", label: "Esso North York - 5000 Yonge St, Toronto, ON", price: 1.669 },
+  ],
+  GB: [
+    { id: "31000000-0000-0000-0000-000000000001", providerId: "30000000-0000-0000-0000-000000000001", provider: "Shell", label: "Shell Fulham - 147 New Kings Rd, London", price: 1.419 },
+    { id: "31000000-0000-0000-0000-000000000002", providerId: "30000000-0000-0000-0000-000000000001", provider: "Shell", label: "Shell Islington - 108 Upper St, London", price: 1.449 },
+    { id: "31000000-0000-0000-0000-000000000003", providerId: "30000000-0000-0000-0000-000000000002", provider: "BP", label: "BP Battersea - 9 York Rd, London", price: 1.429 },
+    { id: "31000000-0000-0000-0000-000000000004", providerId: "30000000-0000-0000-0000-000000000002", provider: "BP", label: "BP Camden - 102 Camden Rd, London", price: 1.459 },
+    { id: "31000000-0000-0000-0000-000000000005", providerId: "30000000-0000-0000-0000-000000000003", provider: "Texaco", label: "Texaco Brixton - 234 Brixton Rd, London", price: 1.439 },
+    { id: "31000000-0000-0000-0000-000000000006", providerId: "30000000-0000-0000-0000-000000000003", provider: "Texaco", label: "Texaco Hackney - 88 Mare St, London", price: 1.479 },
+  ],
+};
+
+function buildFallbackOptions(marketCode: MarketCode): PriceOption[] {
+  const market = markets[marketCode];
+  const stations = demoStations[marketCode];
+  const now = new Date().toISOString();
+  const stationOptions: PriceOption[] = stations.map((station) => ({
+    scopeType: "station", scopeId: station.id, label: station.label,
+    providerName: station.provider, unitPrice: station.price,
+    currency: market.currency, unit: market.unit, stationCount: 1, observedAt: now,
+  }));
+  const providers = new Map<string, PriceOption>();
+  stations.forEach((station) => {
+    const existing = providers.get(station.providerId);
+    providers.set(station.providerId, {
+      scopeType: "provider", scopeId: station.providerId, label: station.provider,
+      providerName: station.provider,
+      unitPrice: Math.max(existing?.unitPrice ?? 0, station.price),
+      currency: market.currency, unit: market.unit,
+      stationCount: (existing?.stationCount ?? 0) + 1, observedAt: now,
+    });
+  });
+  const country: PriceOption = {
+    scopeType: "country", scopeId: null, label: `Any eligible ${market.name} station`,
+    providerName: null, unitPrice: Math.max(...stations.map((station) => station.price)),
+    currency: market.currency, unit: market.unit, stationCount: stations.length, observedAt: now,
+  };
+  return [...stationOptions, ...providers.values(), country];
+}
 
 const nav: { id: View; label: string; icon: typeof Home }[] = [
   { id: "home", label: "Home", icon: Home },
@@ -55,6 +135,10 @@ export function FuelCapApp() {
   const [userId, setUserId] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [livePrices, setLivePrices] = useState<Partial<Record<MarketCode, number>>>({});
+  const [priceOptions, setPriceOptions] = useState<PriceOption[]>([]);
+  const [scopeType, setScopeType] = useState<LockScope>("station");
+  const [scopeId, setScopeId] = useState<string | null>(null);
+  const [optionsLoading, setOptionsLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -67,7 +151,7 @@ export function FuelCapApp() {
     const supabase = createClient();
     const [profileResult, locksResult, transactionsResult, pricesResult] = await Promise.all([
       supabase.from("profiles").select("market").maybeSingle(),
-      supabase.from("price_locks").select("id,volume,remaining_volume,locked_unit_price,status,created_at").order("created_at", { ascending: false }),
+      supabase.from("price_locks").select("id,volume,remaining_volume,locked_unit_price,status,scope_type,reference_label,created_at").order("created_at", { ascending: false }),
       supabase.from("transactions").select("id,type,amount,volume,unit_price,description,created_at").order("created_at", { ascending: false }),
       supabase.from("price_snapshots").select("market,unit_price,observed_at").order("observed_at", { ascending: false }),
     ]);
@@ -85,6 +169,8 @@ export function FuelCapApp() {
         unitPrice: Number(row.locked_unit_price),
         total: Number(row.volume) * Number(row.locked_unit_price),
         status: row.status,
+        scopeType: (row.scope_type ?? "country") as LockScope,
+        scopeLabel: row.reference_label ?? "Any eligible station",
         createdAt: row.created_at,
       })));
     }
@@ -111,6 +197,35 @@ export function FuelCapApp() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    const supabase = createClient();
+    void supabase.rpc("get_current_lock_options", {
+      p_market: marketCode,
+      p_fuel_grade: "regular",
+    }).then(({ data }) => {
+      if (cancelled) return;
+      const remoteOptions = ((data ?? []) as LockOptionRow[]).map((row: LockOptionRow) => ({
+        scopeType: row.scope_type as LockScope,
+        scopeId: row.scope_id,
+        label: row.label,
+        providerName: row.provider_name,
+        unitPrice: Number(row.unit_price),
+        currency: row.currency,
+        unit: row.unit,
+        stationCount: Number(row.station_count),
+        observedAt: row.observed_at,
+      }));
+      const options = remoteOptions.length > 0 ? remoteOptions : buildFallbackOptions(marketCode);
+      setPriceOptions(options);
+      const first = options.find((option) => option.scopeType === "station");
+      setScopeType("station");
+      setScopeId(first?.scopeId ?? null);
+      setOptionsLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [marketCode]);
+
+  useEffect(() => {
     const stored = localStorage.getItem("fuelcap-demo");
     if (!stored) return;
     window.setTimeout(() => {
@@ -125,6 +240,8 @@ export function FuelCapApp() {
             ...lock,
             remainingVolume: lock.remainingVolume ?? lock.volume,
             status: lock.status ?? "active",
+            scopeType: lock.scopeType ?? "country",
+            scopeLabel: lock.scopeLabel ?? "Any eligible station",
           })));
         }
       } catch {
@@ -160,8 +277,13 @@ export function FuelCapApp() {
 
   const tankVolume = (userId ? 0 : market.defaultVolume) + locks.reduce((sum, item) => sum + item.remainingVolume, 0);
   const saved = market.code === "US" ? 142 : market.code === "CA" ? 96 : 71;
+  const selectedPriceOption = priceOptions.find((option) =>
+    option.scopeType === scopeType && (scopeType === "country" || option.scopeId === scopeId));
+  const currentOpenOption = priceOptions.find((option) => option.scopeType === "country");
+  const activeLock = locks.find((lock) => ["active", "partially_redeemed"].includes(lock.status));
 
   function changeMarket(code: MarketCode) {
+    setOptionsLoading(true);
     setMarketCode(code);
     setVolume(markets[code].defaultVolume);
     setNotice(`Market changed to ${markets[code].name}`);
@@ -169,13 +291,28 @@ export function FuelCapApp() {
     if (userId) void createClient().from("profiles").update({ market: code }).eq("id", userId);
   }
 
+  function changeScope(nextScope: LockScope) {
+    setScopeType(nextScope);
+    const first = priceOptions.find((option) => option.scopeType === nextScope);
+    setScopeId(first?.scopeId ?? null);
+  }
+
   async function confirmLock() {
+    const selectedOption = priceOptions.find((option) =>
+      option.scopeType === scopeType && (scopeType === "country" || option.scopeId === scopeId));
+    if (!selectedOption) {
+      setNotice("Select an available price option before locking.");
+      window.setTimeout(() => setNotice(null), 3200);
+      return;
+    }
     setActionBusy(true);
     if (userId) {
-      const { error } = await createClient().rpc("create_demo_lock", {
+      const { error } = await createClient().rpc("create_scoped_demo_lock", {
         p_market: marketCode,
         p_fuel_grade: "regular",
         p_volume: volume,
+        p_scope_type: scopeType,
+        p_scope_id: scopeType === "country" ? null : scopeId,
       });
       if (error) {
         setNotice(error.message);
@@ -189,15 +326,17 @@ export function FuelCapApp() {
       id: crypto.randomUUID(),
       volume,
       remainingVolume: volume,
-      unitPrice: market.lockedPrice,
-      total: volume * market.lockedPrice,
+      unitPrice: selectedOption.unitPrice,
+      total: volume * selectedOption.unitPrice,
       status: "active",
+      scopeType,
+      scopeLabel: selectedOption.label,
       createdAt: new Date().toISOString(),
     };
     setLocks((current) => [record, ...current]);
     }
     setActionBusy(false);
-    setNotice(`${volume} ${market.unit} locked at ${money(market.lockedPrice, market)}/${market.unit}`);
+    setNotice(`${volume} ${market.unit} locked at ${money(selectedOption.unitPrice, market)}/${market.unit}`);
     setView("tank");
     window.setTimeout(() => setNotice(null), 3200);
   }
@@ -267,9 +406,9 @@ export function FuelCapApp() {
         </header>
 
         <main className="mx-auto max-w-6xl px-4 pb-28 pt-6 md:px-8 md:pb-10 md:pt-8">
-          {view === "home" && <HomeView market={market} tankVolume={tankVolume} saved={saved} setView={setView} redeem={() => setShowRedeem(true)} />}
+          {view === "home" && <HomeView market={market} tankVolume={tankVolume} saved={saved} activeLock={activeLock} referencePrice={currentOpenOption?.unitPrice ?? market.livePrice} setView={setView} redeem={() => setShowRedeem(true)} />}
           {view === "tank" && <TankView market={market} tankVolume={tankVolume} locks={locks} setView={setView} redeem={() => setShowRedeem(true)} />}
-          {view === "lock" && <LockView market={market} volume={volume} setVolume={setVolume} confirm={confirmLock} busy={actionBusy} />}
+          {view === "lock" && <LockView market={market} volume={volume} setVolume={setVolume} confirm={confirmLock} busy={actionBusy} options={priceOptions} selected={selectedPriceOption} scopeType={scopeType} scopeId={scopeId} changeScope={changeScope} setScopeId={setScopeId} loading={optionsLoading} />}
           {view === "activity" && <ActivityView market={market} locks={locks} transactions={transactions} cloud={Boolean(userId)} />}
           {view === "settings" && <SettingsView marketCode={marketCode} changeMarket={changeMarket} />}
         </main>
@@ -311,8 +450,9 @@ function NavButton({ item, active, onClick }: { item: (typeof nav)[number]; acti
 
 type MarketProps = { market: (typeof markets)[MarketCode] };
 
-function HomeView({ market, tankVolume, saved, setView, redeem }: MarketProps & { tankVolume: number; saved: number; setView: (view: View) => void; redeem: () => void }) {
-  const advantage = market.livePrice - market.lockedPrice;
+function HomeView({ market, tankVolume, saved, activeLock, referencePrice, setView, redeem }: MarketProps & { tankVolume: number; saved: number; activeLock?: LockRecord; referencePrice: number; setView: (view: View) => void; redeem: () => void }) {
+  const capPrice = activeLock?.unitPrice ?? referencePrice;
+  const advantage = Math.max(referencePrice - capPrice, 0);
   return (
     <div className="view-enter">
       <div className="mb-6 flex items-end justify-between gap-4">
@@ -322,11 +462,11 @@ function HomeView({ market, tankVolume, saved, setView, redeem }: MarketProps & 
       <div className="grid gap-4 lg:grid-cols-[1.3fr_.7fr]">
         <section className="rounded-md bg-[#0b1b2b] p-5 text-white md:p-7">
           <div className="flex items-start justify-between gap-4">
-            <div><p className="text-xs font-bold uppercase text-[#8fb8a6]">Your locked price</p><p className="mt-2 font-[family-name:var(--font-space-grotesk)] text-4xl font-bold md:text-5xl">{money(market.lockedPrice, market)}<span className="ml-1 text-base font-medium text-[#8fb8a6]">/{market.unit}</span></p></div>
+            <div><p className="text-xs font-bold uppercase text-[#8fb8a6]">{activeLock ? "Your FuelCap price" : "Current open price"}</p><p className="mt-2 font-[family-name:var(--font-space-grotesk)] text-4xl font-bold md:text-5xl">{money(capPrice, market)}<span className="ml-1 text-base font-medium text-[#8fb8a6]">/{market.unit}</span></p><p className="mt-2 max-w-md text-xs text-[#8fb8a6]">{activeLock?.scopeLabel ?? `Any eligible ${market.name} station`}</p></div>
             <span className="rounded-md bg-[#17364a] px-2 py-1 text-xs font-semibold text-[#dff5e9]">Regular</span>
           </div>
           <div className="mt-7 grid grid-cols-2 gap-4 border-t border-[#284052] pt-5">
-            <div><p className="text-xs text-[#8fb8a6]">Live pump price</p><p className="mt-1 text-lg font-semibold">{money(market.livePrice, market)}/{market.unit}</p></div>
+            <div><p className="text-xs text-[#8fb8a6]">Current open price basis</p><p className="mt-1 text-lg font-semibold">{money(referencePrice, market)}/{market.unit}</p></div>
             <div className="border-l border-[#284052] pl-4"><p className="text-xs text-[#8fb8a6]">Your advantage</p><p className="mt-1 text-lg font-semibold text-[#ffc24b]">+{money(advantage, market)}/{market.unit}</p></div>
           </div>
         </section>
@@ -357,7 +497,7 @@ function Metric({ icon: Icon, label, value, detail }: { icon: typeof Home; label
 function TankView({ market, tankVolume, locks, setView, redeem }: MarketProps & { tankVolume: number; locks: LockRecord[]; setView: (view: View) => void; redeem: () => void }) {
   return <div className="view-enter"><PageTitle eyebrow="Balance" title="My virtual tank" />
     <section className="grid gap-5 rounded-md bg-[#0b1b2b] p-6 text-white md:grid-cols-[1fr_auto] md:items-center">
-      <div><p className="text-sm text-[#8fb8a6]">Available regular {market.fuelWord}</p><p className="mt-2 font-[family-name:var(--font-space-grotesk)] text-5xl font-bold">{tankVolume} <span className="text-xl text-[#8fb8a6]">{market.unit}</span></p><p className="mt-3 text-sm text-[#c7d6ce]">Protected at {money(market.lockedPrice, market)}/{market.unit}</p></div>
+      <div><p className="text-sm text-[#8fb8a6]">Available regular {market.fuelWord}</p><p className="mt-2 font-[family-name:var(--font-space-grotesk)] text-5xl font-bold">{tankVolume} <span className="text-xl text-[#8fb8a6]">{market.unit}</span></p><p className="mt-3 text-sm text-[#c7d6ce]">{locks[0] ? `${locks[0].scopeLabel} at ${money(locks[0].unitPrice, market)}/${market.unit}` : "Create a price lock to protect your first fill."}</p></div>
       <div className="flex gap-2"><button onClick={() => setView("lock")} className={`${buttonBase} bg-[#0ba75e] text-white`}><LockKeyhole size={17} />Add fuel</button><button onClick={redeem} className={`${buttonBase} border border-[#476070] text-white`}><QrCode size={17} />Redeem</button></div>
     </section>
     <section className="mt-5 rounded-md border border-[#dce5df] bg-white"><div className="border-b border-[#dce5df] p-4"><h2 className="font-semibold">Active price locks</h2></div>
@@ -367,17 +507,69 @@ function TankView({ market, tankVolume, locks, setView, redeem }: MarketProps & 
   </div>;
 }
 
-function LockView({ market, volume, setVolume, confirm, busy }: MarketProps & { volume: number; setVolume: (n: number) => void; confirm: () => Promise<void>; busy: boolean }) {
-  const total = volume * market.lockedPrice;
+function LockView({
+  market, volume, setVolume, confirm, busy, options, selected, scopeType,
+  scopeId, changeScope, setScopeId, loading,
+}: MarketProps & {
+  volume: number;
+  setVolume: (n: number) => void;
+  confirm: () => Promise<void>;
+  busy: boolean;
+  options: PriceOption[];
+  selected: PriceOption | undefined;
+  scopeType: LockScope;
+  scopeId: string | null;
+  changeScope: (scope: LockScope) => void;
+  setScopeId: (id: string | null) => void;
+  loading: boolean;
+}) {
+  const scopedOptions = options.filter((option) => option.scopeType === scopeType);
+  const quotePrice = selected?.unitPrice ?? 0;
+  const total = volume * quotePrice;
+  const priceLabel = scopeType === "station" ? "Current station price" : scopeType === "provider" ? "Current provider maximum" : "Current open maximum";
+  const scopeCopy = scopeType === "station"
+    ? "This cap can be redeemed only at the selected filling station."
+    : scopeType === "provider"
+      ? `This cap works at ${selected?.stationCount ?? 0} covered ${selected?.label ?? "provider"} stations.`
+      : `This cap works at ${selected?.stationCount ?? 0} eligible stations across ${market.name}.`;
   return <div className="view-enter mx-auto max-w-3xl"><PageTitle eyebrow="New price lock" title={`Lock today's ${market.fuelWord} price`} />
     <section className="rounded-md border border-[#dce5df] bg-white p-5 md:p-7">
-      <div className="flex items-center justify-between gap-4 border-b border-[#e5ebe7] pb-5"><div><p className="text-sm text-[#61716b]">Current lock price</p><p className="mt-1 text-3xl font-bold">{money(market.lockedPrice, market)}<span className="text-sm text-[#61716b]">/{market.unit}</span></p></div><span className="rounded-md bg-[#dff5e9] px-3 py-2 text-xs font-bold text-[#0b7a4b]">Live demo price</span></div>
+      <fieldset>
+        <legend className="text-sm font-semibold">Where do you want your cap to work?</legend>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          {([
+            ["station", "Station"],
+            ["provider", "Brand"],
+            ["country", "Anywhere"],
+          ] as [LockScope, string][]).map(([scope, label]) => (
+            <button type="button" key={scope} aria-label={scope === "station" ? "One station" : scope === "provider" ? "One brand" : "Anywhere"} onClick={() => changeScope(scope)} className={`h-11 rounded-md border px-2 text-sm font-semibold ${scopeType === scope ? "border-[#0ba75e] bg-[#dff5e9] text-[#0b7a4b]" : "border-[#dce5df] bg-white"}`}>{label}</button>
+          ))}
+        </div>
+      </fieldset>
+
+      {scopeType !== "country" && <div className="mt-5">
+        <label htmlFor="scope-option" className="text-sm font-semibold">{scopeType === "station" ? "Choose a filling station" : "Choose a fuel brand"}</label>
+        <select id="scope-option" value={scopeId ?? ""} onChange={(event) => setScopeId(event.target.value)} disabled={loading} className="mt-2 h-12 w-full rounded-md border border-[#cdd9d1] bg-white px-3 text-sm">
+          {scopedOptions.map((option) => <option key={option.scopeId} value={option.scopeId ?? ""}>{option.label} · {money(option.unitPrice, market)}/{market.unit}</option>)}
+        </select>
+      </div>}
+
+      <div className="mt-5 flex items-start justify-between gap-4 border-y border-[#e5ebe7] py-5">
+        <div>
+          <p className="text-sm text-[#61716b]">{priceLabel}</p>
+          <p className="mt-1 font-[family-name:var(--font-space-grotesk)] text-3xl font-bold">{loading || !selected ? "Loading..." : money(quotePrice, market)}{selected && <span className="text-sm font-medium text-[#61716b]">/{market.unit}</span>}</p>
+          <p className="mt-2 max-w-md text-xs leading-5 text-[#61716b]">{selected?.label ?? "Retrieving verified station prices"}</p>
+        </div>
+        <span className="shrink-0 rounded-md bg-[#dff5e9] px-3 py-2 text-xs font-bold text-[#0b7a4b]">{scopeType === "station" ? "1 station" : `${selected?.stationCount ?? 0} stations`}</span>
+      </div>
+      <div className="mt-4 flex items-start gap-2 text-xs leading-5 text-[#61716b]"><MapPin size={15} className="mt-0.5 shrink-0 text-[#0b7a4b]" /><p>{scopeCopy} Prices are verified observations for this prototype and may differ from the forecourt display.</p></div>
+
       <div className="py-6"><div className="flex items-center justify-between"><label htmlFor="volume" className="font-semibold">How much to lock?</label><output className="text-xl font-bold">{volume} {market.unit}</output></div>
         <input id="volume" className="mt-5 w-full accent-[#0ba75e]" type="range" min={market.unit === "gal" ? 10 : 40} max={market.maxVolume} step={market.unit === "gal" ? 5 : 10} value={volume} onChange={(e) => setVolume(Number(e.target.value))} />
         <div className="mt-2 flex justify-between text-xs text-[#61716b]"><span>{market.unit === "gal" ? 10 : 40} {market.unit}</span><span>{market.maxVolume} {market.unit}</span></div>
       </div>
       <div className="rounded-md bg-[#dff5e9] p-4"><div className="flex gap-3"><ShieldCheck className="shrink-0 text-[#0b7a4b]" size={21} /><div><p className="font-semibold text-[#0b7a4b]">FuelCap protection</p><p className="mt-1 text-sm leading-6 text-[#285e46]">If the reference price rises, this price stays capped. If it falls below your lock, the demo balance adjusts automatically.</p></div></div></div>
-      <div className="mt-6 flex items-center justify-between border-t border-[#e5ebe7] pt-5"><div><p className="text-xs text-[#61716b]">Simulated total</p><p className="text-2xl font-bold">{money(total, market)}</p></div><button disabled={busy} onClick={confirm} className={`${buttonBase} h-12 bg-[#0ba75e] px-6 text-white hover:bg-[#0b7a4b]`}><LockKeyhole size={18} />{busy ? "Saving..." : "Confirm demo lock"}</button></div>
+      <div className="mt-6 flex items-center justify-between gap-4 border-t border-[#e5ebe7] pt-5"><div><p className="text-xs text-[#61716b]">Simulated total</p><p className="text-2xl font-bold">{money(total, market)}</p></div><button aria-label="Confirm price lock" disabled={busy || loading || !selected} onClick={confirm} className={`${buttonBase} h-12 bg-[#0ba75e] px-6 text-white hover:bg-[#0b7a4b]`}><LockKeyhole size={18} />{busy ? "Saving..." : "Confirm lock"}</button></div>
     </section>
     <p className="mt-4 text-center text-xs leading-5 text-[#61716b]">Prototype only. No payment is taken and no fuel is purchased.</p>
   </div>;

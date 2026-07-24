@@ -6,11 +6,19 @@ test("core prototype flow works without horizontal overflow", async ({ page }) =
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   await page.getByLabel("Market").selectOption("GB");
-  await expect(page.getByText("£1.42", { exact: false }).first()).toBeVisible();
+  await expect(page.getByText("£1.48", { exact: false }).first()).toBeVisible();
 
   await page.getByRole("button", { name: "Lock price", exact: true }).last().click();
   await expect(page.getByRole("heading", { name: "Lock today's fuel price" })).toBeVisible();
-  await page.getByRole("button", { name: "Confirm demo lock" }).click();
+  await expect(page.getByLabel("Choose a filling station")).toBeVisible();
+  await page.getByLabel("Choose a filling station").selectOption("31000000-0000-0000-0000-000000000002");
+  await expect(page.getByText("£1.45", { exact: false }).last()).toBeVisible();
+  await page.getByRole("button", { name: "One brand" }).click();
+  await page.getByLabel("Choose a fuel brand").selectOption("30000000-0000-0000-0000-000000000002");
+  await expect(page.getByText("£1.46", { exact: false }).last()).toBeVisible();
+  await page.getByRole("button", { name: "Anywhere" }).click();
+  await expect(page.getByText("£1.48", { exact: false }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Confirm price lock" }).click();
   await expect(page.getByText("Active price locks")).toBeVisible();
   await expect(page.getByText("320 L")).toBeVisible();
 

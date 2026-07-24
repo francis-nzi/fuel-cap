@@ -51,6 +51,12 @@ functions in `supabase/migrations/202607240002_demo_operations.sql`. These
 functions derive prices from stored snapshots, enforce market volume limits,
 verify lock ownership, and prevent over-redemption.
 
+Scoped station, provider, and country pricing is introduced by
+`supabase/migrations/202607240003_scoped_pricing.sql`. It adds provider and
+station reference data, immutable station-price observations, accepted quote
+lineage, and validated scoped-lock creation. Provider and country options use
+the current verified maximum of the latest price per covered station.
+
 Apply it using the Supabase CLI after authenticating:
 
 ```bash
