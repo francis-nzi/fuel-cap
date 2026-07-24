@@ -17,6 +17,6 @@ port = 54323
 [auth]
 enabled = true
 site_url = "http://localhost:3000"
-additional_redirect_urls = ["http://localhost:3000/**", "https://fuelcap-app.onrender.com/**", "https://app.fuelcap.tech/**"]
+additional_redirect_urls = ["http://localhost:3000/**", "https://fuel-cap-1.onrender.com/**", "https://app.fuelcap.tech/**"]
 jwt_expiry = 3600
 enable_signup = true

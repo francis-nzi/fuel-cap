@@ -55,7 +55,7 @@ In Supabase Authentication URL Configuration, set the Site URL to the current
 Render URL and add:
 
 - `http://localhost:3000/**`
-- `https://<render-service>.onrender.com/**`
+- `https://fuel-cap-1.onrender.com/**`
 - `https://app.fuelcap.tech/**`
 
 ## Render
