@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+:root {
+  --emerald: #0ba75e;
+  --pine: #0b7a4b;
+  --midnight: #0b1b2b;
+  --amber: #ffc24b;
+  --coral: #ff5c48;
+  --mint: #dff5e9;
+  --canvas: #f3f6f4;
+  --line: #dce5df;
+  --muted: #61716b;
+}
+
+@theme inline {
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-space-grotesk);
+}
+
+* { box-sizing: border-box; }
+html { background: var(--canvas); }
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--midnight);
+  font-family: var(--font-inter), Arial, sans-serif;
+  letter-spacing: 0;
+}
+button, input, select { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 3px solid rgba(11, 167, 94, 0.28);
+  outline-offset: 2px;
+}
+@keyframes enter {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.view-enter { animation: enter 180ms ease-out; }
