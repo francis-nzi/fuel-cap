@@ -39,3 +39,8 @@ export function money(value: number, market: Market, digits = 2) {
     maximumFractionDigits: digits,
   }).format(value);
 }
+
+export function demoLockedPrice(market: Market, livePrice = market.livePrice) {
+  const discount = market.code === "US" ? 0.45 : market.code === "CA" ? 0.08 : 0.07;
+  return Math.max(livePrice - discount, 0.0001);
+}

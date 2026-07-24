@@ -7,12 +7,29 @@ import {
   Settings, ShieldCheck, SlidersHorizontal, WalletCards, X,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { useEffect, useMemo, useState } from "react";
-import { MarketCode, markets, money } from "@/lib/markets";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { demoLockedPrice, MarketCode, markets, money } from "@/lib/markets";
 import { createClient } from "@/lib/supabase/client";
 
 type View = "home" | "tank" | "lock" | "activity" | "settings";
-type LockRecord = { id: string; volume: number; unitPrice: number; total: number; createdAt: string };
+type LockRecord = {
+  id: string;
+  volume: number;
+  remainingVolume: number;
+  unitPrice: number;
+  total: number;
+  status: string;
+  createdAt: string;
+};
+type TransactionRecord = {
+  id: string;
+  type: string;
+  amount: number;
+  volume: number | null;
+  unitPrice: number | null;
+  description: string;
+  createdAt: string;
+};
 
 const nav: { id: View; label: string; icon: typeof Home }[] = [
   { id: "home", label: "Home", icon: Home },
@@ -35,8 +52,63 @@ export function FuelCapApp() {
   const [showRedeem, setShowRedeem] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
+  const [livePrices, setLivePrices] = useState<Partial<Record<MarketCode, number>>>({});
+  const [syncing, setSyncing] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const market = markets[marketCode];
+  const baseMarket = markets[marketCode];
+  const livePrice = livePrices[marketCode] ?? baseMarket.livePrice;
+  const market = { ...baseMarket, livePrice, lockedPrice: demoLockedPrice(baseMarket, livePrice) };
+
+  const loadCloudData = useCallback(async () => {
+    setSyncing(true);
+    const supabase = createClient();
+    const [profileResult, locksResult, transactionsResult, pricesResult] = await Promise.all([
+      supabase.from("profiles").select("market").maybeSingle(),
+      supabase.from("price_locks").select("id,volume,remaining_volume,locked_unit_price,status,created_at").order("created_at", { ascending: false }),
+      supabase.from("transactions").select("id,type,amount,volume,unit_price,description,created_at").order("created_at", { ascending: false }),
+      supabase.from("price_snapshots").select("market,unit_price,observed_at").order("observed_at", { ascending: false }),
+    ]);
+
+    if (profileResult.data?.market && markets[profileResult.data.market as MarketCode]) {
+      const code = profileResult.data.market as MarketCode;
+      setMarketCode(code);
+      setVolume(markets[code].defaultVolume);
+    }
+    if (locksResult.data) {
+      setLocks(locksResult.data.map((row) => ({
+        id: row.id,
+        volume: Number(row.volume),
+        remainingVolume: Number(row.remaining_volume),
+        unitPrice: Number(row.locked_unit_price),
+        total: Number(row.volume) * Number(row.locked_unit_price),
+        status: row.status,
+        createdAt: row.created_at,
+      })));
+    }
+    if (transactionsResult.data) {
+      setTransactions(transactionsResult.data.map((row) => ({
+        id: row.id,
+        type: row.type,
+        amount: Number(row.amount),
+        volume: row.volume === null ? null : Number(row.volume),
+        unitPrice: row.unit_price === null ? null : Number(row.unit_price),
+        description: row.description,
+        createdAt: row.created_at,
+      })));
+    }
+    if (pricesResult.data) {
+      const prices: Partial<Record<MarketCode, number>> = {};
+      pricesResult.data.forEach((row) => {
+        const code = row.market as MarketCode;
+        if (prices[code] === undefined) prices[code] = Number(row.unit_price);
+      });
+      setLivePrices(prices);
+    }
+    setSyncing(false);
+  }, []);
 
   useEffect(() => {
     const stored = localStorage.getItem("fuelcap-demo");
@@ -48,7 +120,13 @@ export function FuelCapApp() {
           setMarketCode(data.market);
           setVolume(markets[data.market].defaultVolume);
         }
-        if (Array.isArray(data.locks)) setLocks(data.locks);
+        if (Array.isArray(data.locks)) {
+          setLocks(data.locks.map((lock) => ({
+            ...lock,
+            remainingVolume: lock.remainingVolume ?? lock.volume,
+            status: lock.status ?? "active",
+          })));
+        }
       } catch {
         localStorage.removeItem("fuelcap-demo");
       }
@@ -57,18 +135,30 @@ export function FuelCapApp() {
 
   useEffect(() => {
     const supabase = createClient();
-    void supabase.auth.getUser().then(({ data }) => setUserEmail(data.user?.email ?? null));
+    void supabase.auth.getUser().then(({ data }) => {
+      setUserEmail(data.user?.email ?? null);
+      setUserId(data.user?.id ?? null);
+      if (data.user) void loadCloudData();
+    });
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       setUserEmail(session?.user.email ?? null);
+      setUserId(session?.user.id ?? null);
+      if (session?.user) {
+        void loadCloudData();
+      } else {
+        setTransactions([]);
+        setLivePrices({});
+        setLocks([]);
+      }
     });
     return () => data.subscription.unsubscribe();
-  }, []);
+  }, [loadCloudData]);
 
   useEffect(() => {
-    localStorage.setItem("fuelcap-demo", JSON.stringify({ market: marketCode, locks }));
-  }, [marketCode, locks]);
+    if (!userId) localStorage.setItem("fuelcap-demo", JSON.stringify({ market: marketCode, locks }));
+  }, [marketCode, locks, userId]);
 
-  const tankVolume = market.defaultVolume + locks.reduce((sum, item) => sum + item.volume, 0);
+  const tankVolume = (userId ? 0 : market.defaultVolume) + locks.reduce((sum, item) => sum + item.remainingVolume, 0);
   const saved = market.code === "US" ? 142 : market.code === "CA" ? 96 : 71;
 
   function changeMarket(code: MarketCode) {
@@ -76,20 +166,63 @@ export function FuelCapApp() {
     setVolume(markets[code].defaultVolume);
     setNotice(`Market changed to ${markets[code].name}`);
     window.setTimeout(() => setNotice(null), 2600);
+    if (userId) void createClient().from("profiles").update({ market: code }).eq("id", userId);
   }
 
-  function confirmLock() {
+  async function confirmLock() {
+    setActionBusy(true);
+    if (userId) {
+      const { error } = await createClient().rpc("create_demo_lock", {
+        p_market: marketCode,
+        p_fuel_grade: "regular",
+        p_volume: volume,
+      });
+      if (error) {
+        setNotice(error.message);
+        setActionBusy(false);
+        window.setTimeout(() => setNotice(null), 4200);
+        return;
+      }
+      await loadCloudData();
+    } else {
     const record: LockRecord = {
       id: crypto.randomUUID(),
       volume,
+      remainingVolume: volume,
       unitPrice: market.lockedPrice,
       total: volume * market.lockedPrice,
+      status: "active",
       createdAt: new Date().toISOString(),
     };
     setLocks((current) => [record, ...current]);
+    }
+    setActionBusy(false);
     setNotice(`${volume} ${market.unit} locked at ${money(market.lockedPrice, market)}/${market.unit}`);
     setView("tank");
     window.setTimeout(() => setNotice(null), 3200);
+  }
+
+  async function redeemFuel(amount: number) {
+    const activeLock = locks.find((lock) => lock.remainingVolume >= amount && ["active", "partially_redeemed"].includes(lock.status));
+    if (!userId || !activeLock) {
+      setNotice(userId ? "No active lock has enough fuel for this redemption." : "Sign in to persist a pump redemption.");
+      window.setTimeout(() => setNotice(null), 3600);
+      return;
+    }
+    setActionBusy(true);
+    const { error } = await createClient().rpc("redeem_demo_fuel", {
+      p_lock_id: activeLock.id,
+      p_volume: amount,
+    });
+    if (error) {
+      setNotice(error.message);
+    } else {
+      await loadCloudData();
+      setShowRedeem(false);
+      setNotice(`${amount} ${market.unit} redeemed from your virtual tank.`);
+    }
+    setActionBusy(false);
+    window.setTimeout(() => setNotice(null), 3600);
   }
 
   return (
@@ -101,9 +234,9 @@ export function FuelCapApp() {
         </nav>
         <div className="mt-auto rounded-md border border-[#dce5df] bg-[#f7faf8] p-3">
           <div className="flex items-center gap-2 text-xs font-semibold text-[#0b7a4b]">
-            <ShieldCheck size={16} /> Demo environment
+            <ShieldCheck size={16} /> {userId ? "Supabase synced" : "Demo environment"}
           </div>
-          <p className="mt-1 text-xs leading-5 text-[#61716b]">No real funds or fuel purchases.</p>
+          <p className="mt-1 text-xs leading-5 text-[#61716b]">{userId ? "Account data persists securely." : "No real funds or fuel purchases."}</p>
         </div>
       </aside>
 
@@ -111,8 +244,8 @@ export function FuelCapApp() {
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#dce5df] bg-white/95 px-4 backdrop-blur md:px-8">
           <div className="md:hidden"><Brand compact /></div>
           <div className="hidden md:block">
-            <p className="text-xs font-medium text-[#61716b]">Prototype account</p>
-            <p className="text-sm font-semibold">Good morning, Francis</p>
+            <p className="text-xs font-medium text-[#61716b]">{userId ? "Synced prototype" : "Prototype account"}</p>
+            <p className="text-sm font-semibold">Good morning{userEmail ? `, ${userEmail.split("@")[0]}` : ", Francis"}</p>
           </div>
           <div className="flex items-center gap-2">
             <label className="sr-only" htmlFor="market">Market</label>
@@ -136,8 +269,8 @@ export function FuelCapApp() {
         <main className="mx-auto max-w-6xl px-4 pb-28 pt-6 md:px-8 md:pb-10 md:pt-8">
           {view === "home" && <HomeView market={market} tankVolume={tankVolume} saved={saved} setView={setView} redeem={() => setShowRedeem(true)} />}
           {view === "tank" && <TankView market={market} tankVolume={tankVolume} locks={locks} setView={setView} redeem={() => setShowRedeem(true)} />}
-          {view === "lock" && <LockView market={market} volume={volume} setVolume={setVolume} confirm={confirmLock} />}
-          {view === "activity" && <ActivityView market={market} locks={locks} />}
+          {view === "lock" && <LockView market={market} volume={volume} setVolume={setVolume} confirm={confirmLock} busy={actionBusy} />}
+          {view === "activity" && <ActivityView market={market} locks={locks} transactions={transactions} cloud={Boolean(userId)} />}
           {view === "settings" && <SettingsView marketCode={marketCode} changeMarket={changeMarket} />}
         </main>
       </div>
@@ -154,9 +287,10 @@ export function FuelCapApp() {
       </nav>
 
       {notice && <div role="status" className="fixed bottom-24 left-1/2 z-50 w-[calc(100%-32px)] max-w-md -translate-x-1/2 rounded-md bg-[#0b1b2b] px-4 py-3 text-center text-sm font-semibold text-white shadow-xl md:bottom-6">{notice}</div>}
-      {showRedeem && <RedeemDialog market={market} volume={tankVolume} close={() => setShowRedeem(false)} />}
+      {showRedeem && <RedeemDialog market={market} volume={tankVolume} cloud={Boolean(userId)} busy={actionBusy} redeem={redeemFuel} close={() => setShowRedeem(false)} />}
       {showMenu && <AccountMenu email={userEmail} close={() => setShowMenu(false)} openAuth={() => { setShowMenu(false); setShowAuth(true); }} />}
       {showAuth && <AuthDialog close={() => setShowAuth(false)} />}
+      {syncing && <div role="status" className="fixed right-4 top-20 z-40 rounded-md border border-[#dce5df] bg-white px-3 py-2 text-xs font-semibold shadow-sm">Syncing account...</div>}
     </div>
   );
 }
@@ -228,12 +362,12 @@ function TankView({ market, tankVolume, locks, setView, redeem }: MarketProps & 
     </section>
     <section className="mt-5 rounded-md border border-[#dce5df] bg-white"><div className="border-b border-[#dce5df] p-4"><h2 className="font-semibold">Active price locks</h2></div>
       {locks.length === 0 ? <EmptyState icon={LockKeyhole} title="No additional locks yet" text="Your starter tank is ready. Add a simulated lock to test the full flow." action={() => setView("lock")} /> :
-        <div className="divide-y divide-[#e5ebe7]">{locks.map((lock) => <div key={lock.id} className="flex items-center justify-between gap-4 p-4"><div><p className="font-semibold">{lock.volume} {market.unit} regular</p><p className="text-xs text-[#61716b]">{new Date(lock.createdAt).toLocaleString(market.locale)}</p></div><div className="text-right"><p className="font-semibold">{money(lock.unitPrice, market)}/{market.unit}</p><p className="text-xs text-[#0b7a4b]">Protected</p></div></div>)}</div>}
+        <div className="divide-y divide-[#e5ebe7]">{locks.map((lock) => <div key={lock.id} className="flex items-center justify-between gap-4 p-4"><div><p className="font-semibold">{lock.remainingVolume} of {lock.volume} {market.unit} remaining</p><p className="text-xs text-[#61716b]">{new Date(lock.createdAt).toLocaleString(market.locale)}</p></div><div className="text-right"><p className="font-semibold">{money(lock.unitPrice, market)}/{market.unit}</p><p className="text-xs capitalize text-[#0b7a4b]">{lock.status.replace("_", " ")}</p></div></div>)}</div>}
     </section>
   </div>;
 }
 
-function LockView({ market, volume, setVolume, confirm }: MarketProps & { volume: number; setVolume: (n: number) => void; confirm: () => void }) {
+function LockView({ market, volume, setVolume, confirm, busy }: MarketProps & { volume: number; setVolume: (n: number) => void; confirm: () => Promise<void>; busy: boolean }) {
   const total = volume * market.lockedPrice;
   return <div className="view-enter mx-auto max-w-3xl"><PageTitle eyebrow="New price lock" title={`Lock today's ${market.fuelWord} price`} />
     <section className="rounded-md border border-[#dce5df] bg-white p-5 md:p-7">
@@ -243,18 +377,25 @@ function LockView({ market, volume, setVolume, confirm }: MarketProps & { volume
         <div className="mt-2 flex justify-between text-xs text-[#61716b]"><span>{market.unit === "gal" ? 10 : 40} {market.unit}</span><span>{market.maxVolume} {market.unit}</span></div>
       </div>
       <div className="rounded-md bg-[#dff5e9] p-4"><div className="flex gap-3"><ShieldCheck className="shrink-0 text-[#0b7a4b]" size={21} /><div><p className="font-semibold text-[#0b7a4b]">FuelCap protection</p><p className="mt-1 text-sm leading-6 text-[#285e46]">If the reference price rises, this price stays capped. If it falls below your lock, the demo balance adjusts automatically.</p></div></div></div>
-      <div className="mt-6 flex items-center justify-between border-t border-[#e5ebe7] pt-5"><div><p className="text-xs text-[#61716b]">Simulated total</p><p className="text-2xl font-bold">{money(total, market)}</p></div><button onClick={confirm} className={`${buttonBase} h-12 bg-[#0ba75e] px-6 text-white hover:bg-[#0b7a4b]`}><LockKeyhole size={18} />Confirm demo lock</button></div>
+      <div className="mt-6 flex items-center justify-between border-t border-[#e5ebe7] pt-5"><div><p className="text-xs text-[#61716b]">Simulated total</p><p className="text-2xl font-bold">{money(total, market)}</p></div><button disabled={busy} onClick={confirm} className={`${buttonBase} h-12 bg-[#0ba75e] px-6 text-white hover:bg-[#0b7a4b]`}><LockKeyhole size={18} />{busy ? "Saving..." : "Confirm demo lock"}</button></div>
     </section>
     <p className="mt-4 text-center text-xs leading-5 text-[#61716b]">Prototype only. No payment is taken and no fuel is purchased.</p>
   </div>;
 }
 
-function ActivityView({ market, locks }: MarketProps & { locks: LockRecord[] }) {
-  const rows = useMemo(() => [
+function ActivityView({ market, locks, transactions, cloud }: MarketProps & { locks: LockRecord[]; transactions: TransactionRecord[]; cloud: boolean }) {
+  const rows = useMemo(() => cloud ? transactions.map((transaction) => ({
+    id: transaction.id,
+    icon: transaction.type === "redemption" ? Fuel : transaction.type === "lock" ? LockKeyhole : BadgeCheck,
+    title: transaction.description,
+    detail: transaction.volume === null ? transaction.type : `${transaction.volume} ${market.unit}${transaction.unitPrice === null ? "" : ` at ${money(transaction.unitPrice, market)}/${market.unit}`}`,
+    amount: money(transaction.amount, market),
+    date: new Date(transaction.createdAt),
+  })) : [
     ...locks.map((lock) => ({ id: lock.id, icon: LockKeyhole, title: `Locked ${lock.volume} ${market.unit}`, detail: `${money(lock.unitPrice, market)}/${market.unit}`, amount: money(lock.total, market), date: new Date(lock.createdAt) })),
     { id: "refund", icon: BadgeCheck, title: "Price-drop adjustment", detail: "Reference price decreased", amount: `+${money(market.unit === "gal" ? 11.6 : 8.4, market)}`, date: new Date(DEMO_NOW - 86400000 * 2) },
     { id: "fill", icon: Fuel, title: "Pump redemption", detail: `18 ${market.unit} regular`, amount: `-${money(18 * market.lockedPrice, market)}`, date: new Date(DEMO_NOW - 86400000 * 5) },
-  ], [locks, market]);
+  ], [cloud, locks, market, transactions]);
   return <div className="view-enter"><PageTitle eyebrow="Account" title="Activity" /><section className="overflow-hidden rounded-md border border-[#dce5df] bg-white"><div className="flex items-center justify-between border-b border-[#dce5df] p-4"><h2 className="font-semibold">Recent transactions</h2><button aria-label="Filter activity" className="grid size-9 place-items-center rounded-md border border-[#dce5df]"><SlidersHorizontal size={17} /></button></div>
     <div className="divide-y divide-[#e5ebe7]">{rows.map((row) => { const Icon = row.icon; return <div key={row.id} className="grid grid-cols-[40px_1fr_auto] items-center gap-3 p-4"><div className="grid size-10 place-items-center rounded-md bg-[#edf7f1] text-[#0b7a4b]"><Icon size={18} /></div><div><p className="text-sm font-semibold">{row.title}</p><p className="mt-0.5 text-xs text-[#61716b]">{row.detail} · {row.date.toLocaleDateString(market.locale)}</p></div><p className="text-sm font-semibold">{row.amount}</p></div>; })}</div>
   </section></div>;
@@ -275,12 +416,14 @@ function EmptyState({ icon: Icon, title, text, action }: { icon: typeof Home; ti
   return <div className="flex flex-col items-center px-5 py-10 text-center"><div className="grid size-11 place-items-center rounded-md bg-[#dff5e9] text-[#0b7a4b]"><Icon size={21} /></div><p className="mt-3 font-semibold">{title}</p><p className="mt-1 max-w-sm text-sm text-[#61716b]">{text}</p><button onClick={action} className={`${buttonBase} mt-4 bg-[#0ba75e] text-white`}>Create demo lock</button></div>;
 }
 
-function RedeemDialog({ market, volume, close }: MarketProps & { volume: number; close: () => void }) {
+function RedeemDialog({ market, volume, cloud, busy, redeem, close }: MarketProps & { volume: number; cloud: boolean; busy: boolean; redeem: (amount: number) => Promise<void>; close: () => void }) {
+  const redeemVolume = market.unit === "gal" ? 10 : 20;
   return <div role="dialog" aria-modal="true" aria-labelledby="redeem-title" className="fixed inset-0 z-50 grid place-items-end bg-[#0b1b2b]/55 p-0 sm:place-items-center sm:p-4"><div className="w-full max-w-md rounded-t-lg bg-white p-5 shadow-2xl sm:rounded-lg">
     <div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase text-[#0b7a4b]">Demo redemption</p><h2 id="redeem-title" className="text-xl font-bold">Pay with your tank</h2></div><button onClick={close} className="grid size-9 place-items-center rounded-md border border-[#dce5df]" aria-label="Close"><X size={18} /></button></div>
     <div className="mx-auto mt-6 w-fit rounded-md border border-[#dce5df] bg-white p-4"><QRCodeSVG value={`fuelcap-demo:${market.code}:${volume}:842119`} size={210} fgColor="#0b1b2b" /></div>
     <p className="mt-5 text-center font-semibold">{volume} {market.unit} available</p><p className="mt-1 text-center text-sm text-[#61716b]">Show this simulated code at a partner pump.</p>
-    <button onClick={close} className={`${buttonBase} mt-5 w-full bg-[#0b1b2b] text-white`}>Done</button>
+    {cloud && <button disabled={busy || volume < redeemVolume} onClick={() => redeem(redeemVolume)} className={`${buttonBase} mt-5 w-full bg-[#0ba75e] text-white`}>{busy ? "Redeeming..." : `Simulate ${redeemVolume} ${market.unit} redemption`}</button>}
+    <button onClick={close} className={`${buttonBase} mt-2 w-full ${cloud ? "border border-[#dce5df]" : "bg-[#0b1b2b] text-white"}`}>Done</button>
   </div></div>;
 }
 

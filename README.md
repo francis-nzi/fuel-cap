@@ -40,8 +40,10 @@ The initial schema is in
 `supabase/migrations/202607240001_initial_schema.sql`. It creates profiles,
 auditable price snapshots, price locks, and transactions with row-level
 security. Client users can read only their own account records. Price-lock
-creation and settlement are intentionally reserved for future validated
-server-side functions.
+creation and redemption are implemented by authenticated, validated database
+functions in `supabase/migrations/202607240002_demo_operations.sql`. These
+functions derive prices from stored snapshots, enforce market volume limits,
+verify lock ownership, and prevent over-redemption.
 
 Apply it using the Supabase CLI after authenticating:
 
