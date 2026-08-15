@@ -1,0 +1,35 @@
+# Render Blueprint for the FuelCap marketing site (Next.js).
+#
+# If this repo's root IS the landing-page folder, Render auto-detects this file.
+# If landing-page is a SUBFOLDER of the repo, either:
+#   (a) move this file to the repo root and uncomment `rootDir: landing-page`, or
+#   (b) create the service manually in the dashboard and set
+#       "Root Directory" = landing-page (build/start/env as below).
+#
+# Secrets (DASHBOARD_PASSWORD, SUPABASE_*) are marked sync:false — set their
+# values in the Render dashboard, they are never committed here.
+# SUPABASE_SECRET_KEY takes the new `sb_secret_...` key (or a legacy
+# service_role JWT). It bypasses RLS, so keep it server-side only.
+
+services:
+  - type: web
+    name: fuelcap-web
+    runtime: node
+    plan: starter
+    region: virginia # US-East for the USA/Canada/UK launch; change if preferred
+    # rootDir: landing-page   # uncomment if this file lives at the repo root
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start # next start binds to Render's $PORT automatically
+    healthCheckPath: /uk # "/" 307-redirects by locale; hit a real page instead
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: SESSION_SECRET
+        generateValue: true # Render generates a strong random value
+      - key: DASHBOARD_PASSWORD
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false

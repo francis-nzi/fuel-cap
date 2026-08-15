@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f4faf7;
+  --foreground: #0b1b2b;
+
+  /* FuelCap brand system */
+  --color-emerald: #0ba75e;
+  --color-deep-pine: #0b7a4b;
+  --color-midnight: #0b1b2b;
+  --color-signal-amber: #ffc24b;
+  --color-drop-coral: #ff5c48;
+  --color-mint-tint: #dff5e9;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-brand-emerald: var(--color-emerald);
+  --color-brand-pine: var(--color-deep-pine);
+  --color-brand-midnight: var(--color-midnight);
+  --color-brand-amber: var(--color-signal-amber);
+  --color-brand-coral: var(--color-drop-coral);
+  --color-brand-mint: var(--color-mint-tint);
+
+  --font-display: var(--font-space-grotesk);
+  --font-sans: var(--font-inter);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+.font-display {
+  font-family: var(--font-display), var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
