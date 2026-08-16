@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The marketing site is a separate Next app in this monorepo; it has its
+    // own build/lint and must not be swept into the app's.
+    "landing-page/**",
   ]),
 ]);
 
