@@ -31,14 +31,14 @@ const en: Dictionary = {
     feature3Headline: "Your squad. Cheaper {fuelWord} for everyone.",
     feature3Quote: "“Get my whole group chat on this to fight {highPrice} {fuelWord}.”",
     feature3Body:
-      "Every friend who joins drops your locked price a little more per litre — sharing is self-interested, not a favour.",
+      "Every friend who joins drops your locked price a little more per {volumeSingular} — sharing is self-interested, not a favour.",
     cta: "I want in",
   },
   how: {
     eyebrow: "How it works",
     headline: "Three taps. Zero downside.",
     step1Title: "Lock a price",
-    step1Body: "Pick a fuel grade and how many litres. Your price is locked at today's rate, no fees.",
+    step1Body: "Pick a fuel grade and how many {volumePlural}. Your price is locked at today's rate, no fees.",
     step2Title: "Stay protected",
     step2Body:
       "Pump goes up? You still pay your locked price. Pump drops? You're auto-refunded the difference.",
@@ -62,7 +62,7 @@ const en: Dictionary = {
   finalCta: {
     headlineLine1: "Heads you win.",
     headlineLine2: "Tails you win.",
-    body: "Join early access and lock your first litre the day we launch in your area.",
+    body: "Join early access and lock your first {volumeSingular} the day we launch in your area.",
     cta: "Get early access",
   },
   footer: {
@@ -79,6 +79,8 @@ const en: Dictionary = {
       eyebrow: "First, the basics",
       question: "Where are you based?",
       options: {
+        usa: "United States",
+        canada: "Canada",
         uk: "United Kingdom",
         france: "France",
         germany: "Germany",
@@ -131,9 +133,9 @@ const en: Dictionary = {
     },
     postal: {
       eyebrow: "So we know where to launch first",
-      question: "What's your postcode?",
+      question: "What's your ZIP or postal code?",
       cta: "Continue",
-      errorInvalid: "Enter a valid postcode.",
+      errorInvalid: "Enter a valid ZIP or postal code.",
     },
     email: {
       eyebrow: "Last step — you're in",

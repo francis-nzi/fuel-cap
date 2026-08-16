@@ -1,8 +1,14 @@
 import type { Dictionary } from "@/lib/i18n";
+import { interpolate } from "@/lib/i18n";
+import type { Market } from "@/lib/markets";
 
-export default function HowItWorks({ dict }: { dict: Dictionary }) {
+export default function HowItWorks({ dict, market }: { dict: Dictionary; market: Market }) {
+  const vars = {
+    volumeSingular: market.volumeUnit === "gal" ? "gallon" : "litre",
+    volumePlural: market.volumeUnit === "gal" ? "gallons" : "litres",
+  };
   const steps = [
-    { n: "1", title: dict.how.step1Title, body: dict.how.step1Body },
+    { n: "1", title: dict.how.step1Title, body: interpolate(dict.how.step1Body, vars) },
     { n: "2", title: dict.how.step2Title, body: dict.how.step2Body },
     { n: "3", title: dict.how.step3Title, body: dict.how.step3Body },
   ];

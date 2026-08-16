@@ -39,9 +39,9 @@ export default async function MarketPage({ params }: { params: Promise<{ market:
     <main className="flex-1">
       <Hero dict={dict} market={market} />
       <ViralFeatures dict={dict} market={market} />
-      <HowItWorks dict={dict} />
+      <HowItWorks dict={dict} market={market} />
       <GuaranteeSection dict={dict} />
-      <FinalCTA dict={dict} />
+      <FinalCTA dict={dict} market={market} />
     </main>
   );
 }

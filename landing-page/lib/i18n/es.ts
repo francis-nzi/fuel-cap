@@ -80,6 +80,8 @@ const es: Dictionary = {
       eyebrow: "Primero, lo básico",
       question: "¿Dónde vives?",
       options: {
+        usa: "Estados Unidos",
+        canada: "Canadá",
         uk: "Reino Unido",
         france: "Francia",
         germany: "Alemania",

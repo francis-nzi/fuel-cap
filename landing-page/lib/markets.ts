@@ -1,6 +1,8 @@
 export type LanguageCode = "en" | "fr" | "de" | "es" | "it";
 
 export type MarketId =
+  | "usa"
+  | "canada"
   | "uk"
   | "france"
   | "germany"
@@ -41,6 +43,44 @@ export type Market = {
 };
 
 export const MARKETS: Record<MarketId, Market> = {
+  usa: {
+    id: "usa",
+    slug: "usa",
+    name: "United States",
+    flag: "🇺🇸",
+    language: "en",
+    locale: "en-US",
+    currency: "USD",
+    currencySymbol: "$",
+    distanceUnit: "mi",
+    volumeUnit: "gal",
+    fuelWord: "gas",
+    dataSource: "U.S. Energy Information Administration (EIA)",
+    stationCount: "~145,000",
+    postalPlaceholder: "10001",
+    postalPattern: "^\\d{5}(?:-\\d{4})?$",
+    sampleRefundAmount: "$6.20",
+    sampleHighPrice: "$3.85",
+  },
+  canada: {
+    id: "canada",
+    slug: "canada",
+    name: "Canada",
+    flag: "🇨🇦",
+    language: "en",
+    locale: "en-CA",
+    currency: "CAD",
+    currencySymbol: "C$",
+    distanceUnit: "km",
+    volumeUnit: "L",
+    fuelWord: "gas",
+    dataSource: "Natural Resources Canada (NRCan)",
+    stationCount: "~12,000",
+    postalPlaceholder: "M5V 3A8",
+    postalPattern: "^[ABCEGHJ-NPRSTVXY]\\d[ABCEGHJ-NPRSTV-Z][ -]?\\d[ABCEGHJ-NPRSTV-Z]\\d$",
+    sampleRefundAmount: "C$7.40",
+    sampleHighPrice: "C$1.75",
+  },
   uk: {
     id: "uk",
     slug: "uk",
@@ -211,6 +251,8 @@ export function detectMarketFromAcceptLanguage(acceptLanguage: string | null): M
   if (!acceptLanguage) return "uk";
   const lower = acceptLanguage.toLowerCase();
 
+  if (lower.includes("en-ca") || lower.includes("fr-ca")) return "canada";
+  if (lower.includes("en-us")) return "usa";
   if (lower.includes("en-au")) return "australia";
   if (lower.includes("de-at")) return "austria";
   if (lower.includes("fr")) return "france";

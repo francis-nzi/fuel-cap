@@ -9,6 +9,8 @@ export default function ViralFeatures({ dict, market }: { dict: Dictionary; mark
     fuelWord: market.fuelWord,
     refundAmount: market.sampleRefundAmount,
     highPrice: market.sampleHighPrice,
+    volumeSingular: market.volumeUnit === "gal" ? "gallon" : "litre",
+    volumePlural: market.volumeUnit === "gal" ? "gallons" : "litres",
   };
 
   const features = [
@@ -36,7 +38,7 @@ export default function ViralFeatures({ dict, market }: { dict: Dictionary; mark
       eyebrow: dict.viral.feature3Eyebrow,
       headline: interpolate(dict.viral.feature3Headline, vars),
       quote: interpolate(dict.viral.feature3Quote, vars),
-      body: dict.viral.feature3Body,
+      body: interpolate(dict.viral.feature3Body, vars),
       bg: "bg-brand-mint",
     },
   ];

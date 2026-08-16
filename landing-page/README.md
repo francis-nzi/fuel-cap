@@ -12,7 +12,7 @@ npm run dev
 ```
 
 - Landing page: http://localhost:3000 (redirects to a market, e.g. `/uk`, based on `Accept-Language`)
-- Choose a market directly: http://localhost:3000/uk (also `/france`, `/germany`, `/spain`, `/italy`, `/austria`, `/australia`)
+- Choose a market directly: http://localhost:3000/usa (also `/canada`, `/uk`, `/france`, `/germany`, `/spain`, `/italy`, `/austria`, `/australia`)
 - Market picker: http://localhost:3000/choose-country
 - Dashboard: http://localhost:3000/dashboard (password in `.env.local`)
 
@@ -23,11 +23,13 @@ Env vars (see `.env.example`):
 
 ## Markets & localization
 
-`lib/markets.ts` defines the 7 supported markets, each mapped to a government
+`lib/markets.ts` defines the 9 supported markets, each mapped to a government
 open fuel-price-data source we're targeting for the real app:
 
 | Market | Language | Currency | Postal format | Data source |
 |---|---|---|---|---|
+| 🇺🇸 USA | en | USD | 5-digit or ZIP+4 | U.S. Energy Information Administration (~145,000 stations) |
+| 🇨🇦 Canada | en | CAD | alphanumeric | Natural Resources Canada (~12,000 stations) |
 | 🇬🇧 UK | en | GBP | alphanumeric | GOV.UK Fuel Finder Scheme Portal (~8,300 stations) |
 | 🇫🇷 France | fr | EUR | 5-digit | data.gouv.fr / Ministère de l'Économie (~11,000) |
 | 🇩🇪 Germany | de | EUR | 5-digit | Bundeskartellamt MTS-K (~14,500) |
@@ -51,7 +53,7 @@ copy before spending ad budget against it.
 
 `components/signup/SignupOverlay.tsx` renders a full-screen, one-question-per-step
 form: **country** → gender → age → driver type → fill frequency → postcode → email.
-The country step lists all 7 markets regardless of which localized page the visitor
+The country step lists all 9 markets regardless of which localized page the visitor
 landed on (picking Australia adds a state sub-step for NSW/QLD/WA); the postcode
 step then validates against whichever country was actually selected, not the
 landing page's market. Every step advance posts to `POST /api/signup`, upserting a

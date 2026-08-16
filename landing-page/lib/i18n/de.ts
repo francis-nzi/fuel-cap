@@ -79,6 +79,8 @@ const de: Dictionary = {
       eyebrow: "Zuerst das Wichtigste",
       question: "Wo wohnst du?",
       options: {
+        usa: "Vereinigte Staaten",
+        canada: "Kanada",
         uk: "Vereinigtes Königreich",
         france: "Frankreich",
         germany: "Deutschland",

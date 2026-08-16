@@ -70,7 +70,15 @@ export type Dictionary = {
       eyebrow: string;
       question: string;
       options: Record<
-        "uk" | "france" | "germany" | "spain" | "italy" | "austria" | "australia",
+        | "usa"
+        | "canada"
+        | "uk"
+        | "france"
+        | "germany"
+        | "spain"
+        | "italy"
+        | "austria"
+        | "australia",
         string
       >;
     };
