@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "allowJs": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2017",
+    "paths": {
+      "@fuelcap/contracts": ["./packages/contracts/src/index.ts"],
+      "@fuelcap/domain": ["./packages/domain/src/index.ts"],
+      "@fuelcap/rules-engine": ["./packages/rules-engine/src/index.ts"],
+      "@fuelcap/*": ["./packages/*/src/index.ts"]
+    }
+  }
+}

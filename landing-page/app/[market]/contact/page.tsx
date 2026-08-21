@@ -44,7 +44,7 @@ export default async function ContactPage({ params }: { params: Promise<{ market
             <h2 className="font-display text-xl font-bold text-brand-midnight">Talk to us</h2>
             <p className="mt-3 text-sm leading-relaxed text-brand-midnight/70">
               The fastest way to reach us is email. We read everything and reply personally while
-              we're in early access.
+              we&apos;re in early access.
             </p>
             <dl className="mt-6 flex flex-col gap-4 text-sm">
               <div>

@@ -34,7 +34,7 @@ export default function ContactForm({ market }: { market: string }) {
       <div className="rounded-2xl border border-brand-emerald/30 bg-brand-mint p-8 text-center">
         <p className="font-display text-lg font-bold text-brand-midnight">Thanks — message sent.</p>
         <p className="mt-2 text-sm text-brand-midnight/70">
-          We'll get back to you at the email you gave. You can also reach us any time at{" "}
+          We&apos;ll get back to you at the email you gave. You can also reach us any time at{" "}
           <a className="font-semibold text-brand-pine underline" href="mailto:info@fuelcap.tech">
             info@fuelcap.tech
           </a>

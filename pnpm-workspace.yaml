@@ -1,0 +1,5 @@
+packages:
+  - "."
+  - "landing-page"
+  - "apps/*"
+  - "packages/*"
