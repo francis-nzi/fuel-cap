@@ -49,6 +49,7 @@ const workspaces = [
 ];
 
 type ApprovalState = "idle" | "reviewing" | "approved";
+type ResetState = "idle" | "resetting" | "ready" | "failed";
 
 function StatusDot({ state }: { state: "healthy" | "watch" | "controlled" }) {
   return <span className={`status-dot status-dot--${state}`} aria-label={state} />;
@@ -59,6 +60,7 @@ export function ControlRoom() {
   const environment: DemoEnvironment = process.env.NEXT_PUBLIC_APP_ENV === "production" ? "production" : "demo";
   const runtime = useMemo(() => createScenarioRuntime(environment, scenarios.exposure.manifestId), [environment]);
   const [scenarioReady, setScenarioReady] = useState<ScenarioReady>(() => runtime.reset(scenarios.exposure.manifestId));
+  const [resetState, setResetState] = useState<ResetState>("idle");
   const [approvalState, setApprovalState] = useState<ApprovalState>("idle");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const scenario = scenarios[scenarioId];
@@ -67,12 +69,31 @@ export function ControlRoom() {
   function changeScenario(id: ScenarioId) {
     setScenarioId(id);
     setScenarioReady(runtime.reset(scenarios[id].manifestId));
+    setResetState("idle");
     setApprovalState("idle");
   }
 
-  function resetScenario() {
-    setScenarioReady(runtime.reset(scenario.manifestId));
-    setApprovalState("idle");
+  async function resetScenario() {
+    setResetState("resetting");
+    try {
+      const response = await fetch("/api/demo/scenarios/reset", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": `control-room:${scenario.manifestId}:1.0.0`,
+          "X-FuelCap-Demo-Role": "demonstrator-presenter",
+          "X-FuelCap-Demo-Principal": "francis.doherty@fuelcap.example",
+        },
+        body: JSON.stringify({ scenarioId: scenario.manifestId }),
+      });
+      if (!response.ok) throw new Error("Scenario reset was rejected.");
+      const result = await response.json() as { ready: ScenarioReady };
+      setScenarioReady(result.ready);
+      setApprovalState("idle");
+      setResetState("ready");
+    } catch {
+      setResetState("failed");
+    }
   }
 
   return (
@@ -150,7 +171,7 @@ export function ControlRoom() {
               <select id="scenario" value={scenarioId} onChange={(event) => changeScenario(event.target.value as ScenarioId)}>
                 {scenarioOrder.map((id) => <option value={id} key={id}>{scenarios[id].label}</option>)}
               </select>
-              <button className="scenario-reset" type="button" onClick={resetScenario}><RefreshCw size={14} /> Reset scenario</button>
+              <button className={`scenario-reset scenario-reset--${resetState}`} type="button" onClick={resetScenario} disabled={resetState === "resetting"}><RefreshCw size={14} /> {resetState === "resetting" ? "Resetting…" : resetState === "ready" ? "Scenario ready" : resetState === "failed" ? "Reset failed · retry" : "Reset scenario"}</button>
             </div>
           </section>
 
