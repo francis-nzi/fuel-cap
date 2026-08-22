@@ -41,7 +41,7 @@ button:focus-visible, select:focus-visible { outline: 3px solid rgba(47, 118, 89
   border-right: 1px solid rgba(255,255,255,.08);
 }
 .brand-row { display: flex; align-items: center; gap: 11px; padding: 0 7px 19px; }
-.brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 11px; color: var(--forest-deep); background: #b9e4c9; }
+.brand-mark { width: 34px; height: 34px; display: grid; place-items: center; }
 .brand-row strong { display: block; font-size: 17px; letter-spacing: -.02em; }
 .brand-row span { display: block; margin-top: 2px; color: #9fb4a8; font-size: 11px; text-transform: uppercase; letter-spacing: .11em; }
 .sidebar-close { display: none; margin-left: auto; color: #fff; }

@@ -11,7 +11,6 @@ import {
   CircleDollarSign,
   Database,
   FileCheck2,
-  Fuel,
   Gauge,
   LayoutDashboard,
   LockKeyhole,
@@ -29,6 +28,7 @@ import {
   WalletCards,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import { createScenarioRuntime, type DemoEnvironment, type ScenarioReady } from "@fuelcap/demo-data";
 import { scenarioOrder, scenarios, type ScenarioId } from "@/lib/demo-data";
@@ -79,7 +79,7 @@ export function ControlRoom() {
     <div className="admin-shell">
       <aside className={`sidebar ${mobileNavOpen ? "sidebar--open" : ""}`}>
         <div className="brand-row">
-          <div className="brand-mark"><Fuel size={18} strokeWidth={2.5} /></div>
+          <div className="brand-mark"><Image src="/fuelcap-mark.svg" width={26} height={28} alt="FuelCap" priority /></div>
           <div>
             <strong>FuelCap</strong>
             <span>Control Room</span>
