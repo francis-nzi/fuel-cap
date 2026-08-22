@@ -7,7 +7,6 @@ import {
   Boxes,
   Building2,
   Check,
-  ChevronDown,
   CircleDollarSign,
   Database,
   FileCheck2,
@@ -30,22 +29,23 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useMemo, useState } from "react";
+import { AUTHZ_POLICY_VERSION, authorize, demoOrganisations, demoPrincipals, visibleWorkspaces, type Environment as AuthzEnvironment, type Workspace } from "@fuelcap/authz";
 import { createScenarioRuntime, type DemoEnvironment, type ScenarioReady } from "@fuelcap/demo-data";
 import { scenarioOrder, scenarios, type ScenarioId } from "@/lib/demo-data";
 
-const workspaces = [
-  { label: "Control Room", icon: LayoutDashboard, active: true },
-  { label: "Living Operations", icon: Network },
-  { label: "Customers & Fleets", icon: Users },
-  { label: "Pricing Data", icon: Database },
-  { label: "Spread Engine", icon: BadgeDollarSign },
-  { label: "FX Engine", icon: RefreshCw },
-  { label: "Protection & Hedging", icon: ShieldCheck },
-  { label: "Ledger & Wallet", icon: WalletCards },
-  { label: "Settlement & Recon", icon: FileCheck2 },
-  { label: "Billing & Xero", icon: ReceiptText },
-  { label: "Risk, Fraud & Compliance", icon: TriangleAlert },
-  { label: "Rules & AI Governance", icon: Bot },
+const workspaces: readonly { key: Workspace; label: string; icon: typeof LayoutDashboard; active?: boolean }[] = [
+  { key: "control-room", label: "Control Room", icon: LayoutDashboard, active: true },
+  { key: "living-operations", label: "Living Operations", icon: Network },
+  { key: "customers-fleets", label: "Customers & Fleets", icon: Users },
+  { key: "pricing-data", label: "Pricing Data", icon: Database },
+  { key: "spread-engine", label: "Spread Engine", icon: BadgeDollarSign },
+  { key: "fx-engine", label: "FX Engine", icon: RefreshCw },
+  { key: "protection-hedging", label: "Protection & Hedging", icon: ShieldCheck },
+  { key: "ledger-wallet", label: "Ledger & Wallet", icon: WalletCards },
+  { key: "settlement-recon", label: "Settlement & Recon", icon: FileCheck2 },
+  { key: "billing-xero", label: "Billing & Xero", icon: ReceiptText },
+  { key: "risk-fraud-compliance", label: "Risk, Fraud & Compliance", icon: TriangleAlert },
+  { key: "rules-ai-governance", label: "Rules & AI Governance", icon: Bot },
 ];
 
 type ApprovalState = "idle" | "reviewing" | "approved";
@@ -58,6 +58,14 @@ function StatusDot({ state }: { state: "healthy" | "watch" | "controlled" }) {
 export function ControlRoom() {
   const [scenarioId, setScenarioId] = useState<ScenarioId>("exposure");
   const environment: DemoEnvironment = process.env.NEXT_PUBLIC_APP_ENV === "production" ? "production" : "demo";
+  const authzEnvironment: AuthzEnvironment = environment;
+  const [principalId, setPrincipalId] = useState("principal-presenter");
+  const [activeOrganisationId, setActiveOrganisationId] = useState("org-fuelcap-global");
+  const principal = demoPrincipals.find((candidate) => candidate.principalId === principalId) ?? demoPrincipals[0];
+  const memberOrganisations = demoOrganisations.filter(({ organisationId }) => principal.organisationIds.includes(organisationId));
+  const allowedWorkspaceKeys = visibleWorkspaces(principal, authzEnvironment, activeOrganisationId, workspaces.map(({ key }) => key));
+  const visibleNavigation = workspaces.filter(({ key }) => allowedWorkspaceKeys.includes(key));
+  const canInitiateHedge = authorize({ principal, environment: authzEnvironment, activeOrganisationId, workspace: "protection-hedging", verb: "initiate" }).allowed;
   const runtime = useMemo(() => createScenarioRuntime(environment, scenarios.exposure.manifestId), [environment]);
   const [scenarioReady, setScenarioReady] = useState<ScenarioReady>(() => runtime.reset(scenarios.exposure.manifestId));
   const [resetState, setResetState] = useState<ResetState>("idle");
@@ -65,6 +73,13 @@ export function ControlRoom() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const scenario = scenarios[scenarioId];
   const auditId = useMemo(() => `AUD-DEMO-${scenarioId.toUpperCase()}-00842`, [scenarioId]);
+
+  function changePrincipal(nextPrincipalId: string) {
+    const nextPrincipal = demoPrincipals.find((candidate) => candidate.principalId === nextPrincipalId) ?? demoPrincipals[0];
+    setPrincipalId(nextPrincipal.principalId);
+    if (!nextPrincipal.organisationIds.includes(activeOrganisationId)) setActiveOrganisationId(nextPrincipal.organisationIds[0]);
+    setApprovalState("idle");
+  }
 
   function changeScenario(id: ScenarioId) {
     setScenarioId(id);
@@ -81,8 +96,8 @@ export function ControlRoom() {
         headers: {
           "Content-Type": "application/json",
           "Idempotency-Key": `control-room:${scenario.manifestId}:1.0.0`,
-          "X-FuelCap-Demo-Role": "demonstrator-presenter",
-          "X-FuelCap-Demo-Principal": "francis.doherty@fuelcap.example",
+          "X-FuelCap-Demo-Role": principal.roles.includes("DP") ? "demonstrator-presenter" : principal.roles[0],
+          "X-FuelCap-Demo-Principal": principal.email,
         },
         body: JSON.stringify({ scenarioId: scenario.manifestId }),
       });
@@ -119,7 +134,7 @@ export function ControlRoom() {
         <nav aria-label="Admin workspaces">
           <p className="nav-label">Workspaces</p>
           <div className="nav-list">
-            {workspaces.map(({ label, icon: Icon, active }) => (
+            {visibleNavigation.map(({ label, icon: Icon, active }) => (
               <button className={`nav-item ${active ? "nav-item--active" : ""}`} key={label} type="button">
                 <Icon size={17} />
                 <span>{label}</span>
@@ -130,8 +145,8 @@ export function ControlRoom() {
         </nav>
 
         <div className="sidebar-footer">
-          <div className="avatar">FD</div>
-          <div><strong>Francis Doherty</strong><span>Demonstrator presenter</span></div>
+          <div className="avatar">{principal.name.split(" ").map((part) => part[0]).join("")}</div>
+          <div><strong>{principal.name}</strong><span>{principal.roles.join(" · ")} · {AUTHZ_POLICY_VERSION}</span></div>
           <Settings2 size={17} />
         </div>
       </aside>
@@ -144,8 +159,9 @@ export function ControlRoom() {
           <div className="breadcrumb"><span>FuelCap Operations</span><span>/</span><strong>Control Room</strong></div>
           <div className="topbar-actions">
             <button className="search-button" type="button"><Search size={17} /><span>Search operations</span><kbd>⌘ K</kbd></button>
-            <button className="org-switcher" type="button"><Building2 size={16} /><span>FuelCap Global</span><ChevronDown size={15} /></button>
-            <div className="top-avatar">FD</div>
+            <div className="context-switcher"><Users size={15} /><select aria-label="Demo principal" value={principal.principalId} onChange={(event) => changePrincipal(event.target.value)}>{demoPrincipals.map((candidate) => <option value={candidate.principalId} key={candidate.principalId}>{candidate.name} · {candidate.roles.join("/")}</option>)}</select></div>
+            <div className="context-switcher"><Building2 size={15} /><select aria-label="Active organisation" value={activeOrganisationId} onChange={(event) => setActiveOrganisationId(event.target.value)}>{memberOrganisations.map((organisation) => <option value={organisation.organisationId} key={organisation.organisationId}>{organisation.name}</option>)}</select></div>
+            <div className="top-avatar">{principal.name.split(" ").map((part) => part[0]).join("")}</div>
           </div>
         </header>
 
@@ -236,7 +252,7 @@ export function ControlRoom() {
                 </div>
               ) : (
                 <div className="ai-actions">
-                  <button type="button" onClick={() => setApprovalState("reviewing")}><ShieldCheck size={16} />{scenario.recommendation.action}</button>
+                  {canInitiateHedge ? <button type="button" onClick={() => setApprovalState("reviewing")}><ShieldCheck size={16} />{scenario.recommendation.action}</button> : <button type="button" disabled><LockKeyhole size={16} />Initiation denied for {principal.roles.join("/")}</button>}
                   <button className="button-secondary" type="button">Open evidence pack</button>
                   <span>No action executes without approval</span>
                 </div>
