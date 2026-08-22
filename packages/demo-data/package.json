@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./fleet": "./src/fleet.ts",
     "./ports": "./src/ports.ts",
     "./reset": "./src/reset.ts"
   },
