@@ -85,6 +85,7 @@ button:focus-visible, select:focus-visible { outline: 3px solid rgba(47, 118, 89
 .demo-badge { display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; border: 1px solid #c5d7cc; border-radius: 999px; color: var(--green); background: #eaf3ed; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
 h1, h2, h3, p { margin-top: 0; }.page-heading h1 { max-width: 770px; margin: 11px 0 7px; font-size: clamp(27px, 3vw, 40px); line-height: 1.08; font-weight: 590; letter-spacing: -.045em; }.page-heading p { margin-bottom: 0; color: var(--ink-soft); font-size: 12px; }
 .scenario-control { min-width: 265px; }.scenario-control label { display: block; margin: 0 0 6px 2px; color: var(--muted); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; }.scenario-control select { width: 100%; height: 39px; padding: 0 34px 0 11px; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--ink); background: var(--panel); font-size: 11px; }
+.scenario-reset { margin-top: 7px; padding: 0; border: 0; display: inline-flex; align-items: center; gap: 5px; color: var(--green); background: transparent; font: inherit; font-size: 9px; font-weight: 700; cursor: pointer; }
 
 .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 12px; }
 .metric-card { min-height: 112px; padding: 15px 17px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); box-shadow: 0 3px 14px rgba(25,44,35,.025); }

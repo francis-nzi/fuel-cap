@@ -30,6 +30,7 @@ import {
   X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { createScenarioRuntime, type DemoEnvironment, type ScenarioReady } from "@fuelcap/demo-data";
 import { scenarioOrder, scenarios, type ScenarioId } from "@/lib/demo-data";
 
 const workspaces = [
@@ -55,6 +56,9 @@ function StatusDot({ state }: { state: "healthy" | "watch" | "controlled" }) {
 
 export function ControlRoom() {
   const [scenarioId, setScenarioId] = useState<ScenarioId>("exposure");
+  const environment: DemoEnvironment = process.env.NEXT_PUBLIC_APP_ENV === "production" ? "production" : "demo";
+  const runtime = useMemo(() => createScenarioRuntime(environment, scenarios.exposure.manifestId), [environment]);
+  const [scenarioReady, setScenarioReady] = useState<ScenarioReady>(() => runtime.reset(scenarios.exposure.manifestId));
   const [approvalState, setApprovalState] = useState<ApprovalState>("idle");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const scenario = scenarios[scenarioId];
@@ -62,6 +66,12 @@ export function ControlRoom() {
 
   function changeScenario(id: ScenarioId) {
     setScenarioId(id);
+    setScenarioReady(runtime.reset(scenarios[id].manifestId));
+    setApprovalState("idle");
+  }
+
+  function resetScenario() {
+    setScenarioReady(runtime.reset(scenario.manifestId));
     setApprovalState("idle");
   }
 
@@ -140,6 +150,7 @@ export function ControlRoom() {
               <select id="scenario" value={scenarioId} onChange={(event) => changeScenario(event.target.value as ScenarioId)}>
                 {scenarioOrder.map((id) => <option value={id} key={id}>{scenarios[id].label}</option>)}
               </select>
+              <button className="scenario-reset" type="button" onClick={resetScenario}><RefreshCw size={14} /> Reset scenario</button>
             </div>
           </section>
 
@@ -174,7 +185,7 @@ export function ControlRoom() {
 
             <div className="map-footer">
               <span><Database size={14} /> Provenance: synthetic-seeded + illustrative-fixed</span>
-              <span><RefreshCw size={14} /> Deterministic clock · contract v1.0</span>
+              <span><RefreshCw size={14} /> Deterministic clock · contract {scenarioReady.contractVersion}</span>
               <span><FileCheck2 size={14} /> Rebuild verified from journal sequence</span>
             </div>
           </section>
@@ -224,7 +235,7 @@ export function ControlRoom() {
             </aside>
           </div>
 
-          <footer className="demo-footer"><span><PanelLeftClose size={14} /> Investor demonstration platform</span><span>No live partner dependency · No live money movement</span><span>Last deterministic refresh: {scenario.clock}</span></footer>
+          <footer className="demo-footer"><span><PanelLeftClose size={14} /> Investor demonstration platform</span><span>No live partner dependency · No live money movement</span><span>{scenarioReady.evidenceId} · {scenarioReady.scenarioId} v{scenarioReady.scenarioVersion}</span></footer>
         </div>
       </main>
     </div>

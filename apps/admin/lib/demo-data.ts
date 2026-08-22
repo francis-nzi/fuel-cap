@@ -1,7 +1,10 @@
+import type { ScenarioId as ManifestScenarioId } from "@fuelcap/demo-data";
+
 export type ScenarioId = "normal" | "boundary" | "exposure";
 
 export type Scenario = {
   id: ScenarioId;
+  manifestId: ManifestScenarioId;
   label: string;
   shortLabel: string;
   clock: string;
@@ -30,6 +33,7 @@ export type Scenario = {
 export const scenarios: Record<ScenarioId, Scenario> = {
   normal: {
     id: "normal",
+    manifestId: "flat-market-us",
     label: "Scenario 01 · Normal flat market",
     shortLabel: "Flat market",
     clock: "21 Aug 2026 · 09:30 UTC",
@@ -61,6 +65,7 @@ export const scenarios: Record<ScenarioId, Scenario> = {
   },
   boundary: {
     id: "boundary",
+    manifestId: "boundary-breach-us",
     label: "Scenario 03 · Protection boundary breach",
     shortLabel: "Boundary breach",
     clock: "21 Aug 2026 · 14:15 UTC",
@@ -92,6 +97,7 @@ export const scenarios: Record<ScenarioId, Scenario> = {
   },
   exposure: {
     id: "exposure",
+    manifestId: "exposure-ai-recommendation",
     label: "Scenario 12 · Multi-customer exposure",
     shortLabel: "Exposure cluster",
     clock: "21 Aug 2026 · 16:45 UTC",
