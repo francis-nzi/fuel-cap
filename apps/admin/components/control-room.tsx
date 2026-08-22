@@ -32,6 +32,7 @@ import { useMemo, useState } from "react";
 import { AUTHZ_POLICY_VERSION, authorize, demoOrganisations, demoPrincipals, visibleWorkspaces, type Environment as AuthzEnvironment, type Workspace } from "@fuelcap/authz";
 import { createScenarioRuntime, type DemoEnvironment, type ScenarioReady } from "@fuelcap/demo-data";
 import { scenarioOrder, scenarios, type ScenarioId } from "@/lib/demo-data";
+import { FleetWorkspace } from "@/components/fleet-workspace";
 
 const workspaces: readonly { key: Workspace; label: string; icon: typeof LayoutDashboard; active?: boolean }[] = [
   { key: "control-room", label: "Control Room", icon: LayoutDashboard, active: true },
@@ -61,6 +62,7 @@ export function ControlRoom() {
   const authzEnvironment: AuthzEnvironment = environment;
   const [principalId, setPrincipalId] = useState("principal-presenter");
   const [activeOrganisationId, setActiveOrganisationId] = useState("org-fuelcap-global");
+  const [activeWorkspace, setActiveWorkspace] = useState<Workspace>("control-room");
   const principal = demoPrincipals.find((candidate) => candidate.principalId === principalId) ?? demoPrincipals[0];
   const memberOrganisations = demoOrganisations.filter(({ organisationId }) => principal.organisationIds.includes(organisationId));
   const allowedWorkspaceKeys = visibleWorkspaces(principal, authzEnvironment, activeOrganisationId, workspaces.map(({ key }) => key));
@@ -78,6 +80,7 @@ export function ControlRoom() {
     const nextPrincipal = demoPrincipals.find((candidate) => candidate.principalId === nextPrincipalId) ?? demoPrincipals[0];
     setPrincipalId(nextPrincipal.principalId);
     if (!nextPrincipal.organisationIds.includes(activeOrganisationId)) setActiveOrganisationId(nextPrincipal.organisationIds[0]);
+    setActiveWorkspace("control-room");
     setApprovalState("idle");
   }
 
@@ -134,11 +137,11 @@ export function ControlRoom() {
         <nav aria-label="Admin workspaces">
           <p className="nav-label">Workspaces</p>
           <div className="nav-list">
-            {visibleNavigation.map(({ label, icon: Icon, active }) => (
-              <button className={`nav-item ${active ? "nav-item--active" : ""}`} key={label} type="button">
+            {visibleNavigation.map(({ key, label, icon: Icon }) => (
+              <button className={`nav-item ${activeWorkspace === key ? "nav-item--active" : ""}`} key={label} type="button" onClick={() => { setActiveWorkspace(key); setMobileNavOpen(false); }}>
                 <Icon size={17} />
                 <span>{label}</span>
-                {!active && <span className="nav-soon">Soon</span>}
+                {key !== "control-room" && key !== "customers-fleets" && <span className="nav-soon">Soon</span>}
               </button>
             ))}
           </div>
@@ -156,7 +159,7 @@ export function ControlRoom() {
       <main className="main-canvas">
         <header className="topbar">
           <button className="icon-button mobile-menu" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation"><Menu size={20} /></button>
-          <div className="breadcrumb"><span>FuelCap Operations</span><span>/</span><strong>Control Room</strong></div>
+          <div className="breadcrumb"><span>FuelCap Operations</span><span>/</span><strong>{workspaces.find(({ key }) => key === activeWorkspace)?.label}</strong></div>
           <div className="topbar-actions">
             <button className="search-button" type="button"><Search size={17} /><span>Search operations</span><kbd>⌘ K</kbd></button>
             <div className="context-switcher"><Users size={15} /><select aria-label="Demo principal" value={principal.principalId} onChange={(event) => changePrincipal(event.target.value)}>{demoPrincipals.map((candidate) => <option value={candidate.principalId} key={candidate.principalId}>{candidate.name} · {candidate.roles.join("/")}</option>)}</select></div>
@@ -165,6 +168,7 @@ export function ControlRoom() {
           </div>
         </header>
 
+        {activeWorkspace === "customers-fleets" ? <FleetWorkspace organisationId={activeOrganisationId} /> : <>
         <section className="operating-strip" aria-label="Operating status">
           <div className="operating-strip__intro"><Activity size={15} /><strong>Operating state</strong><span className={`state-pill state-pill--${scenario.status.toLowerCase().replaceAll(" ", "-")}`}>{scenario.status}</span></div>
           <div className="strip-item"><StatusDot state="healthy" /><span>Pricing</span><strong>Eligible</strong></div>
@@ -274,6 +278,7 @@ export function ControlRoom() {
 
           <footer className="demo-footer"><span><PanelLeftClose size={14} /> Investor demonstration platform</span><span>No live partner dependency · No live money movement</span><span>{scenarioReady.evidenceId} · {scenarioReady.scenarioId} v{scenarioReady.scenarioVersion}</span></footer>
         </div>
+        </>}
       </main>
     </div>
   );
