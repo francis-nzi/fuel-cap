@@ -30,5 +30,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "landing-page"]
+  "exclude": ["node_modules", "landing-page", "apps", "packages"]
 }
