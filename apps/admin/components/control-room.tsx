@@ -2,7 +2,6 @@
 
 import {
   Activity,
-  BadgeDollarSign,
   Bot,
   Boxes,
   Building2,
@@ -16,7 +15,6 @@ import {
   LockKeyhole,
   Menu,
   Clock3,
-  Network,
   PanelLeftClose,
   ReceiptText,
   RefreshCw,
@@ -38,17 +36,17 @@ import { FleetWorkspace } from "@/components/fleet-workspace";
 
 const workspaces: readonly { key: Workspace; label: string; icon: typeof LayoutDashboard; active?: boolean }[] = [
   { key: "control-room", label: "Control Room", icon: LayoutDashboard, active: true },
-  { key: "living-operations", label: "Living Operations", icon: Network },
-  { key: "customers-fleets", label: "Customers & Fleets", icon: Users },
+  { key: "customers", label: "Customers", icon: Users },
+  { key: "fleets-vehicles", label: "Fleets & Vehicles", icon: Building2 },
   { key: "pricing-data", label: "Pricing Data", icon: Database },
-  { key: "spread-engine", label: "Spread Engine", icon: BadgeDollarSign },
-  { key: "fx-engine", label: "FX Engine", icon: RefreshCw },
-  { key: "protection-hedging", label: "Protection & Hedging", icon: ShieldCheck },
-  { key: "ledger-wallet", label: "Ledger & Wallet", icon: WalletCards },
-  { key: "settlement-recon", label: "Settlement & Recon", icon: FileCheck2 },
-  { key: "billing-xero", label: "Billing & Xero", icon: ReceiptText },
-  { key: "risk-fraud-compliance", label: "Risk, Fraud & Compliance", icon: TriangleAlert },
-  { key: "rules-ai-governance", label: "Rules & AI Governance", icon: Bot },
+  { key: "spread-fx", label: "Spread & FX", icon: RefreshCw },
+  { key: "risk-hedging", label: "Risk & Hedging", icon: ShieldCheck },
+  { key: "transactions-ledger", label: "Transactions & Ledger", icon: WalletCards },
+  { key: "billing-reconciliation", label: "Billing & Reconciliation", icon: ReceiptText },
+  { key: "fraud-cases", label: "Fraud & Cases", icon: TriangleAlert },
+  { key: "rules-automation", label: "Rules & Automation", icon: Bot },
+  { key: "communications", label: "Communications", icon: Activity },
+  { key: "platform-integrations-audit", label: "Platform, Integrations & Audit", icon: Globe2 },
 ];
 
 type ApprovalState = "idle" | "reviewing" | "approved";
@@ -84,7 +82,7 @@ export function ControlRoom() {
   const memberOrganisations = demoOrganisations.filter(({ organisationId }) => principal.organisationIds.includes(organisationId));
   const allowedWorkspaceKeys = visibleWorkspaces(principal, authzEnvironment, activeOrganisationId, workspaces.map(({ key }) => key));
   const visibleNavigation = workspaces.filter(({ key }) => allowedWorkspaceKeys.includes(key));
-  const canInitiateHedge = authorize({ principal, environment: authzEnvironment, activeOrganisationId, workspace: "protection-hedging", verb: "initiate" }).allowed;
+  const canInitiateHedge = authorize({ principal, environment: authzEnvironment, activeOrganisationId, workspace: "risk-hedging", verb: "initiate" }).allowed;
   const runtime = useMemo(() => createScenarioRuntime(environment, scenarios.exposure.manifestId), [environment]);
   const [scenarioReady, setScenarioReady] = useState<ScenarioReady>(() => runtime.reset(scenarios.exposure.manifestId));
   const [resetState, setResetState] = useState<ResetState>("idle");
@@ -197,7 +195,7 @@ export function ControlRoom() {
   }
 
   function requestGovernedAction() {
-    const decision = evaluateGovernedAction({ principal, environment: authzEnvironment, activeOrganisationId, workspace: "protection-hedging", verb: "initiate", reconciled: true, priceValid: true, requiresStepUp: false, assurance: "standard" });
+    const decision = evaluateGovernedAction({ principal, environment: authzEnvironment, activeOrganisationId, workspace: "risk-hedging", verb: "initiate", reconciled: true, priceValid: true, requiresStepUp: false, assurance: "standard" });
     if (!decision.allowed) {
       setSecurityState("permission-denied");
       return;
@@ -290,7 +288,7 @@ export function ControlRoom() {
               <button className={`nav-item ${activeWorkspace === key ? "nav-item--active" : ""}`} key={label} type="button" onClick={() => { setActiveWorkspace(key); closeMobileNavigation(); }}>
                 <Icon size={17} />
                 <span>{label}</span>
-                {key !== "control-room" && key !== "customers-fleets" && <span className="nav-soon">Soon</span>}
+                {key !== "control-room" && key !== "fleets-vehicles" && <span className="nav-soon">Soon</span>}
               </button>
             ))}
           </div>
@@ -317,7 +315,7 @@ export function ControlRoom() {
           </div>
         </header>
 
-        {activeWorkspace === "customers-fleets" ? <FleetWorkspace organisationId={activeOrganisationId} /> : <>
+        {activeWorkspace === "fleets-vehicles" ? <FleetWorkspace organisationId={activeOrganisationId} /> : <>
         <section className="operating-strip" aria-label="Operating status">
           <div className="operating-strip__intro"><Activity size={15} /><strong>Operating state</strong><span className={`state-pill state-pill--${scenario.status.toLowerCase().replaceAll(" ", "-")}`}>{scenario.status}</span></div>
           <div className="strip-item"><StatusDot state="healthy" /><span>Pricing</span><strong>Eligible</strong></div>
