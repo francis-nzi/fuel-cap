@@ -132,6 +132,14 @@ h1, h2, h3, p { margin-top: 0; }.page-heading h1 { max-width: 770px; margin: 11p
 .fleet-policy-panel > h2 { margin: 4px 0 15px; font-size: 18px; }.fleet-policy-panel > article { padding: 12px 0; border-top: 1px solid var(--line); }.fleet-policy-panel > article > div { display: flex; justify-content: space-between; gap: 8px; }.fleet-policy-panel article strong { font-size: 10px; }.fleet-policy-panel article span { color: var(--muted); font-size: 9px; }.fleet-policy-panel dl { margin: 10px 0 0; }.fleet-policy-panel dl div { display: flex; justify-content: space-between; padding: 4px 0; }.fleet-policy-panel dt { color: var(--muted); font-size: 9px; }.fleet-policy-panel dd { margin: 0; font-size: 9px; font-weight: 650; }.aggregate-limit { margin-top: 9px; padding: 11px; border-radius: 8px; background: var(--panel-soft); }.aggregate-limit > span, .aggregate-limit > strong, .aggregate-limit > small { display: block; }.aggregate-limit > span { color: var(--muted); font-size: 8px; text-transform: uppercase; letter-spacing: .06em; }.aggregate-limit > strong { margin: 5px 0 9px; font-size: 13px; }.aggregate-limit > div { height: 5px; overflow: hidden; border-radius: 10px; background: #dfe8e2; }.aggregate-limit i { display: block; height: 100%; border-radius: inherit; background: var(--green); }.aggregate-limit > small { margin-top: 8px; color: var(--muted); font-size: 8px; line-height: 1.4; }
 .nav-backdrop { display: none; }
 
+/* Presentation readability: keep evidence labels legible at 100% desktop zoom. */
+.global-filter-bar__intro span, .global-filter-bar label > span, .filter-clock > span,
+.pricing-health__title span, .pricing-health__fact span,
+.lineage-step > span, .lineage-step > small,
+.safeguarding-equation span, .case-facts span, .case-boundary,
+.evidence-grid small, .ai-assurance, .map-footer { font-size: 9px; }
+.commercial-lineage__heading > span, .pricing-health__fact strong { font-size: 10px; }
+
 @media (max-width: 1180px) {
   .flow-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }.flow-connector { display: none; }
   .strip-item:nth-of-type(4), .strip-item:nth-of-type(5) { display: none; }

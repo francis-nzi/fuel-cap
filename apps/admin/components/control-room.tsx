@@ -270,29 +270,6 @@ export function ControlRoom() {
             ))}
           </section>
 
-          <section className="commercial-lineage" aria-label="Commercial and exposure lineage">
-            <div className="commercial-lineage__heading"><div><span className="section-kicker">Commercial lineage</span><h2>Price, protection and exposure reconcile as one outcome</h2></div><span><FileCheck2 size={14} /> Click any value for evidence</span></div>
-            <div className="commercial-lineage__steps">
-              {scenario.commercialLineage.map((step, index) => <button className={`lineage-step lineage-step--${step.tone}`} type="button" key={`${step.label}-${index}`} onClick={() => setSelectedFlowKey(step.nodeKey)}>
-                <span>{String(index + 1).padStart(2, "0")} · {step.label}</span><strong>{step.value}</strong><small>{step.detail}</small>{index < scenario.commercialLineage.length - 1 && <i aria-hidden="true">→</i>}
-              </button>)}
-            </div>
-          </section>
-
-          <section className="control-evidence-grid" aria-label="Safeguarding and governed operational cases">
-            <article className={`safeguarding-card safeguarding-card--${scenario.operationsControl.invariant}`}>
-              <div className="control-card__heading"><div><span className="section-kicker">Safeguarding invariant</span><h2>Customer-owed value is fully accounted for</h2></div><span className="control-state"><ShieldCheck size={14} />Invariant {scenario.operationsControl.invariant}</span></div>
-              <div className="safeguarding-equation"><div><span>Safeguarded balance</span><strong>{scenario.operationsControl.safeguarded}</strong></div><i>=</i><div><span>Customer owed</span><strong>{scenario.operationsControl.customerOwed}</strong></div><i>+</i><div><span>In flight</span><strong>{scenario.operationsControl.inFlight}</strong></div></div>
-              <button type="button" onClick={() => setSelectedFlowKey("ledger")}>Inspect ledger evidence <span>→</span></button>
-            </article>
-            <article className={`case-queue case-queue--${scenario.operationsControl.caseClass}`}>
-              <div className="control-card__heading"><div><span className="section-kicker">Governed case queue</span><h2>{scenario.operationsControl.caseTitle}</h2></div><span className="case-count">{scenario.operationsControl.caseCount}</span></div>
-              <div className="case-facts"><div><span>Reconciliation</span><strong>{scenario.operationsControl.reconciliation}</strong></div><div><span>Open breaks</span><strong>{scenario.operationsControl.breaks}</strong></div><div><span>Downstream control</span><strong>{scenario.operationsControl.downstream}</strong></div></div>
-              <div className="case-boundary"><LockKeyhole size={14} /><span>Break-glass cannot clear an unreconciled or invalid state.</span></div>
-              <button type="button" onClick={() => setSelectedFlowKey(scenario.operationsControl.caseClass === "risk" || scenario.operationsControl.caseClass === "eligibility" ? "risk" : scenario.operationsControl.caseClass === "pricing" ? "price" : "settle")}>Open governed evidence <span>→</span></button>
-            </article>
-          </section>
-
           <section className="operations-panel">
             <div className="section-heading">
               <div><span className="section-kicker">Living Operations Map</span><h2>From market signal to controlled outcome</h2></div>
@@ -320,6 +297,29 @@ export function ControlRoom() {
               <span><RefreshCw size={14} /> Deterministic clock · contract {scenarioReady.contractVersion}</span>
               <span><FileCheck2 size={14} /> Rebuild verified from journal sequence</span>
             </div>
+          </section>
+
+          <section className="commercial-lineage" aria-label="Commercial and exposure lineage">
+            <div className="commercial-lineage__heading"><div><span className="section-kicker">Commercial lineage</span><h2>Price, protection and exposure reconcile as one outcome</h2></div><span><FileCheck2 size={14} /> Click any value for evidence</span></div>
+            <div className="commercial-lineage__steps">
+              {scenario.commercialLineage.map((step, index) => <button className={`lineage-step lineage-step--${step.tone}`} type="button" key={`${step.label}-${index}`} onClick={() => setSelectedFlowKey(step.nodeKey)}>
+                <span>{String(index + 1).padStart(2, "0")} · {step.label}</span><strong>{step.value}</strong><small>{step.detail}</small>{index < scenario.commercialLineage.length - 1 && <i aria-hidden="true">→</i>}
+              </button>)}
+            </div>
+          </section>
+
+          <section className="control-evidence-grid" aria-label="Safeguarding and governed operational cases">
+            <article className={`safeguarding-card safeguarding-card--${scenario.operationsControl.invariant}`}>
+              <div className="control-card__heading"><div><span className="section-kicker">Safeguarding invariant</span><h2>Customer-owed value is fully accounted for</h2></div><span className="control-state"><ShieldCheck size={14} />Invariant {scenario.operationsControl.invariant}</span></div>
+              <div className="safeguarding-equation"><div><span>Safeguarded balance</span><strong>{scenario.operationsControl.safeguarded}</strong></div><i>=</i><div><span>Customer owed</span><strong>{scenario.operationsControl.customerOwed}</strong></div><i>+</i><div><span>In flight</span><strong>{scenario.operationsControl.inFlight}</strong></div></div>
+              <button type="button" onClick={() => setSelectedFlowKey("ledger")}>Inspect ledger evidence <span>→</span></button>
+            </article>
+            <article className={`case-queue case-queue--${scenario.operationsControl.caseClass}`}>
+              <div className="control-card__heading"><div><span className="section-kicker">Governed case queue</span><h2>{scenario.operationsControl.caseTitle}</h2></div><span className="case-count">{scenario.operationsControl.caseCount}</span></div>
+              <div className="case-facts"><div><span>Reconciliation</span><strong>{scenario.operationsControl.reconciliation}</strong></div><div><span>Open breaks</span><strong>{scenario.operationsControl.breaks}</strong></div><div><span>Downstream control</span><strong>{scenario.operationsControl.downstream}</strong></div></div>
+              <div className="case-boundary"><LockKeyhole size={14} /><span>Break-glass cannot clear an unreconciled or invalid state.</span></div>
+              <button type="button" onClick={() => setSelectedFlowKey(scenario.operationsControl.caseClass === "risk" || scenario.operationsControl.caseClass === "eligibility" ? "risk" : scenario.operationsControl.caseClass === "pricing" ? "price" : "settle")}>Open governed evidence <span>→</span></button>
+            </article>
           </section>
 
           {selectedFlowNode && <aside className="evidence-drawer" aria-label={`${selectedFlowNode.title} evidence`}>
