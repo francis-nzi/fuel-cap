@@ -316,6 +316,44 @@ export const scenarios: Record<ScenarioId, Scenario> = {
 
 export const scenarioOrder: ScenarioId[] = ["normal", "boundary", "exposure", "ukQuote", "canadaFraud", "fx"];
 
+export type PricingObservation = {
+  source: string;
+  observed: string;
+  licence: string;
+  eligibility: string;
+  decision: "Selected" | "Corroborating" | "Rejected";
+  reason: string;
+};
+
+export const pricingObservationSets: Record<ScenarioId, PricingObservation[]> = {
+  normal: [
+    { source: "EIA regional benchmark", observed: "38 sec ago", licence: "Benchmark use", eligibility: "Quote anchor", decision: "Selected", reason: "Fresh, normalised and inside conflict tolerance." },
+    { source: "Austin station cohort", observed: "54 sec ago", licence: "Settlement/display", eligibility: "Corroborating", decision: "Corroborating", reason: "Confirms the selected regional anchor." },
+  ],
+  boundary: [
+    { source: "Eligible pump confirmation", observed: "51 sec ago", licence: "Settlement use", eligibility: "Actual pump", decision: "Selected", reason: "Confirmed fuel-only station observation." },
+    { source: "Regional benchmark", observed: "2 min ago", licence: "Benchmark use", eligibility: "Comparison only", decision: "Corroborating", reason: "Supports anomaly detection; cannot settle the fill." },
+    { source: "Unlicensed reuse candidate", observed: "46 sec ago", licence: "Unconfirmed reuse", eligibility: "Simulation only", decision: "Rejected", reason: "Licence class cannot support settlement." },
+  ],
+  exposure: [
+    { source: "Texas actual observation set", observed: "42 sec ago", licence: "Quote/settlement", eligibility: "Canonical input", decision: "Selected", reason: "41 eligible observations; no unresolved conflicts." },
+    { source: "EIA Gulf Coast benchmark", observed: "4 min ago", licence: "Benchmark use", eligibility: "Anomaly reference", decision: "Corroborating", reason: "Confirms the regional rise without replacing actual observations." },
+    { source: "Scraped retail candidate", observed: "31 sec ago", licence: "No reuse right", eligibility: "Excluded", decision: "Rejected", reason: "Use rights are insufficient for quote, display or settlement." },
+  ],
+  ukQuote: [
+    { source: "UK station observation cohort", observed: "47 min ago", licence: "Quote/display", eligibility: "Stale", decision: "Rejected", reason: "Freshness and coverage floors are not met." },
+    { source: "Historic open retail table", observed: "Prior period", licence: "Historically derived", eligibility: "Simulation only", decision: "Rejected", reason: "May seed a demonstrator but cannot create a current quote." },
+  ],
+  canadaFraud: [
+    { source: "Ontario illustrative cohort", observed: "2 min ago", licence: "Demonstrator display", eligibility: "Display eligible", decision: "Selected", reason: "Pricing is valid; the separate account eligibility case remains human reviewed." },
+    { source: "Canadian benchmark candidate", observed: "1 day ago", licence: "Benchmark use", eligibility: "Comparison only", decision: "Corroborating", reason: "Used for reasonableness checking, never settlement." },
+  ],
+  fx: [
+    { source: "Fixed scenario FX manifest", observed: "Injected clock", licence: "Illustrative fixed", eligibility: "Simulation eligible", decision: "Selected", reason: "Pinned for reproducible USD/CAD, GBP/USD and EUR/USD conversions." },
+    { source: "Live FX provider port", observed: "Not connected", licence: "Provider contract pending", eligibility: "Unavailable", decision: "Rejected", reason: "Phase 1 has zero live-partner dependency." },
+  ],
+};
+
 const requiredProjectionValues: Record<ScenarioId, readonly string[]> = {
   normal: ["$3.58/gal", "2.30%", "42,100 gal"],
   boundary: ["$3.50 / $3.675", "$3.85/gal", "$84.00 / $77.00", "$7.00"],
