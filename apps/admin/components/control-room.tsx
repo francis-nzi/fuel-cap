@@ -271,7 +271,7 @@ export function ControlRoom() {
           <section className="page-heading">
             <div>
               <div className="eyebrow-row"><span className="demo-badge"><Boxes size={13} /> Demonstrator data</span><span>Scenario library v1.0.0</span></div>
-              <h1>Good morning. Here is FuelCap operating as one system.</h1>
+              <h1>FuelCap Operating System</h1>
               <p>{scenario.summary}</p>
             </div>
             <div className="scenario-control">
