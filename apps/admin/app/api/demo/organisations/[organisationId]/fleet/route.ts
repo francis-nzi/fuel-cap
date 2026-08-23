@@ -22,7 +22,7 @@ export async function GET(request: Request, context: { params: Promise<{ organis
     environment: environment(),
     activeOrganisationId,
     resourceOrganisationId: organisationId,
-    workspace: "customers-fleets",
+    workspace: "fleets-vehicles",
   });
   if (!decision.allowed) {
     return NextResponse.json({ error: "TENANT_CONTEXT_DENIED" }, { status: 403, headers: { "Cache-Control": "no-store" } });
