@@ -12,6 +12,14 @@ export type Scenario = {
   clock: string;
   status: "Nominal" | "Guarded" | "Action required";
   summary: string;
+  pricingHealth: {
+    status: "eligible" | "watch" | "ineligible";
+    freshestObservation: string;
+    coverage: string;
+    anomaly: string;
+    conflicts: string;
+    eligibility: string;
+  };
   metrics: Array<{ label: string; value: string; delta: string; tone: "good" | "neutral" | "warn" }>;
   flow: Array<{
     key: string;
@@ -42,6 +50,7 @@ export const scenarios: Record<ScenarioId, Scenario> = {
     clock: "21 Aug 2026 · 09:30 UTC",
     status: "Nominal",
     summary: "Protection is priced, funded and reconciled inside the default operating envelope.",
+    pricingHealth: { status: "eligible", freshestObservation: "38 sec", coverage: "98.9%", anomaly: "None detected", conflicts: "0 unresolved", eligibility: "Quote eligible" },
     metrics: [
       { label: "Protected volume", value: "184,260 gal", delta: "+3.8% vs 7d", tone: "good" },
       { label: "Protection charges", value: "$14,836", delta: "2.30% weighted", tone: "neutral" },
@@ -75,6 +84,7 @@ export const scenarios: Record<ScenarioId, Scenario> = {
     clock: "21 Aug 2026 · 14:15 UTC",
     status: "Guarded",
     summary: "Pump prices have moved above the protection boundary; FuelCap pays the capped contribution and preserves audit lineage.",
+    pricingHealth: { status: "watch", freshestObservation: "51 sec", coverage: "97.4%", anomaly: "+17.3% pump move", conflicts: "2 preserved · resolved", eligibility: "Settlement eligible" },
     metrics: [
       { label: "Protected volume", value: "191,840 gal", delta: "+7.9% vs 7d", tone: "neutral" },
       { label: "Claims today", value: "$28,420", delta: "+62% vs plan", tone: "warn" },
@@ -108,6 +118,7 @@ export const scenarios: Record<ScenarioId, Scenario> = {
     clock: "21 Aug 2026 · 16:45 UTC",
     status: "Action required",
     summary: "A regional fleet cluster is concentrating protected gallons; the demonstrator proposes a simulated hedge for human approval.",
+    pricingHealth: { status: "watch", freshestObservation: "42 sec", coverage: "98.1%", anomaly: "Texas +8.4%", conflicts: "0 unresolved", eligibility: "Quote eligible" },
     metrics: [
       { label: "Cluster exposure", value: "68,400 gal", delta: "37% in Texas", tone: "warn" },
       { label: "Value at boundary", value: "$23,940", delta: "+$8,110 today", tone: "warn" },
@@ -141,6 +152,7 @@ export const scenarios: Record<ScenarioId, Scenario> = {
     clock: "22 Aug 2026 · 11:00 BST",
     status: "Guarded",
     summary: "The UK pricing feed is unavailable, so rollover releases reserved value without fabricating a quote or creating a later debit.",
+    pricingHealth: { status: "ineligible", freshestObservation: "47 min", coverage: "41.2%", anomaly: "Feed availability failure", conflicts: "3 preserved · unresolved", eligibility: "Not quote eligible" },
     metrics: [
       { label: "Affected positions", value: "126", delta: "Availability class", tone: "warn" },
       { label: "Released value", value: "£8,412", delta: "Returned to tanks", tone: "neutral" },
@@ -174,6 +186,7 @@ export const scenarios: Record<ScenarioId, Scenario> = {
     clock: "22 Aug 2026 · 07:00 EDT",
     status: "Action required",
     summary: "A Canadian eligibility signal routes affected accounts to human review while customer value remains available and isolated.",
+    pricingHealth: { status: "eligible", freshestObservation: "2 min", coverage: "94.6%", anomaly: "No pricing anomaly", conflicts: "1 preserved · resolved", eligibility: "Display eligible" },
     metrics: [
       { label: "Accounts reviewed", value: "18", delta: "Ontario cluster", tone: "warn" },
       { label: "Protected volume", value: "4,860 L", delta: "Held from rollover", tone: "neutral" },
@@ -207,6 +220,7 @@ export const scenarios: Record<ScenarioId, Scenario> = {
     clock: "22 Aug 2026 · 14:00 UTC",
     status: "Nominal",
     summary: "Pinned illustrative FX decisions translate USD, CAD and GBP positions without creating a cross-currency ledger imbalance.",
+    pricingHealth: { status: "eligible", freshestObservation: "Fixed clock", coverage: "3 / 3 pairs", anomaly: "None detected", conflicts: "0 unresolved", eligibility: "Simulation eligible" },
     metrics: [
       { label: "USD/CAD", value: "1.371200", delta: "Pinned scenario rate", tone: "neutral" },
       { label: "GBP/USD", value: "1.286400", delta: "Pinned scenario rate", tone: "neutral" },
