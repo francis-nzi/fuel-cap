@@ -20,6 +20,13 @@ export type Scenario = {
     conflicts: string;
     eligibility: string;
   };
+  commercialLineage: Array<{
+    label: string;
+    value: string;
+    detail: string;
+    nodeKey: "price" | "spread" | "protect" | "ledger" | "settle" | "risk";
+    tone: "base" | "good" | "watch";
+  }>;
   metrics: Array<{ label: string; value: string; delta: string; tone: "good" | "neutral" | "warn" }>;
   flow: Array<{
     key: string;
@@ -51,6 +58,13 @@ export const scenarios: Record<ScenarioId, Scenario> = {
     status: "Nominal",
     summary: "Protection is priced, funded and reconciled inside the default operating envelope.",
     pricingHealth: { status: "eligible", freshestObservation: "38 sec", coverage: "98.9%", anomaly: "None detected", conflicts: "0 unresolved", eligibility: "Quote eligible" },
+    commercialLineage: [
+      { label: "Reference price", value: "$3.58/gal", detail: "Canonical US Regular anchor", nodeKey: "price", tone: "base" },
+      { label: "Protection charge", value: "2.30%", detail: "1.30 cost · 0.30 buffer · 0.70 margin", nodeKey: "spread", tone: "base" },
+      { label: "Protected volume", value: "42,100 gal", detail: "7-day positions in this scenario", nodeKey: "protect", tone: "good" },
+      { label: "Customer/FuelCap", value: "$0 claim", detail: "Flat market · no protection payout", nodeKey: "settle", tone: "good" },
+      { label: "Pool exposure", value: "3.6× cover", detail: "Inside operating envelope", nodeKey: "risk", tone: "good" },
+    ],
     metrics: [
       { label: "Protected volume", value: "184,260 gal", delta: "+3.8% vs 7d", tone: "good" },
       { label: "Protection charges", value: "$14,836", delta: "2.30% weighted", tone: "neutral" },
@@ -85,6 +99,13 @@ export const scenarios: Record<ScenarioId, Scenario> = {
     status: "Guarded",
     summary: "Pump prices have moved above the protection boundary; FuelCap pays the capped contribution and preserves audit lineage.",
     pricingHealth: { status: "watch", freshestObservation: "51 sec", coverage: "97.4%", anomaly: "+17.3% pump move", conflicts: "2 preserved · resolved", eligibility: "Settlement eligible" },
+    commercialLineage: [
+      { label: "Reference / strike", value: "$3.50 / $3.675", detail: "5% protection ceiling", nodeKey: "price", tone: "base" },
+      { label: "Maximum boundary", value: "$3.85/gal", detail: "FuelCap contribution capped at $0.35", nodeKey: "protect", tone: "watch" },
+      { label: "Protected fill", value: "20.0000 gal", detail: "Confirmed fuel gallons only", nodeKey: "protect", tone: "base" },
+      { label: "Station / customer", value: "$84.00 / $77.00", detail: "FuelCap funds the $7.00 difference", nodeKey: "settle", tone: "watch" },
+      { label: "Pool claim", value: "$7.00", detail: "Capped contribution · balanced journal", nodeKey: "risk", tone: "watch" },
+    ],
     metrics: [
       { label: "Protected volume", value: "191,840 gal", delta: "+7.9% vs 7d", tone: "neutral" },
       { label: "Claims today", value: "$28,420", delta: "+62% vs plan", tone: "warn" },
@@ -119,6 +140,13 @@ export const scenarios: Record<ScenarioId, Scenario> = {
     status: "Action required",
     summary: "A regional fleet cluster is concentrating protected gallons; the demonstrator proposes a simulated hedge for human approval.",
     pricingHealth: { status: "watch", freshestObservation: "42 sec", coverage: "98.1%", anomaly: "Texas +8.4%", conflicts: "0 unresolved", eligibility: "Quote eligible" },
+    commercialLineage: [
+      { label: "Reference signal", value: "+8.4%", detail: "41 actual Texas observations", nodeKey: "price", tone: "watch" },
+      { label: "Weighted charge", value: "2.18%", detail: "Fleet promos reduce margin only", nodeKey: "spread", tone: "base" },
+      { label: "Cluster volume", value: "68,400 gal", detail: "14 fleets · 312 vehicles", nodeKey: "protect", tone: "watch" },
+      { label: "Value at boundary", value: "$23,940", detail: "Accepted-position exposure", nodeKey: "ledger", tone: "watch" },
+      { label: "Simulated hedge", value: "25,000 gal", detail: "Restores forecast cover to 2.3×", nodeKey: "risk", tone: "good" },
+    ],
     metrics: [
       { label: "Cluster exposure", value: "68,400 gal", delta: "37% in Texas", tone: "warn" },
       { label: "Value at boundary", value: "$23,940", delta: "+$8,110 today", tone: "warn" },
@@ -153,6 +181,13 @@ export const scenarios: Record<ScenarioId, Scenario> = {
     status: "Guarded",
     summary: "The UK pricing feed is unavailable, so rollover releases reserved value without fabricating a quote or creating a later debit.",
     pricingHealth: { status: "ineligible", freshestObservation: "47 min", coverage: "41.2%", anomaly: "Feed availability failure", conflicts: "3 preserved · unresolved", eligibility: "Not quote eligible" },
+    commercialLineage: [
+      { label: "Reference price", value: "Unavailable", detail: "No eligible canonical decision", nodeKey: "price", tone: "watch" },
+      { label: "New charge", value: "£0.00", detail: "No spread without a valid anchor", nodeKey: "spread", tone: "good" },
+      { label: "Affected positions", value: "126", detail: "Rollover cannot complete", nodeKey: "protect", tone: "watch" },
+      { label: "Released value", value: "£8,412", detail: "Reserved value returned to available tanks", nodeKey: "ledger", tone: "good" },
+      { label: "Retroactive debit", value: "Prohibited", detail: "Customer must choose Protect now", nodeKey: "settle", tone: "good" },
+    ],
     metrics: [
       { label: "Affected positions", value: "126", delta: "Availability class", tone: "warn" },
       { label: "Released value", value: "£8,412", delta: "Returned to tanks", tone: "neutral" },
@@ -187,6 +222,13 @@ export const scenarios: Record<ScenarioId, Scenario> = {
     status: "Action required",
     summary: "A Canadian eligibility signal routes affected accounts to human review while customer value remains available and isolated.",
     pricingHealth: { status: "eligible", freshestObservation: "2 min", coverage: "94.6%", anomaly: "No pricing anomaly", conflicts: "1 preserved · resolved", eligibility: "Display eligible" },
+    commercialLineage: [
+      { label: "Display price", value: "C$1.62/L", detail: "Valid pricing is not the eligibility issue", nodeKey: "price", tone: "good" },
+      { label: "Review accounts", value: "18", detail: "Ontario eligibility cluster", nodeKey: "risk", tone: "watch" },
+      { label: "Protected volume", value: "4,860 L", detail: "No new rollover protection", nodeKey: "protect", tone: "watch" },
+      { label: "Released value", value: "C$6,920", detail: "Customer funds remain available", nodeKey: "ledger", tone: "good" },
+      { label: "Decision mode", value: "Human review", detail: "No automated adverse outcome", nodeKey: "risk", tone: "good" },
+    ],
     metrics: [
       { label: "Accounts reviewed", value: "18", delta: "Ontario cluster", tone: "warn" },
       { label: "Protected volume", value: "4,860 L", delta: "Held from rollover", tone: "neutral" },
@@ -221,6 +263,13 @@ export const scenarios: Record<ScenarioId, Scenario> = {
     status: "Nominal",
     summary: "Pinned illustrative FX decisions translate USD, CAD and GBP positions without creating a cross-currency ledger imbalance.",
     pricingHealth: { status: "eligible", freshestObservation: "Fixed clock", coverage: "3 / 3 pairs", anomaly: "None detected", conflicts: "0 unresolved", eligibility: "Simulation eligible" },
+    commercialLineage: [
+      { label: "USD/CAD", value: "1.371200", detail: "Explicit pair direction", nodeKey: "price", tone: "base" },
+      { label: "GBP/USD", value: "1.286400", detail: "Pinned scenario rate", nodeKey: "price", tone: "base" },
+      { label: "EUR/USD", value: "1.092500", detail: "Pinned scenario rate", nodeKey: "price", tone: "base" },
+      { label: "Ledger residue", value: "$0.00", detail: "Balanced per currency", nodeKey: "ledger", tone: "good" },
+      { label: "Execution", value: "Simulation only", detail: "No live FX movement", nodeKey: "settle", tone: "good" },
+    ],
     metrics: [
       { label: "USD/CAD", value: "1.371200", delta: "Pinned scenario rate", tone: "neutral" },
       { label: "GBP/USD", value: "1.286400", delta: "Pinned scenario rate", tone: "neutral" },

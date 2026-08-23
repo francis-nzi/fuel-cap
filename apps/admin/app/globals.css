@@ -94,6 +94,7 @@ h1, h2, h3, p { margin-top: 0; }.page-heading h1 { max-width: 770px; margin: 11p
 .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 12px; }
 .metric-card { min-height: 112px; padding: 15px 17px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); box-shadow: 0 3px 14px rgba(25,44,35,.025); }
 .metric-card__label { display: flex; justify-content: space-between; color: var(--muted); font-size: 10px; }.metric-card > strong { display: block; margin: 13px 0 8px; font-size: 25px; font-weight: 570; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }.metric-delta { font-size: 10px; }.metric-delta--good { color: var(--green); }.metric-delta--neutral { color: var(--slate); }.metric-delta--warn { color: var(--rust); }
+.commercial-lineage { margin-bottom: 12px; padding: 17px 18px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel); box-shadow: var(--shadow); }.commercial-lineage__heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }.commercial-lineage__heading h2 { margin-top: 4px; font-size: 15px; }.commercial-lineage__heading > span { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 9px; }.commercial-lineage__steps { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 8px; margin-top: 14px; }.lineage-step { position: relative; min-height: 105px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; color: inherit; background: #fff; text-align: left; font: inherit; cursor: pointer; transition: border-color .15s ease, transform .15s ease; }.lineage-step:hover, .lineage-step:focus-visible { transform: translateY(-2px); border-color: var(--green); outline: none; }.lineage-step--watch { border-color: #dfc69a; background: #fffcf4; }.lineage-step--good { border-color: #c4dacd; background: #fbfffd; }.lineage-step > span, .lineage-step > strong, .lineage-step > small { display: block; }.lineage-step > span { color: var(--muted); font-size: 8px; font-weight: 800; letter-spacing: .045em; text-transform: uppercase; }.lineage-step > strong { margin: 12px 0 7px; font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }.lineage-step > small { color: var(--muted); font-size: 8px; line-height: 1.4; }.lineage-step > i { position: absolute; z-index: 1; right: -13px; top: 42px; width: 18px; height: 18px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; color: var(--green); background: var(--panel); font-size: 10px; font-style: normal; }
 
 .operations-panel, .ai-panel, .audit-panel { border: 1px solid var(--line); border-radius: 11px; background: var(--panel); box-shadow: var(--shadow); }
 .operations-panel { padding: 19px 20px 0; margin-bottom: 12px; overflow: hidden; }
@@ -136,6 +137,7 @@ h1, h2, h3, p { margin-top: 0; }.page-heading h1 { max-width: 770px; margin: 11p
   .evidence-grid { grid-template-columns: 1fr; }
   .global-filter-bar { grid-template-columns: 1fr 1fr 1fr; }.global-filter-bar__intro { grid-column: 1 / -1; }.filter-clock { display: none; }
   .pricing-health { grid-template-columns: repeat(3,1fr); }.pricing-health__title { grid-column: span 2; }.pricing-health__fact { border-top: 1px solid var(--line); }.pricing-health > button { border-top: 1px solid var(--line); }
+  .commercial-lineage__steps { grid-template-columns: repeat(3,1fr); }.lineage-step > i { display: none; }
 }
 
 @media (max-width: 900px) {
@@ -150,6 +152,7 @@ h1, h2, h3, p { margin-top: 0; }.page-heading h1 { max-width: 770px; margin: 11p
   .workspace-wrap { padding: 20px 16px; }.workspace-heading { display: block; }.workspace-version { margin-top: 12px; width: fit-content; }.fleet-summary, .fleet-layout { grid-template-columns: 1fr; }.fleet-table-panel { padding: 14px; }
   .global-filter-bar { grid-template-columns: 1fr; }.global-filter-bar__intro { grid-column: auto; }.global-filter-bar select { width: 100%; }
   .pricing-health { grid-template-columns: 1fr 1fr; }.pricing-health__title { grid-column: 1 / -1; }.pricing-health__fact { min-height: 58px; }.pricing-health > button { grid-column: 1 / -1; justify-content: center; border-left: 0; }
+  .commercial-lineage__heading { display: block; }.commercial-lineage__heading > span { margin-top: 8px; }.commercial-lineage__steps { grid-template-columns: 1fr; }.lineage-step { min-height: 92px; }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
