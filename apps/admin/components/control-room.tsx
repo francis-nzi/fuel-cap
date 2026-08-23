@@ -11,9 +11,11 @@ import {
   Database,
   FileCheck2,
   Gauge,
+  Globe2,
   LayoutDashboard,
   LockKeyhole,
   Menu,
+  Clock3,
   Network,
   PanelLeftClose,
   ReceiptText,
@@ -31,7 +33,7 @@ import Image from "next/image";
 import { useMemo, useState } from "react";
 import { AUTHZ_POLICY_VERSION, authorize, demoOrganisations, demoPrincipals, evaluateBreakGlass, evaluateGovernedAction, visibleWorkspaces, type Environment as AuthzEnvironment, type Workspace } from "@fuelcap/authz";
 import { createScenarioRuntime, type DemoEnvironment, type ScenarioReady } from "@fuelcap/demo-data";
-import { scenarioOrder, scenarios, type ScenarioId } from "@/lib/demo-data";
+import { scenarioOrder, scenarios, type MarketFilter, type ScenarioId } from "@/lib/demo-data";
 import { FleetWorkspace } from "@/components/fleet-workspace";
 
 const workspaces: readonly { key: Workspace; label: string; icon: typeof LayoutDashboard; active?: boolean }[] = [
@@ -52,6 +54,9 @@ const workspaces: readonly { key: Workspace; label: string; icon: typeof LayoutD
 type ApprovalState = "idle" | "reviewing" | "approved";
 type ResetState = "idle" | "resetting" | "ready" | "failed";
 type SecurityState = "none" | "permission-denied" | "step-up-required" | "step-up-complete" | "break-glass-denied";
+type TimeWindow = "24H" | "7D" | "30D";
+
+const marketDefaults: Record<MarketFilter, ScenarioId> = { US: "exposure", UK: "ukQuote", CA: "canadaFraud", MULTI: "fx" };
 
 const flowEvidence: Record<string, { source: string; version: string; owner: string; action: string }> = {
   price: { source: "Canonical price decision", version: "pricing-data@1.4", owner: "Data Operations", action: "Inspect observations" },
@@ -68,6 +73,8 @@ function StatusDot({ state }: { state: "healthy" | "watch" | "controlled" }) {
 
 export function ControlRoom() {
   const [scenarioId, setScenarioId] = useState<ScenarioId>("exposure");
+  const [marketFilter, setMarketFilter] = useState<MarketFilter>("US");
+  const [timeWindow, setTimeWindow] = useState<TimeWindow>("24H");
   const environment: DemoEnvironment = process.env.NEXT_PUBLIC_APP_ENV === "production" ? "production" : "demo";
   const authzEnvironment: AuthzEnvironment = environment;
   const [principalId, setPrincipalId] = useState("principal-presenter");
@@ -121,11 +128,16 @@ export function ControlRoom() {
 
   function changeScenario(id: ScenarioId) {
     setScenarioId(id);
+    setMarketFilter(scenarios[id].market);
     setScenarioReady(runtime.reset(scenarios[id].manifestId));
     setResetState("idle");
     setApprovalState("idle");
     setSelectedFlowKey(null);
     setTraceActive(false);
+  }
+
+  function changeMarket(market: MarketFilter) {
+    changeScenario(marketDefaults[market]);
   }
 
   async function resetScenario() {
@@ -230,6 +242,13 @@ export function ControlRoom() {
               </select>
               <button className={`scenario-reset scenario-reset--${resetState}`} type="button" onClick={resetScenario} disabled={resetState === "resetting"}><RefreshCw size={14} /> {resetState === "resetting" ? "Resetting…" : resetState === "ready" ? "Scenario ready" : resetState === "failed" ? "Reset failed · retry" : "Reset scenario"}</button>
             </div>
+          </section>
+
+          <section className="global-filter-bar" aria-label="Global operating filters">
+            <div className="global-filter-bar__intro"><Globe2 size={16} /><div><strong>Operating lens</strong><span>Filters switch canonical scenario context; figures are never relabelled across markets.</span></div></div>
+            <label><span>Market</span><select aria-label="Market filter" value={marketFilter} onChange={(event) => changeMarket(event.target.value as MarketFilter)}><option value="US">United States</option><option value="UK">United Kingdom</option><option value="CA">Canada</option><option value="MULTI">Multi-market / FX</option></select></label>
+            <label><span>Time window</span><select aria-label="Time window" value={timeWindow} onChange={(event) => setTimeWindow(event.target.value as TimeWindow)}><option value="24H">Last 24 hours</option><option value="7D">Last 7 days</option><option value="30D">Last 30 days</option></select></label>
+            <div className="filter-clock"><Clock3 size={14} /><span>Point-in-time values</span><strong>{scenario.clock}</strong></div>
           </section>
 
           <section className="metric-grid" aria-label="Executive metrics">
