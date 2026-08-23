@@ -94,6 +94,9 @@ export function ControlRoom() {
   const [drawerDetailOpen, setDrawerDetailOpen] = useState(false);
   const [traceActive, setTraceActive] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileViewport, setMobileViewport] = useState(false);
+  const sidebarRef = useRef<HTMLElement | null>(null);
+  const mobileMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const drawerRef = useRef<HTMLElement | null>(null);
   const evidenceTriggerRef = useRef<HTMLElement | null>(null);
   const scenario = scenarios[scenarioId];
@@ -111,6 +114,50 @@ export function ControlRoom() {
     setDrawerDetailOpen(false);
     requestAnimationFrame(() => evidenceTriggerRef.current?.focus());
   }
+
+  function closeMobileNavigation() {
+    setMobileNavOpen(false);
+    requestAnimationFrame(() => mobileMenuTriggerRef.current?.focus());
+  }
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 900px)");
+    const updateViewport = () => {
+      setMobileViewport(mediaQuery.matches);
+      if (!mediaQuery.matches) setMobileNavOpen(false);
+    };
+    updateViewport();
+    mediaQuery.addEventListener("change", updateViewport);
+    return () => mediaQuery.removeEventListener("change", updateViewport);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileViewport || !mobileNavOpen) return;
+    const sidebar = sidebarRef.current;
+    const previousOverflow = document.body.style.overflow;
+    const focusable = () => Array.from(sidebar?.querySelectorAll<HTMLElement>('button, [href], select, input, [tabindex]:not([tabindex="-1"])') ?? []);
+    document.body.style.overflow = "hidden";
+    requestAnimationFrame(() => focusable()[0]?.focus());
+    function containNavigationFocus(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeMobileNavigation();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
+    document.addEventListener("keydown", containNavigationFocus);
+    return () => {
+      document.removeEventListener("keydown", containNavigationFocus);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileNavOpen, mobileViewport]);
 
   useEffect(() => {
     if (!selectedFlowKey) return;
@@ -204,14 +251,23 @@ export function ControlRoom() {
 
   return (
     <div className="admin-shell">
-      <aside className={`sidebar ${mobileNavOpen ? "sidebar--open" : ""}`}>
+      <aside
+        ref={sidebarRef}
+        id="admin-navigation"
+        className={`sidebar ${mobileNavOpen ? "sidebar--open" : ""}`}
+        role={mobileViewport && mobileNavOpen ? "dialog" : undefined}
+        aria-modal={mobileViewport && mobileNavOpen ? true : undefined}
+        aria-label={mobileViewport && mobileNavOpen ? "Admin navigation" : undefined}
+        aria-hidden={mobileViewport && !mobileNavOpen ? true : undefined}
+        inert={mobileViewport && !mobileNavOpen ? true : undefined}
+      >
         <div className="brand-row">
           <div className="brand-mark"><Image src="/fuelcap-mark.svg" width={26} height={28} alt="FuelCap" priority /></div>
           <div>
             <strong>FuelCap</strong>
             <span>Control Room</span>
           </div>
-          <button className="icon-button sidebar-close" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation"><X size={18} /></button>
+          <button className="icon-button sidebar-close" onClick={closeMobileNavigation} aria-label="Close navigation"><X size={18} /></button>
         </div>
 
         <div className="environment-card">
@@ -226,7 +282,7 @@ export function ControlRoom() {
           <p className="nav-label">Workspaces</p>
           <div className="nav-list">
             {visibleNavigation.map(({ key, label, icon: Icon }) => (
-              <button className={`nav-item ${activeWorkspace === key ? "nav-item--active" : ""}`} key={label} type="button" onClick={() => { setActiveWorkspace(key); setMobileNavOpen(false); }}>
+              <button className={`nav-item ${activeWorkspace === key ? "nav-item--active" : ""}`} key={label} type="button" onClick={() => { setActiveWorkspace(key); closeMobileNavigation(); }}>
                 <Icon size={17} />
                 <span>{label}</span>
                 {key !== "control-room" && key !== "customers-fleets" && <span className="nav-soon">Soon</span>}
@@ -242,11 +298,11 @@ export function ControlRoom() {
         </div>
       </aside>
 
-      {mobileNavOpen && <button className="nav-backdrop" aria-label="Close navigation" onClick={() => setMobileNavOpen(false)} />}
+      {mobileNavOpen && <button className="nav-backdrop" aria-label="Close navigation" onClick={closeMobileNavigation} />}
 
       <main className="main-canvas">
         <header className="topbar">
-          <button className="icon-button mobile-menu" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation"><Menu size={20} /></button>
+          <button ref={mobileMenuTriggerRef} className="icon-button mobile-menu" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation" aria-expanded={mobileNavOpen} aria-controls="admin-navigation"><Menu size={20} /></button>
           <div className="breadcrumb"><span>FuelCap Operations</span><span>/</span><strong>{workspaces.find(({ key }) => key === activeWorkspace)?.label}</strong></div>
           <div className="topbar-actions">
             <button className="search-button" type="button"><Search size={17} /><span>Search operations</span><kbd>⌘ K</kbd></button>
