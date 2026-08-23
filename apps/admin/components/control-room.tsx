@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useMemo, useState } from "react";
-import { AUTHZ_POLICY_VERSION, authorize, demoOrganisations, demoPrincipals, visibleWorkspaces, type Environment as AuthzEnvironment, type Workspace } from "@fuelcap/authz";
+import { AUTHZ_POLICY_VERSION, authorize, demoOrganisations, demoPrincipals, evaluateBreakGlass, evaluateGovernedAction, visibleWorkspaces, type Environment as AuthzEnvironment, type Workspace } from "@fuelcap/authz";
 import { createScenarioRuntime, type DemoEnvironment, type ScenarioReady } from "@fuelcap/demo-data";
 import { scenarioOrder, scenarios, type ScenarioId } from "@/lib/demo-data";
 import { FleetWorkspace } from "@/components/fleet-workspace";
@@ -51,6 +51,7 @@ const workspaces: readonly { key: Workspace; label: string; icon: typeof LayoutD
 
 type ApprovalState = "idle" | "reviewing" | "approved";
 type ResetState = "idle" | "resetting" | "ready" | "failed";
+type SecurityState = "none" | "permission-denied" | "step-up-required" | "step-up-complete" | "break-glass-denied";
 
 function StatusDot({ state }: { state: "healthy" | "watch" | "controlled" }) {
   return <span className={`status-dot status-dot--${state}`} aria-label={state} />;
@@ -72,6 +73,7 @@ export function ControlRoom() {
   const [scenarioReady, setScenarioReady] = useState<ScenarioReady>(() => runtime.reset(scenarios.exposure.manifestId));
   const [resetState, setResetState] = useState<ResetState>("idle");
   const [approvalState, setApprovalState] = useState<ApprovalState>("idle");
+  const [securityState, setSecurityState] = useState<SecurityState>("none");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const scenario = scenarios[scenarioId];
   const auditId = useMemo(() => `AUD-DEMO-${scenarioId.toUpperCase()}-00842`, [scenarioId]);
@@ -82,6 +84,27 @@ export function ControlRoom() {
     if (!nextPrincipal.organisationIds.includes(activeOrganisationId)) setActiveOrganisationId(nextPrincipal.organisationIds[0]);
     setActiveWorkspace("control-room");
     setApprovalState("idle");
+    setSecurityState("none");
+  }
+
+  function requestGovernedAction() {
+    const decision = evaluateGovernedAction({ principal, environment: authzEnvironment, activeOrganisationId, workspace: "protection-hedging", verb: "initiate", reconciled: true, priceValid: true, requiresStepUp: false, assurance: "standard" });
+    if (!decision.allowed) {
+      setSecurityState("permission-denied");
+      return;
+    }
+    setApprovalState("reviewing");
+    setSecurityState("step-up-required");
+  }
+
+  function confirmStepUp() {
+    setApprovalState("approved");
+    setSecurityState("step-up-complete");
+  }
+
+  function demonstrateBreakGlassBoundary() {
+    evaluateBreakGlass({ principal, environment: authzEnvironment, assurance: "step-up", requestedCapability: "validate-price" });
+    setSecurityState("break-glass-denied");
   }
 
   function changeScenario(id: ScenarioId) {
@@ -244,6 +267,7 @@ export function ControlRoom() {
               </div>
               <div className="policy-box"><ShieldCheck size={18} /><div><strong>Policy boundary</strong><span>{scenario.recommendation.policy}</span></div></div>
               <div className="impact-row"><span>Expected impact</span><strong>{scenario.recommendation.impact}</strong></div>
+              {securityState !== "none" && <div className={`security-state security-state--${securityState}`} role="status"><LockKeyhole size={17} /><div><strong>{securityState === "permission-denied" ? "Permission denied" : securityState === "step-up-required" ? "Step-up authentication required" : securityState === "step-up-complete" ? "Fresh assurance verified" : "Break-glass boundary enforced"}</strong><span>{securityState === "permission-denied" ? `${principal.roles.join("/")} cannot initiate this action under ${AUTHZ_POLICY_VERSION}.` : securityState === "step-up-required" ? "Approval is paused until the different approver re-authenticates with MFA." : securityState === "step-up-complete" ? "Maker-checker and fresh assurance are recorded in the audit lineage." : "Emergency access cannot fabricate a valid price or override an integrity block. An incident is opened."}</span></div></div>}
 
               {approvalState === "approved" ? (
                 <div className="approval-result" role="status"><div><Check size={18} /></div><span><strong>Simulated action approved</strong>Maker-checker complete · {auditId}</span></div>
@@ -251,12 +275,12 @@ export function ControlRoom() {
                 <div className="approval-review">
                   <div><span>Initiated by</span><strong>R. Singh · Risk Treasury</strong></div>
                   <div><span>Approver</span><strong>A. Morgan · Treasury Lead</strong></div>
-                  <button type="button" onClick={() => setApprovalState("approved")}><LockKeyhole size={15} />Confirm with step-up MFA</button>
+                  <button type="button" onClick={confirmStepUp}><LockKeyhole size={15} />Confirm with step-up MFA</button>
                   <button className="button-secondary" type="button" onClick={() => setApprovalState("idle")}>Cancel</button>
                 </div>
               ) : (
                 <div className="ai-actions">
-                  {canInitiateHedge ? <button type="button" onClick={() => setApprovalState("reviewing")}><ShieldCheck size={16} />{scenario.recommendation.action}</button> : <button type="button" disabled><LockKeyhole size={16} />Initiation denied for {principal.roles.join("/")}</button>}
+                  <button type="button" onClick={requestGovernedAction}>{canInitiateHedge ? <ShieldCheck size={16} /> : <LockKeyhole size={16} />}{canInitiateHedge ? scenario.recommendation.action : `Test denied action · ${principal.roles.join("/")}`}</button>
                   <button className="button-secondary" type="button">Open evidence pack</button>
                   <span>No action executes without approval</span>
                 </div>
@@ -273,6 +297,7 @@ export function ControlRoom() {
               </ol>
               <div className="audit-id"><span>Audit record</span><strong>{auditId}</strong></div>
               <button className="audit-link" type="button">View complete lineage <span>→</span></button>
+              <button className="audit-link" type="button" onClick={demonstrateBreakGlassBoundary}>Test break-glass boundary <span>→</span></button>
             </aside>
           </div>
 
