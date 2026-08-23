@@ -30,10 +30,10 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AUTHZ_POLICY_VERSION, authorize, demoOrganisations, demoPrincipals, evaluateBreakGlass, evaluateGovernedAction, visibleWorkspaces, type Environment as AuthzEnvironment, type Workspace } from "@fuelcap/authz";
 import { createScenarioRuntime, type DemoEnvironment, type ScenarioReady } from "@fuelcap/demo-data";
-import { scenarioOrder, scenarios, type MarketFilter, type ScenarioId } from "@/lib/demo-data";
+import { pricingObservationSets, scenarioOrder, scenarios, type MarketFilter, type ScenarioId } from "@/lib/demo-data";
 import { FleetWorkspace } from "@/components/fleet-workspace";
 
 const workspaces: readonly { key: Workspace; label: string; icon: typeof LayoutDashboard; active?: boolean }[] = [
@@ -91,11 +91,49 @@ export function ControlRoom() {
   const [approvalState, setApprovalState] = useState<ApprovalState>("idle");
   const [securityState, setSecurityState] = useState<SecurityState>("none");
   const [selectedFlowKey, setSelectedFlowKey] = useState<string | null>(null);
+  const [drawerDetailOpen, setDrawerDetailOpen] = useState(false);
   const [traceActive, setTraceActive] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const drawerRef = useRef<HTMLElement | null>(null);
+  const evidenceTriggerRef = useRef<HTMLElement | null>(null);
   const scenario = scenarios[scenarioId];
   const selectedFlowNode = scenario.flow.find((node) => node.key === selectedFlowKey) ?? null;
   const auditId = useMemo(() => `AUD-DEMO-${scenarioId.toUpperCase()}-00842`, [scenarioId]);
+
+  function openEvidence(key: string) {
+    if (document.activeElement instanceof HTMLElement) evidenceTriggerRef.current = document.activeElement;
+    setDrawerDetailOpen(false);
+    setSelectedFlowKey(key);
+  }
+
+  function closeEvidence() {
+    setSelectedFlowKey(null);
+    setDrawerDetailOpen(false);
+    requestAnimationFrame(() => evidenceTriggerRef.current?.focus());
+  }
+
+  useEffect(() => {
+    if (!selectedFlowKey) return;
+    const drawer = drawerRef.current;
+    const focusable = () => Array.from(drawer?.querySelectorAll<HTMLElement>('button, [href], select, input, [tabindex]:not([tabindex="-1"])') ?? []);
+    requestAnimationFrame(() => focusable()[0]?.focus());
+    function containFocus(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeEvidence();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
+    document.addEventListener("keydown", containFocus);
+    return () => document.removeEventListener("keydown", containFocus);
+  }, [selectedFlowKey]);
 
   function changePrincipal(nextPrincipalId: string) {
     const nextPrincipal = demoPrincipals.find((candidate) => candidate.principalId === nextPrincipalId) ?? demoPrincipals[0];
@@ -133,6 +171,7 @@ export function ControlRoom() {
     setResetState("idle");
     setApprovalState("idle");
     setSelectedFlowKey(null);
+    setDrawerDetailOpen(false);
     setTraceActive(false);
   }
 
@@ -257,7 +296,7 @@ export function ControlRoom() {
             <div className="pricing-health__fact"><span>Eligible coverage</span><strong>{scenario.pricingHealth.coverage}</strong></div>
             <div className="pricing-health__fact"><span>Anomaly state</span><strong>{scenario.pricingHealth.anomaly}</strong></div>
             <div className="pricing-health__fact"><span>Conflicts</span><strong>{scenario.pricingHealth.conflicts}</strong></div>
-            <button type="button" onClick={() => setSelectedFlowKey("price")}><Search size={14} />Inspect pricing evidence</button>
+            <button type="button" onClick={() => openEvidence("price")}><Search size={14} />Inspect pricing evidence</button>
           </section>
 
           <section className="metric-grid" aria-label="Executive metrics">
@@ -281,7 +320,7 @@ export function ControlRoom() {
 
             <div className={`flow-grid ${traceActive ? "flow-grid--tracing" : ""}`}>
               {scenario.flow.map((node, index) => (
-                <button className={`flow-node flow-node--${node.state} ${selectedFlowKey === node.key ? "flow-node--selected" : ""}`} key={node.key} type="button" onClick={() => setSelectedFlowKey(node.key)} aria-pressed={selectedFlowKey === node.key}>
+                <button className={`flow-node flow-node--${node.state} ${selectedFlowKey === node.key ? "flow-node--selected" : ""}`} key={node.key} type="button" onClick={() => openEvidence(node.key)} aria-pressed={selectedFlowKey === node.key}>
                   <div className="flow-node__top"><span>{String(index + 1).padStart(2, "0")}</span><StatusDot state={node.state} /></div>
                   <p>{node.eyebrow}</p>
                   <h3>{node.title}</h3>
@@ -302,7 +341,7 @@ export function ControlRoom() {
           <section className="commercial-lineage" aria-label="Commercial and exposure lineage">
             <div className="commercial-lineage__heading"><div><span className="section-kicker">Commercial lineage</span><h2>Price, protection and exposure reconcile as one outcome</h2></div><span><FileCheck2 size={14} /> Click any value for evidence</span></div>
             <div className="commercial-lineage__steps">
-              {scenario.commercialLineage.map((step, index) => <button className={`lineage-step lineage-step--${step.tone}`} type="button" key={`${step.label}-${index}`} onClick={() => setSelectedFlowKey(step.nodeKey)}>
+              {scenario.commercialLineage.map((step, index) => <button className={`lineage-step lineage-step--${step.tone}`} type="button" key={`${step.label}-${index}`} onClick={() => openEvidence(step.nodeKey)}>
                 <span>{String(index + 1).padStart(2, "0")} · {step.label}</span><strong>{step.value}</strong><small>{step.detail}</small>{index < scenario.commercialLineage.length - 1 && <i aria-hidden="true">→</i>}
               </button>)}
             </div>
@@ -312,20 +351,20 @@ export function ControlRoom() {
             <article className={`safeguarding-card safeguarding-card--${scenario.operationsControl.invariant}`}>
               <div className="control-card__heading"><div><span className="section-kicker">Safeguarding invariant</span><h2>Customer-owed value is fully accounted for</h2></div><span className="control-state"><ShieldCheck size={14} />Invariant {scenario.operationsControl.invariant}</span></div>
               <div className="safeguarding-equation"><div><span>Safeguarded balance</span><strong>{scenario.operationsControl.safeguarded}</strong></div><i>=</i><div><span>Customer owed</span><strong>{scenario.operationsControl.customerOwed}</strong></div><i>+</i><div><span>In flight</span><strong>{scenario.operationsControl.inFlight}</strong></div></div>
-              <button type="button" onClick={() => setSelectedFlowKey("ledger")}>Inspect ledger evidence <span>→</span></button>
+              <button type="button" onClick={() => openEvidence("ledger")}>Inspect ledger evidence <span>→</span></button>
             </article>
             <article className={`case-queue case-queue--${scenario.operationsControl.caseClass}`}>
               <div className="control-card__heading"><div><span className="section-kicker">Governed case queue</span><h2>{scenario.operationsControl.caseTitle}</h2></div><span className="case-count">{scenario.operationsControl.caseCount}</span></div>
               <div className="case-facts"><div><span>Reconciliation</span><strong>{scenario.operationsControl.reconciliation}</strong></div><div><span>Open breaks</span><strong>{scenario.operationsControl.breaks}</strong></div><div><span>Downstream control</span><strong>{scenario.operationsControl.downstream}</strong></div></div>
               <div className="case-boundary"><LockKeyhole size={14} /><span>Break-glass cannot clear an unreconciled or invalid state.</span></div>
-              <button type="button" onClick={() => setSelectedFlowKey(scenario.operationsControl.caseClass === "risk" || scenario.operationsControl.caseClass === "eligibility" ? "risk" : scenario.operationsControl.caseClass === "pricing" ? "price" : "settle")}>Open governed evidence <span>→</span></button>
+              <button type="button" onClick={() => openEvidence(scenario.operationsControl.caseClass === "risk" || scenario.operationsControl.caseClass === "eligibility" ? "risk" : scenario.operationsControl.caseClass === "pricing" ? "price" : "settle")}>Open governed evidence <span>→</span></button>
             </article>
           </section>
 
-          {selectedFlowNode && <aside className="evidence-drawer" aria-label={`${selectedFlowNode.title} evidence`}>
+          {selectedFlowNode && <><button className="evidence-backdrop" type="button" aria-label="Close evidence drawer" onClick={closeEvidence} /><aside ref={drawerRef} className="evidence-drawer" role="dialog" aria-modal="true" aria-label={`${selectedFlowNode.title} evidence`}>
             <div className="evidence-drawer__heading">
               <div><span className="section-kicker">Node evidence</span><h2>{selectedFlowNode.title}</h2></div>
-              <button className="icon-button" type="button" onClick={() => setSelectedFlowKey(null)} aria-label="Close evidence drawer"><X size={18} /></button>
+              <button className="icon-button" type="button" onClick={closeEvidence} aria-label="Close evidence drawer"><X size={18} /></button>
             </div>
             <div className="evidence-drawer__value"><span>{selectedFlowNode.eyebrow}</span><strong>{selectedFlowNode.value}</strong><p>{selectedFlowNode.detail}</p></div>
             <dl className="evidence-facts">
@@ -333,12 +372,20 @@ export function ControlRoom() {
               <div><dt>Decision version</dt><dd>{flowEvidence[selectedFlowNode.key].version}</dd></div>
               <div><dt>Data freshness</dt><dd>{selectedFlowNode.key === "price" ? scenario.pricingHealth.freshestObservation : "Current scenario clock"}</dd></div>
               <div><dt>Control owner</dt><dd>{flowEvidence[selectedFlowNode.key].owner}</dd></div>
-              <div><dt>Open alerts</dt><dd>{selectedFlowNode.key === "price" ? `${scenario.pricingHealth.anomaly} · ${scenario.pricingHealth.conflicts}` : selectedFlowNode.state === "watch" ? "1 governed review" : "None blocking"}</dd></div>
+              <div><dt>Anomaly state</dt><dd>{selectedFlowNode.key === "price" ? scenario.pricingHealth.anomaly : selectedFlowNode.state === "watch" ? "Governed review" : "None detected"}</dd></div>
+              <div><dt>Conflicts</dt><dd>{selectedFlowNode.key === "price" ? scenario.pricingHealth.conflicts : "0 unresolved"}</dd></div>
+              <div><dt>Decision eligibility</dt><dd>{selectedFlowNode.key === "price" ? scenario.pricingHealth.eligibility : "Scenario eligible"}</dd></div>
               <div><dt>Provenance</dt><dd>Synthetic-seeded · demonstrator</dd></div>
             </dl>
             <div className="evidence-drawer__lineage"><FileCheck2 size={16} /><span>Scenario manifest → contract → decision → audit record</span><strong>{auditId}</strong></div>
-            <button className="drawer-action" type="button">{flowEvidence[selectedFlowNode.key].action}<span>→</span></button>
-          </aside>}
+            <button className="drawer-action" type="button" aria-expanded={drawerDetailOpen} onClick={() => setDrawerDetailOpen((open) => !open)}>{drawerDetailOpen ? "Hide detailed evidence" : flowEvidence[selectedFlowNode.key].action}<span>{drawerDetailOpen ? "↑" : "→"}</span></button>
+            {drawerDetailOpen && <div className="drawer-detail" role="region" aria-label="Detailed evidence">
+              {selectedFlowNode.key === "price" ? pricingObservationSets[scenarioId].map((observation) => <article className={`observation-row observation-row--${observation.decision.toLowerCase()}`} key={`${observation.source}-${observation.decision}`}><div><strong>{observation.source}</strong><span>{observation.observed} · {observation.licence}</span></div><span>{observation.eligibility}</span><b>{observation.decision}</b><p>{observation.reason}</p></article>) : <>
+                <article className="observation-row observation-row--selected"><div><strong>{flowEvidence[selectedFlowNode.key].source}</strong><span>{flowEvidence[selectedFlowNode.key].version}</span></div><span>Pinned input</span><b>Selected</b><p>The scenario record is immutable and linked to this decision.</p></article>
+                <article className="observation-row observation-row--corroborating"><div><strong>Policy evaluation</strong><span>RULE-09 · scenario contract 1.0.0</span></div><span>Control evidence</span><b>Corroborating</b><p>Eligibility and integrity checks completed before the projection was displayed.</p></article>
+              </>}
+            </div>}
+          </aside></>}
 
           <div className="lower-grid">
             <section className="ai-panel">
@@ -349,7 +396,7 @@ export function ControlRoom() {
               </div>
               <p className="ai-rationale">{scenario.recommendation.rationale}</p>
               <div className="evidence-grid">
-                {scenario.recommendation.evidence.map((item) => <button type="button" key={`${item.claim}-${item.source}`} onClick={() => setSelectedFlowKey(item.nodeKey)}><Check size={14} /><span><strong>{item.claim}</strong><small>Source · {item.source}</small></span><i>↗</i></button>)}
+                {scenario.recommendation.evidence.map((item) => <button type="button" key={`${item.claim}-${item.source}`} onClick={() => openEvidence(item.nodeKey)}><Check size={14} /><span><strong>{item.claim}</strong><small>Source · {item.source}</small></span><i>↗</i></button>)}
               </div>
               <div className="ai-assurance"><span><FileCheck2 size={13} /> 3/3 claims cited</span><span>Confidence floor · 80%</span><span>Projection assertions · passed</span><span>Action envelope · recommendation only</span></div>
               <div className="policy-box"><ShieldCheck size={18} /><div><strong>Policy boundary</strong><span>{scenario.recommendation.policy}</span></div></div>
