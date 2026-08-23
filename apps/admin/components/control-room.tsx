@@ -251,6 +251,15 @@ export function ControlRoom() {
             <div className="filter-clock"><Clock3 size={14} /><span>Point-in-time values</span><strong>{scenario.clock}</strong></div>
           </section>
 
+          <section className={`pricing-health pricing-health--${scenario.pricingHealth.status}`} aria-label="Pricing feed health">
+            <div className="pricing-health__title"><Database size={17} /><div><span>Pricing signal health</span><strong>{scenario.pricingHealth.eligibility}</strong></div></div>
+            <div className="pricing-health__fact"><span>Freshest observation</span><strong>{scenario.pricingHealth.freshestObservation}</strong></div>
+            <div className="pricing-health__fact"><span>Eligible coverage</span><strong>{scenario.pricingHealth.coverage}</strong></div>
+            <div className="pricing-health__fact"><span>Anomaly state</span><strong>{scenario.pricingHealth.anomaly}</strong></div>
+            <div className="pricing-health__fact"><span>Conflicts</span><strong>{scenario.pricingHealth.conflicts}</strong></div>
+            <button type="button" onClick={() => setSelectedFlowKey("price")}><Search size={14} />Inspect pricing evidence</button>
+          </section>
+
           <section className="metric-grid" aria-label="Executive metrics">
             {scenario.metrics.map((metric) => (
               <article className="metric-card" key={metric.label}>
@@ -299,9 +308,9 @@ export function ControlRoom() {
             <dl className="evidence-facts">
               <div><dt>Source record</dt><dd>{flowEvidence[selectedFlowNode.key].source}</dd></div>
               <div><dt>Decision version</dt><dd>{flowEvidence[selectedFlowNode.key].version}</dd></div>
-              <div><dt>Data freshness</dt><dd>{selectedFlowNode.key === "price" ? "42 seconds" : "Current scenario clock"}</dd></div>
+              <div><dt>Data freshness</dt><dd>{selectedFlowNode.key === "price" ? scenario.pricingHealth.freshestObservation : "Current scenario clock"}</dd></div>
               <div><dt>Control owner</dt><dd>{flowEvidence[selectedFlowNode.key].owner}</dd></div>
-              <div><dt>Open alerts</dt><dd>{selectedFlowNode.state === "watch" ? "1 governed review" : "None blocking"}</dd></div>
+              <div><dt>Open alerts</dt><dd>{selectedFlowNode.key === "price" ? `${scenario.pricingHealth.anomaly} · ${scenario.pricingHealth.conflicts}` : selectedFlowNode.state === "watch" ? "1 governed review" : "None blocking"}</dd></div>
               <div><dt>Provenance</dt><dd>Synthetic-seeded · demonstrator</dd></div>
             </dl>
             <div className="evidence-drawer__lineage"><FileCheck2 size={16} /><span>Scenario manifest → contract → decision → audit record</span><strong>{auditId}</strong></div>
