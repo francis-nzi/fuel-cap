@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authorize, demoPrincipals, visibleWorkspaces, type Principal } from "./index";
+import { authorize, authorizeTenantResource, demoPrincipals, evaluateBreakGlass, evaluateGovernedAction, visibleWorkspaces, type Principal } from "./index";
 
 const operations = demoPrincipals.find(({ principalId }) => principalId === "principal-operations")!;
 const presenter = demoPrincipals.find(({ principalId }) => principalId === "principal-presenter")!;
@@ -35,5 +35,29 @@ describe("admin authorization policy", () => {
   it("filters navigation using the same server policy", () => {
     expect(visibleWorkspaces(auditor, "demo", "org-fuelcap-global", ["control-room", "billing-xero"])).toEqual(["control-room", "billing-xero"]);
     expect(visibleWorkspaces(auditor, "demo", "org-fleet-northstar", ["control-room", "billing-xero"])).toEqual([]);
+  });
+
+  it("requires fresh step-up assurance for governed approval", () => {
+    const finance = demoPrincipals.find(({ principalId }) => principalId === "principal-finance")!;
+    const request = { principal: finance, environment: "demo" as const, activeOrganisationId: "org-fuelcap-global", workspace: "billing-xero" as const, verb: "approve" as const, actionOwnerPrincipalId: "another-principal", reconciled: true, priceValid: true, requiresStepUp: true };
+    expect(evaluateGovernedAction({ ...request, assurance: "standard" }).reasonCode).toBe("REQUIRE_STEP_UP");
+    expect(evaluateGovernedAction({ ...request, assurance: "step-up" }).reasonCode).toBe("ALLOW");
+  });
+
+  it("blocks governed actions when integrity state is invalid", () => {
+    const risk = demoPrincipals.find(({ principalId }) => principalId === "principal-risk")!;
+    expect(evaluateGovernedAction({ principal: risk, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "spread-engine", verb: "approve", actionOwnerPrincipalId: "another-principal", reconciled: true, priceValid: false, requiresStepUp: true, assurance: "step-up" }).reasonCode).toBe("DENY_INVALID_STATE");
+  });
+
+  it("never lets break-glass override protected invariants", () => {
+    const platformAdmin: Principal = { principalId: "principal-platform", name: "Priya Adams", email: "priya.adams@fuelcap.example", roles: ["PA"], organisationIds: ["org-fuelcap-global"] };
+    expect(evaluateBreakGlass({ principal: platformAdmin, environment: "demo", assurance: "step-up", requestedCapability: "validate-price" })).toEqual({ allowed: false, reasonCode: "DENY_PROTECTED_INVARIANT", incidentRequired: true });
+    expect(evaluateBreakGlass({ principal: platformAdmin, environment: "demo", assurance: "step-up", requestedCapability: "temporary-support-access" }).reasonCode).toBe("ALLOW_INCIDENT_OPENED");
+  });
+
+  it("denies guessed and cross-organisation resource identifiers", () => {
+    expect(authorizeTenantResource({ principal: operations, environment: "demo", activeOrganisationId: "org-fleet-northstar", resourceOrganisationId: "guessed-org-id", workspace: "customers-fleets" }).reasonCode).toBe("DENY_TENANT_CONTEXT");
+    expect(authorizeTenantResource({ principal: operations, environment: "demo", activeOrganisationId: "org-personal-a", resourceOrganisationId: "org-fleet-northstar", workspace: "customers-fleets" }).reasonCode).toBe("DENY_TENANT_CONTEXT");
+    expect(authorizeTenantResource({ principal: operations, environment: "demo", activeOrganisationId: "org-fleet-northstar", resourceOrganisationId: "org-fleet-northstar", workspace: "customers-fleets" }).reasonCode).toBe("ALLOW");
   });
 });

@@ -31,6 +31,7 @@ export type AuthorizationRequest = Readonly<{
   workspace: Workspace;
   verb: Verb;
   actionOwnerPrincipalId?: string;
+  assurance?: "standard" | "step-up";
 }>;
 
 export type AuthorizationDecision = Readonly<{
@@ -79,11 +80,14 @@ export const demoOrganisations: readonly Organisation[] = [
 
 const allOrganisations = demoOrganisations.map(({ organisationId }) => organisationId);
 export const demoPrincipals: readonly Principal[] = [
+  { principalId: "principal-platform", name: "Priya Adams", email: "priya.adams@fuelcap.example", roles: ["PA"], organisationIds: allOrganisations },
   { principalId: "principal-presenter", name: "Francis Doherty", email: "francis.doherty@fuelcap.example", roles: ["DP"], organisationIds: allOrganisations },
   { principalId: "principal-operations", name: "Olivia Patel", email: "olivia.patel@fuelcap.example", roles: ["OP"], organisationIds: allOrganisations },
   { principalId: "principal-risk", name: "Ravi Singh", email: "ravi.singh@fuelcap.example", roles: ["RT"], organisationIds: allOrganisations },
   { principalId: "principal-finance", name: "Farah Morgan", email: "farah.morgan@fuelcap.example", roles: ["FR"], organisationIds: allOrganisations },
   { principalId: "principal-compliance", name: "Chloe Bennett", email: "chloe.bennett@fuelcap.example", roles: ["CF"], organisationIds: allOrganisations },
+  { principalId: "principal-support", name: "Sofia Reed", email: "sofia.reed@fuelcap.example", roles: ["CS"], organisationIds: allOrganisations },
+  { principalId: "principal-data", name: "Daniel Kim", email: "daniel.kim@fuelcap.example", roles: ["DI"], organisationIds: allOrganisations },
   { principalId: "principal-auditor", name: "Avery Chen", email: "avery.chen@fuelcap.example", roles: ["AU"], organisationIds: ["org-fuelcap-global"] },
 ];
 
@@ -105,4 +109,61 @@ export function authorize(request: AuthorizationRequest): AuthorizationDecision 
 
 export function visibleWorkspaces(principal: Principal, environment: Environment, activeOrganisationId: string, workspaces: readonly Workspace[]) {
   return workspaces.filter((workspace) => authorize({ principal, environment, activeOrganisationId, workspace, verb: "view" }).allowed);
+}
+
+export type GovernedActionDecision = Readonly<{
+  allowed: boolean;
+  reasonCode: "ALLOW" | "REQUIRE_STEP_UP" | "DENY_SELF_APPROVAL" | "DENY_INVALID_STATE" | "DENY_POLICY";
+}>;
+
+export function evaluateGovernedAction(request: AuthorizationRequest & Readonly<{
+  reconciled: boolean;
+  priceValid: boolean;
+  requiresStepUp: boolean;
+}>): GovernedActionDecision {
+  if (!request.reconciled || !request.priceValid) return { allowed: false, reasonCode: "DENY_INVALID_STATE" };
+  const policy = authorize(request);
+  if (!policy.allowed) return { allowed: false, reasonCode: policy.reasonCode === "DENY_SELF_APPROVAL" ? "DENY_SELF_APPROVAL" : "DENY_POLICY" };
+  if (request.requiresStepUp && request.assurance !== "step-up") return { allowed: false, reasonCode: "REQUIRE_STEP_UP" };
+  return { allowed: true, reasonCode: "ALLOW" };
+}
+
+export type BreakGlassDecision = Readonly<{
+  allowed: boolean;
+  reasonCode: "ALLOW_INCIDENT_OPENED" | "DENY_PROTECTED_INVARIANT" | "DENY_NOT_PLATFORM_ADMIN" | "REQUIRE_STEP_UP";
+  incidentRequired: boolean;
+}>;
+
+export function evaluateBreakGlass(input: Readonly<{
+  principal: Principal;
+  environment: Environment;
+  assurance: "standard" | "step-up";
+  requestedCapability: "temporary-support-access" | "validate-price" | "clear-reconciliation-break" | "self-approve";
+}>): BreakGlassDecision {
+  if (["validate-price", "clear-reconciliation-break", "self-approve"].includes(input.requestedCapability)) {
+    return { allowed: false, reasonCode: "DENY_PROTECTED_INVARIANT", incidentRequired: true };
+  }
+  if (!input.principal.roles.includes("PA")) return { allowed: false, reasonCode: "DENY_NOT_PLATFORM_ADMIN", incidentRequired: true };
+  if (input.assurance !== "step-up") return { allowed: false, reasonCode: "REQUIRE_STEP_UP", incidentRequired: true };
+  return { allowed: true, reasonCode: "ALLOW_INCIDENT_OPENED", incidentRequired: true };
+}
+
+export function authorizeTenantResource(input: Readonly<{
+  principal: Principal;
+  environment: Environment;
+  activeOrganisationId: string;
+  resourceOrganisationId: string;
+  workspace: Workspace;
+}>) {
+  if (input.activeOrganisationId !== input.resourceOrganisationId) {
+    return { allowed: false, reasonCode: "DENY_TENANT_CONTEXT" as const };
+  }
+  const decision = authorize({
+    principal: input.principal,
+    environment: input.environment,
+    activeOrganisationId: input.activeOrganisationId,
+    workspace: input.workspace,
+    verb: "view",
+  });
+  return { allowed: decision.allowed, reasonCode: decision.allowed ? "ALLOW" as const : "DENY_TENANT_CONTEXT" as const };
 }
