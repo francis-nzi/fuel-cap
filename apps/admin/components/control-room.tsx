@@ -344,13 +344,14 @@ export function ControlRoom() {
             <section className="ai-panel">
               <div className="ai-panel__header">
                 <div className="ai-orb"><Sparkles size={19} /></div>
-                <div><span className="section-kicker">FuelCap intelligence</span><h2>{scenario.recommendation.title}</h2></div>
+                <div><span className="section-kicker">AI morning brief · cited demonstrator</span><h2>{scenario.recommendation.title}</h2></div>
                 <div className="confidence"><span>Confidence</span><strong>{scenario.recommendation.confidence}%</strong></div>
               </div>
               <p className="ai-rationale">{scenario.recommendation.rationale}</p>
               <div className="evidence-grid">
-                {scenario.recommendation.evidence.map((item) => <div key={item}><Check size={14} /><span>{item}</span></div>)}
+                {scenario.recommendation.evidence.map((item) => <button type="button" key={`${item.claim}-${item.source}`} onClick={() => setSelectedFlowKey(item.nodeKey)}><Check size={14} /><span><strong>{item.claim}</strong><small>Source · {item.source}</small></span><i>↗</i></button>)}
               </div>
+              <div className="ai-assurance"><span><FileCheck2 size={13} /> 3/3 claims cited</span><span>Confidence floor · 80%</span><span>Projection assertions · passed</span><span>Action envelope · recommendation only</span></div>
               <div className="policy-box"><ShieldCheck size={18} /><div><strong>Policy boundary</strong><span>{scenario.recommendation.policy}</span></div></div>
               <div className="impact-row"><span>Expected impact</span><strong>{scenario.recommendation.impact}</strong></div>
               {securityState !== "none" && <div className={`security-state security-state--${securityState}`} role="status"><LockKeyhole size={17} /><div><strong>{securityState === "permission-denied" ? "Permission denied" : securityState === "step-up-required" ? "Step-up authentication required" : securityState === "step-up-complete" ? "Fresh assurance verified" : "Break-glass boundary enforced"}</strong><span>{securityState === "permission-denied" ? `${principal.roles.join("/")} cannot initiate this action under ${AUTHZ_POLICY_VERSION}.` : securityState === "step-up-required" ? "Approval is paused until the different approver re-authenticates with MFA." : securityState === "step-up-complete" ? "Maker-checker and fresh assurance are recorded in the audit lineage." : "Emergency access cannot fabricate a valid price or override an integrity block. An incident is opened."}</span></div></div>}

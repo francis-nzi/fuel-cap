@@ -1,4 +1,4 @@
-import type { ScenarioId as ManifestScenarioId } from "@fuelcap/demo-data";
+import { scenarioManifests, type ScenarioId as ManifestScenarioId } from "@fuelcap/demo-data";
 
 export type ScenarioId = "normal" | "boundary" | "exposure" | "ukQuote" | "canadaFraud" | "fx";
 export type MarketFilter = "US" | "UK" | "CA" | "MULTI";
@@ -53,7 +53,7 @@ export type Scenario = {
     rationale: string;
     confidence: number;
     action: string;
-    evidence: string[];
+    evidence: Array<{ claim: string; source: string; nodeKey: "price" | "spread" | "protect" | "ledger" | "settle" | "risk" }>;
     policy: string;
     impact: string;
   };
@@ -97,7 +97,7 @@ export const scenarios: Record<ScenarioId, Scenario> = {
       rationale: "Observed volatility and pool utilisation remain within the calm-state policy envelope.",
       confidence: 94,
       action: "Acknowledge operating state",
-      evidence: ["30-day realised volatility: 18.4%", "Pool utilisation: 27.8%", "Canonical quote coverage: 98.9%"],
+      evidence: [{ claim: "30-day realised volatility: 18.4%", source: "Exposure snapshot", nodeKey: "risk" }, { claim: "Pool utilisation: 27.8%", source: "Pool coverage projection", nodeKey: "risk" }, { claim: "Canonical quote coverage: 98.9%", source: "Pricing decision set", nodeKey: "price" }],
       policy: "AI may recommend; acknowledgement creates no money movement.",
       impact: "No customer price or balance changes",
     },
@@ -139,7 +139,7 @@ export const scenarios: Record<ScenarioId, Scenario> = {
       rationale: "Short-dated volatility and claim velocity have risen while pool coverage remains above the hard floor.",
       confidence: 88,
       action: "Send pricing change for approval",
-      evidence: ["7-day claim velocity: +62%", "Black-76 calm cost exceeded by 14 bps", "Pool floor after action: 2.4×"],
+      evidence: [{ claim: "7-day claim velocity: +62%", source: "Settlement claim projection", nodeKey: "settle" }, { claim: "Black-76 calm cost exceeded by 14 bps", source: "Risk model v0.4-demo", nodeKey: "risk" }, { claim: "Pool floor after action: 2.4×", source: "Exposure stress snapshot", nodeKey: "risk" }],
       policy: "Pricing publication requires Risk initiator and Treasury approver; self-approval denied.",
       impact: "+$0.0064/gal on new US Regular protection only",
     },
@@ -181,7 +181,7 @@ export const scenarios: Record<ScenarioId, Scenario> = {
       rationale: "The smallest paper hedge that restores forecast pool coverage above 2.2× while preserving current customer pricing.",
       confidence: 91,
       action: "Approve simulated hedge",
-      evidence: ["Texas concentration: 37%", "Forecast pool coverage: 1.7× → 2.3×", "No reconciliation or quote-integrity blocks"],
+      evidence: [{ claim: "Texas concentration: 37%", source: "Accepted-position exposure", nodeKey: "protect" }, { claim: "Forecast pool coverage: 1.7× → 2.3×", source: "Simulated hedge stress", nodeKey: "risk" }, { claim: "No reconciliation or quote-integrity blocks", source: "Control assurance snapshot", nodeKey: "ledger" }],
       policy: "Treasury approver must differ from Risk initiator. Demonstrator action; zero money movement.",
       impact: "Paper position only · 25,000 gal · expires in 7 days",
     },
@@ -223,7 +223,7 @@ export const scenarios: Record<ScenarioId, Scenario> = {
       rationale: "The deterministic validator rejected the available inputs; preserving customer value is safer than estimating a settlement-eligible quote.",
       confidence: 100,
       action: "Acknowledge availability incident",
-      evidence: ["Quote eligibility: failed", "Released balance: £8,412", "Retroactive debit permission: false"],
+      evidence: [{ claim: "Quote eligibility: failed", source: "Canonical pricing decision", nodeKey: "price" }, { claim: "Released balance: £8,412", source: "Journal projection", nodeKey: "ledger" }, { claim: "Retroactive debit permission: false", source: "Rule 18 evaluation", nodeKey: "settle" }],
       policy: "AI may summarise the incident; no operator can override an invalid quote.",
       impact: "126 customers notified · balances remain available",
     },
@@ -265,7 +265,7 @@ export const scenarios: Record<ScenarioId, Scenario> = {
       rationale: "Shared signals justify grouped investigation, but evidence does not support an automated adverse customer decision.",
       confidence: 86,
       action: "Open governed case batch",
-      evidence: ["18 linked review cases", "No cross-tenant context", "Customer funds remain available"],
+      evidence: [{ claim: "18 linked review cases", source: "Eligibility case graph", nodeKey: "risk" }, { claim: "No cross-tenant context", source: "Tenant retrieval policy", nodeKey: "risk" }, { claim: "Customer funds remain available", source: "Customer-liability projection", nodeKey: "ledger" }],
       policy: "Statistical signals prioritise work; a human makes each eligibility decision.",
       impact: "Review queue only · no automated account restriction",
     },
@@ -307,7 +307,7 @@ export const scenarios: Record<ScenarioId, Scenario> = {
       rationale: "All conversions reconcile per currency using pinned, direction-explicit rates and the scenario remains inside its demonstrator envelope.",
       confidence: 97,
       action: "Acknowledge FX state",
-      evidence: ["USD/CAD 1.371200", "GBP/USD 1.286400", "Balanced per-currency journals"],
+      evidence: [{ claim: "USD/CAD 1.371200", source: "Pinned FX decision", nodeKey: "price" }, { claim: "GBP/USD 1.286400", source: "Pinned FX decision", nodeKey: "price" }, { claim: "Balanced per-currency journals", source: "Journal projection", nodeKey: "ledger" }],
       policy: "Illustrative rates cannot initiate live conversion or money movement.",
       impact: "No pricing or treasury change",
     },
@@ -315,3 +315,27 @@ export const scenarios: Record<ScenarioId, Scenario> = {
 };
 
 export const scenarioOrder: ScenarioId[] = ["normal", "boundary", "exposure", "ukQuote", "canadaFraud", "fx"];
+
+const requiredProjectionValues: Record<ScenarioId, readonly string[]> = {
+  normal: ["$3.58/gal", "2.30%", "42,100 gal"],
+  boundary: ["$3.50 / $3.675", "$3.85/gal", "$84.00 / $77.00", "$7.00"],
+  exposure: ["68,400 gal", "$23,940", "25,000 gal"],
+  ukQuote: ["£0.00", "£8,412", "Prohibited"],
+  canadaFraud: ["C$1.62/L", "C$6,920", "Human review"],
+  fx: ["1.371200", "1.286400", "1.092500", "$0.00"],
+};
+
+export function assertScenarioProjections() {
+  for (const id of scenarioOrder) {
+    const projection = scenarios[id];
+    const manifest = scenarioManifests[projection.manifestId];
+    if (projection.market !== manifest.market.country) throw new Error(`Market mismatch for ${id}.`);
+    const serialized = JSON.stringify(projection);
+    for (const expected of requiredProjectionValues[id]) {
+      if (!serialized.includes(expected)) throw new Error(`Projection ${id} is missing canonical value ${expected}.`);
+    }
+  }
+  return true;
+}
+
+export const scenarioProjectionsVerified = assertScenarioProjections();
