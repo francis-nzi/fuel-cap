@@ -27,6 +27,18 @@ export type Scenario = {
     nodeKey: "price" | "spread" | "protect" | "ledger" | "settle" | "risk";
     tone: "base" | "good" | "watch";
   }>;
+  operationsControl: {
+    safeguarded: string;
+    customerOwed: string;
+    inFlight: string;
+    invariant: "holds" | "review";
+    reconciliation: string;
+    breaks: number;
+    downstream: string;
+    caseTitle: string;
+    caseCount: number;
+    caseClass: "operations" | "pricing" | "eligibility" | "risk";
+  };
   metrics: Array<{ label: string; value: string; delta: string; tone: "good" | "neutral" | "warn" }>;
   flow: Array<{
     key: string;
@@ -65,6 +77,7 @@ export const scenarios: Record<ScenarioId, Scenario> = {
       { label: "Customer/FuelCap", value: "$0 claim", detail: "Flat market · no protection payout", nodeKey: "settle", tone: "good" },
       { label: "Pool exposure", value: "3.6× cover", detail: "Inside operating envelope", nodeKey: "risk", tone: "good" },
     ],
+    operationsControl: { safeguarded: "$1,842,615", customerOwed: "$1,839,820", inFlight: "$2,795", invariant: "holds", reconciliation: "99.97%", breaks: 3, downstream: "Non-blocking review", caseTitle: "Processor timing matches", caseCount: 3, caseClass: "operations" },
     metrics: [
       { label: "Protected volume", value: "184,260 gal", delta: "+3.8% vs 7d", tone: "good" },
       { label: "Protection charges", value: "$14,836", delta: "2.30% weighted", tone: "neutral" },
@@ -106,6 +119,7 @@ export const scenarios: Record<ScenarioId, Scenario> = {
       { label: "Station / customer", value: "$84.00 / $77.00", detail: "FuelCap funds the $7.00 difference", nodeKey: "settle", tone: "watch" },
       { label: "Pool claim", value: "$7.00", detail: "Capped contribution · balanced journal", nodeKey: "risk", tone: "watch" },
     ],
+    operationsControl: { safeguarded: "$1,916,420", customerOwed: "$1,902,180", inFlight: "$14,240", invariant: "holds", reconciliation: "99.92%", breaks: 11, downstream: "Affected claims held", caseTitle: "Station settlement breaks", caseCount: 11, caseClass: "operations" },
     metrics: [
       { label: "Protected volume", value: "191,840 gal", delta: "+7.9% vs 7d", tone: "neutral" },
       { label: "Claims today", value: "$28,420", delta: "+62% vs plan", tone: "warn" },
@@ -147,6 +161,7 @@ export const scenarios: Record<ScenarioId, Scenario> = {
       { label: "Value at boundary", value: "$23,940", detail: "Accepted-position exposure", nodeKey: "ledger", tone: "watch" },
       { label: "Simulated hedge", value: "25,000 gal", detail: "Restores forecast cover to 2.3×", nodeKey: "risk", tone: "good" },
     ],
+    operationsControl: { safeguarded: "$2,126,940", customerOwed: "$2,108,104", inFlight: "$18,836", invariant: "holds", reconciliation: "100.00%", breaks: 0, downstream: "Hedge approval available", caseTitle: "Texas concentration review", caseCount: 1, caseClass: "risk" },
     metrics: [
       { label: "Cluster exposure", value: "68,400 gal", delta: "37% in Texas", tone: "warn" },
       { label: "Value at boundary", value: "$23,940", delta: "+$8,110 today", tone: "warn" },
@@ -188,6 +203,7 @@ export const scenarios: Record<ScenarioId, Scenario> = {
       { label: "Released value", value: "£8,412", detail: "Reserved value returned to available tanks", nodeKey: "ledger", tone: "good" },
       { label: "Retroactive debit", value: "Prohibited", detail: "Customer must choose Protect now", nodeKey: "settle", tone: "good" },
     ],
+    operationsControl: { safeguarded: "£684,210", customerOwed: "£675,798", inFlight: "£8,412", invariant: "holds", reconciliation: "100.00%", breaks: 0, downstream: "New UK quotes blocked", caseTitle: "Pricing availability incident", caseCount: 1, caseClass: "pricing" },
     metrics: [
       { label: "Affected positions", value: "126", delta: "Availability class", tone: "warn" },
       { label: "Released value", value: "£8,412", delta: "Returned to tanks", tone: "neutral" },
@@ -229,6 +245,7 @@ export const scenarios: Record<ScenarioId, Scenario> = {
       { label: "Released value", value: "C$6,920", detail: "Customer funds remain available", nodeKey: "ledger", tone: "good" },
       { label: "Decision mode", value: "Human review", detail: "No automated adverse outcome", nodeKey: "risk", tone: "good" },
     ],
+    operationsControl: { safeguarded: "C$492,680", customerOwed: "C$485,760", inFlight: "C$6,920", invariant: "holds", reconciliation: "100.00%", breaks: 0, downstream: "Eligibility actions held", caseTitle: "Ontario eligibility reviews", caseCount: 18, caseClass: "eligibility" },
     metrics: [
       { label: "Accounts reviewed", value: "18", delta: "Ontario cluster", tone: "warn" },
       { label: "Protected volume", value: "4,860 L", delta: "Held from rollover", tone: "neutral" },
@@ -270,6 +287,7 @@ export const scenarios: Record<ScenarioId, Scenario> = {
       { label: "Ledger residue", value: "$0.00", detail: "Balanced per currency", nodeKey: "ledger", tone: "good" },
       { label: "Execution", value: "Simulation only", detail: "No live FX movement", nodeKey: "settle", tone: "good" },
     ],
+    operationsControl: { safeguarded: "$2,184,620 eq.", customerOwed: "$2,166,340 eq.", inFlight: "$18,280 eq.", invariant: "holds", reconciliation: "Balanced", breaks: 0, downstream: "Simulation only", caseTitle: "FX decision monitoring", caseCount: 0, caseClass: "operations" },
     metrics: [
       { label: "USD/CAD", value: "1.371200", delta: "Pinned scenario rate", tone: "neutral" },
       { label: "GBP/USD", value: "1.286400", delta: "Pinned scenario rate", tone: "neutral" },

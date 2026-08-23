@@ -279,6 +279,20 @@ export function ControlRoom() {
             </div>
           </section>
 
+          <section className="control-evidence-grid" aria-label="Safeguarding and governed operational cases">
+            <article className={`safeguarding-card safeguarding-card--${scenario.operationsControl.invariant}`}>
+              <div className="control-card__heading"><div><span className="section-kicker">Safeguarding invariant</span><h2>Customer-owed value is fully accounted for</h2></div><span className="control-state"><ShieldCheck size={14} />Invariant {scenario.operationsControl.invariant}</span></div>
+              <div className="safeguarding-equation"><div><span>Safeguarded balance</span><strong>{scenario.operationsControl.safeguarded}</strong></div><i>=</i><div><span>Customer owed</span><strong>{scenario.operationsControl.customerOwed}</strong></div><i>+</i><div><span>In flight</span><strong>{scenario.operationsControl.inFlight}</strong></div></div>
+              <button type="button" onClick={() => setSelectedFlowKey("ledger")}>Inspect ledger evidence <span>→</span></button>
+            </article>
+            <article className={`case-queue case-queue--${scenario.operationsControl.caseClass}`}>
+              <div className="control-card__heading"><div><span className="section-kicker">Governed case queue</span><h2>{scenario.operationsControl.caseTitle}</h2></div><span className="case-count">{scenario.operationsControl.caseCount}</span></div>
+              <div className="case-facts"><div><span>Reconciliation</span><strong>{scenario.operationsControl.reconciliation}</strong></div><div><span>Open breaks</span><strong>{scenario.operationsControl.breaks}</strong></div><div><span>Downstream control</span><strong>{scenario.operationsControl.downstream}</strong></div></div>
+              <div className="case-boundary"><LockKeyhole size={14} /><span>Break-glass cannot clear an unreconciled or invalid state.</span></div>
+              <button type="button" onClick={() => setSelectedFlowKey(scenario.operationsControl.caseClass === "risk" || scenario.operationsControl.caseClass === "eligibility" ? "risk" : scenario.operationsControl.caseClass === "pricing" ? "price" : "settle")}>Open governed evidence <span>→</span></button>
+            </article>
+          </section>
+
           <section className="operations-panel">
             <div className="section-heading">
               <div><span className="section-kicker">Living Operations Map</span><h2>From market signal to controlled outcome</h2></div>
