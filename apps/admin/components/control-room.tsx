@@ -33,6 +33,7 @@ import { AUTHZ_POLICY_VERSION, authorize, demoOrganisations, demoPrincipals, eva
 import { createScenarioRuntime, type DemoEnvironment, type ScenarioReady } from "@fuelcap/demo-data";
 import { pricingObservationSets, scenarioOrder, scenarios, type MarketFilter, type ScenarioId } from "@/lib/demo-data";
 import { FleetWorkspace } from "@/components/fleet-workspace";
+import { CustomerWorkspace } from "@/components/customer-workspace";
 
 const workspaces: readonly { key: Workspace; label: string; icon: typeof LayoutDashboard; active?: boolean }[] = [
   { key: "control-room", label: "Control Room", icon: LayoutDashboard, active: true },
@@ -288,7 +289,7 @@ export function ControlRoom() {
               <button className={`nav-item ${activeWorkspace === key ? "nav-item--active" : ""}`} key={label} type="button" onClick={() => { setActiveWorkspace(key); closeMobileNavigation(); }}>
                 <Icon size={17} />
                 <span>{label}</span>
-                {key !== "control-room" && key !== "fleets-vehicles" && <span className="nav-soon">Soon</span>}
+                {key !== "control-room" && key !== "customers" && key !== "fleets-vehicles" && <span className="nav-soon">Soon</span>}
               </button>
             ))}
           </div>
@@ -315,7 +316,7 @@ export function ControlRoom() {
           </div>
         </header>
 
-        {activeWorkspace === "fleets-vehicles" ? <FleetWorkspace organisationId={activeOrganisationId} /> : <>
+        {activeWorkspace === "customers" ? <CustomerWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "fleets-vehicles" ? <FleetWorkspace organisationId={activeOrganisationId} /> : <>
         <section className="operating-strip" aria-label="Operating status">
           <div className="operating-strip__intro"><Activity size={15} /><strong>Operating state</strong><span className={`state-pill state-pill--${scenario.status.toLowerCase().replaceAll(" ", "-")}`}>{scenario.status}</span></div>
           <div className="strip-item"><StatusDot state="healthy" /><span>Pricing</span><strong>Eligible</strong></div>

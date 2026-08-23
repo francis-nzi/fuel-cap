@@ -75,6 +75,7 @@ const baseline: Record<RoleCode, Partial<Record<Workspace, readonly Verb[]>>> = 
 export const demoOrganisations: readonly Organisation[] = [
   { organisationId: "org-fuelcap-global", name: "FuelCap Global", type: "fuelcap", market: "GLOBAL" },
   { organisationId: "org-personal-a", name: "Alex Morgan · Personal", type: "personal", market: "US" },
+  { organisationId: "org-personal-canada", name: "Mina Laurent · Personal", type: "personal", market: "CA" },
   { organisationId: "org-fleet-northstar", name: "Northstar Fleet Services", type: "fleet", market: "US" },
 ];
 
