@@ -270,6 +270,15 @@ export function ControlRoom() {
             ))}
           </section>
 
+          <section className="commercial-lineage" aria-label="Commercial and exposure lineage">
+            <div className="commercial-lineage__heading"><div><span className="section-kicker">Commercial lineage</span><h2>Price, protection and exposure reconcile as one outcome</h2></div><span><FileCheck2 size={14} /> Click any value for evidence</span></div>
+            <div className="commercial-lineage__steps">
+              {scenario.commercialLineage.map((step, index) => <button className={`lineage-step lineage-step--${step.tone}`} type="button" key={`${step.label}-${index}`} onClick={() => setSelectedFlowKey(step.nodeKey)}>
+                <span>{String(index + 1).padStart(2, "0")} · {step.label}</span><strong>{step.value}</strong><small>{step.detail}</small>{index < scenario.commercialLineage.length - 1 && <i aria-hidden="true">→</i>}
+              </button>)}
+            </div>
+          </section>
+
           <section className="operations-panel">
             <div className="section-heading">
               <div><span className="section-kicker">Living Operations Map</span><h2>From market signal to controlled outcome</h2></div>
