@@ -162,7 +162,9 @@ export function ControlRoom() {
   useEffect(() => {
     if (!selectedFlowKey) return;
     const drawer = drawerRef.current;
+    const previousOverflow = document.body.style.overflow;
     const focusable = () => Array.from(drawer?.querySelectorAll<HTMLElement>('button, [href], select, input, [tabindex]:not([tabindex="-1"])') ?? []);
+    document.body.style.overflow = "hidden";
     requestAnimationFrame(() => focusable()[0]?.focus());
     function containFocus(event: KeyboardEvent) {
       if (event.key === "Escape") {
@@ -179,7 +181,10 @@ export function ControlRoom() {
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     }
     document.addEventListener("keydown", containFocus);
-    return () => document.removeEventListener("keydown", containFocus);
+    return () => {
+      document.removeEventListener("keydown", containFocus);
+      document.body.style.overflow = previousOverflow;
+    };
   }, [selectedFlowKey]);
 
   function changePrincipal(nextPrincipalId: string) {
