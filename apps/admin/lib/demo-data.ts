@@ -1,12 +1,14 @@
 import type { ScenarioId as ManifestScenarioId } from "@fuelcap/demo-data";
 
-export type ScenarioId = "normal" | "boundary" | "exposure";
+export type ScenarioId = "normal" | "boundary" | "exposure" | "ukQuote" | "canadaFraud" | "fx";
+export type MarketFilter = "US" | "UK" | "CA" | "MULTI";
 
 export type Scenario = {
   id: ScenarioId;
   manifestId: ManifestScenarioId;
   label: string;
   shortLabel: string;
+  market: MarketFilter;
   clock: string;
   status: "Nominal" | "Guarded" | "Action required";
   summary: string;
@@ -33,6 +35,7 @@ export type Scenario = {
 export const scenarios: Record<ScenarioId, Scenario> = {
   normal: {
     id: "normal",
+    market: "US",
     manifestId: "flat-market-us",
     label: "Scenario 01 · Normal flat market",
     shortLabel: "Flat market",
@@ -65,6 +68,7 @@ export const scenarios: Record<ScenarioId, Scenario> = {
   },
   boundary: {
     id: "boundary",
+    market: "US",
     manifestId: "boundary-breach-us",
     label: "Scenario 03 · Protection boundary breach",
     shortLabel: "Boundary breach",
@@ -97,6 +101,7 @@ export const scenarios: Record<ScenarioId, Scenario> = {
   },
   exposure: {
     id: "exposure",
+    market: "US",
     manifestId: "exposure-ai-recommendation",
     label: "Scenario 12 · Multi-customer exposure",
     shortLabel: "Exposure cluster",
@@ -127,6 +132,105 @@ export const scenarios: Record<ScenarioId, Scenario> = {
       impact: "Paper position only · 25,000 gal · expires in 7 days",
     },
   },
+  ukQuote: {
+    id: "ukQuote",
+    market: "UK",
+    manifestId: "no-valid-quote-uk",
+    label: "Scenario 07 · UK quote unavailable",
+    shortLabel: "UK quote unavailable",
+    clock: "22 Aug 2026 · 11:00 BST",
+    status: "Guarded",
+    summary: "The UK pricing feed is unavailable, so rollover releases reserved value without fabricating a quote or creating a later debit.",
+    metrics: [
+      { label: "Affected positions", value: "126", delta: "Availability class", tone: "warn" },
+      { label: "Released value", value: "£8,412", delta: "Returned to tanks", tone: "neutral" },
+      { label: "New charge", value: "£0.00", delta: "Rule 18", tone: "good" },
+      { label: "Retroactive debits", value: "0", delta: "Prohibited", tone: "good" },
+    ],
+    flow: [
+      { key: "price", eyebrow: "Pricing data", title: "Quote unavailable", value: "0 eligible", detail: "Feed health below quote threshold", state: "watch" },
+      { key: "spread", eyebrow: "Spread + FX", title: "Decision blocked", value: "No price", detail: "No spread applied without an anchor", state: "controlled" },
+      { key: "protect", eyebrow: "Protection", title: "Value released", value: "£8,412", detail: "126 positions · no new charge", state: "controlled" },
+      { key: "ledger", eyebrow: "Ledger", title: "Balances restored", value: "£0.00", detail: "Reserved to available · balanced", state: "healthy" },
+      { key: "settle", eyebrow: "Settlement", title: "No retro debit", value: "0", detail: "Customer must choose Protect now", state: "healthy" },
+      { key: "risk", eyebrow: "Operations", title: "Incident grouped", value: "1 case", detail: "Multi-customer availability alert", state: "watch" },
+    ],
+    recommendation: {
+      title: "Keep UK rollover paused until pricing is eligible",
+      rationale: "The deterministic validator rejected the available inputs; preserving customer value is safer than estimating a settlement-eligible quote.",
+      confidence: 100,
+      action: "Acknowledge availability incident",
+      evidence: ["Quote eligibility: failed", "Released balance: £8,412", "Retroactive debit permission: false"],
+      policy: "AI may summarise the incident; no operator can override an invalid quote.",
+      impact: "126 customers notified · balances remain available",
+    },
+  },
+  canadaFraud: {
+    id: "canadaFraud",
+    market: "CA",
+    manifestId: "eligibility-fraud-canada",
+    label: "Scenario 08 · Canada eligibility review",
+    shortLabel: "Canada eligibility review",
+    clock: "22 Aug 2026 · 07:00 EDT",
+    status: "Action required",
+    summary: "A Canadian eligibility signal routes affected accounts to human review while customer value remains available and isolated.",
+    metrics: [
+      { label: "Accounts reviewed", value: "18", delta: "Ontario cluster", tone: "warn" },
+      { label: "Protected volume", value: "4,860 L", delta: "Held from rollover", tone: "neutral" },
+      { label: "Customer value", value: "C$6,920", delta: "Available · not lost", tone: "good" },
+      { label: "Auto-decisions", value: "0", delta: "Human review required", tone: "good" },
+    ],
+    flow: [
+      { key: "price", eyebrow: "Pricing data", title: "Ontario feed valid", value: "C$1.62/L", detail: "Display eligible · simulation provenance", state: "healthy" },
+      { key: "spread", eyebrow: "Rules", title: "Eligibility separated", value: "18 cases", detail: "Account attention · not feed outage", state: "controlled" },
+      { key: "protect", eyebrow: "Protection", title: "Rollover stopped", value: "4,860 L", detail: "No new protection purchased", state: "watch" },
+      { key: "ledger", eyebrow: "Ledger", title: "Value released", value: "C$6,920", detail: "No overdraft or surprise debit", state: "healthy" },
+      { key: "settle", eyebrow: "Cases", title: "Review queue opened", value: "18", detail: "Evidence package attached", state: "controlled" },
+      { key: "risk", eyebrow: "Fraud + compliance", title: "Human decision", value: "Required", detail: "No automated adverse outcome", state: "watch" },
+    ],
+    recommendation: {
+      title: "Prioritise the Ontario eligibility review cluster",
+      rationale: "Shared signals justify grouped investigation, but evidence does not support an automated adverse customer decision.",
+      confidence: 86,
+      action: "Open governed case batch",
+      evidence: ["18 linked review cases", "No cross-tenant context", "Customer funds remain available"],
+      policy: "Statistical signals prioritise work; a human makes each eligibility decision.",
+      impact: "Review queue only · no automated account restriction",
+    },
+  },
+  fx: {
+    id: "fx",
+    market: "MULTI",
+    manifestId: "fx-movement-multi-market",
+    label: "Scenario 11 · Multi-market FX movement",
+    shortLabel: "Global FX movement",
+    clock: "22 Aug 2026 · 14:00 UTC",
+    status: "Nominal",
+    summary: "Pinned illustrative FX decisions translate USD, CAD and GBP positions without creating a cross-currency ledger imbalance.",
+    metrics: [
+      { label: "USD/CAD", value: "1.371200", delta: "Pinned scenario rate", tone: "neutral" },
+      { label: "GBP/USD", value: "1.286400", delta: "Pinned scenario rate", tone: "neutral" },
+      { label: "EUR/USD", value: "1.092500", delta: "Pinned scenario rate", tone: "neutral" },
+      { label: "Currency imbalance", value: "$0.00", delta: "Balanced per currency", tone: "good" },
+    ],
+    flow: [
+      { key: "price", eyebrow: "FX data", title: "Rates observed", value: "3 pairs", detail: "Illustrative-fixed provenance", state: "healthy" },
+      { key: "spread", eyebrow: "FX engine", title: "Direction pinned", value: "Explicit", detail: "Base and quote currency recorded", state: "healthy" },
+      { key: "protect", eyebrow: "Positions", title: "Markets translated", value: "US · CA · UK", detail: "Original currency preserved", state: "controlled" },
+      { key: "ledger", eyebrow: "Ledger", title: "Conversions balanced", value: "$0.00", detail: "FX gain/loss captures residue", state: "healthy" },
+      { key: "settle", eyebrow: "Settlement", title: "No live movement", value: "Demo only", detail: "Provider port remains mocked", state: "healthy" },
+      { key: "risk", eyebrow: "Exposure", title: "FX envelope clear", value: "3/3", detail: "No threshold breach", state: "healthy" },
+    ],
+    recommendation: {
+      title: "No FX intervention recommended",
+      rationale: "All conversions reconcile per currency using pinned, direction-explicit rates and the scenario remains inside its demonstrator envelope.",
+      confidence: 97,
+      action: "Acknowledge FX state",
+      evidence: ["USD/CAD 1.371200", "GBP/USD 1.286400", "Balanced per-currency journals"],
+      policy: "Illustrative rates cannot initiate live conversion or money movement.",
+      impact: "No pricing or treasury change",
+    },
+  },
 };
 
-export const scenarioOrder: ScenarioId[] = ["normal", "boundary", "exposure"];
+export const scenarioOrder: ScenarioId[] = ["normal", "boundary", "exposure", "ukQuote", "canadaFraud", "fx"];
