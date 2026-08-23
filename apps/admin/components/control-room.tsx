@@ -53,6 +53,15 @@ type ApprovalState = "idle" | "reviewing" | "approved";
 type ResetState = "idle" | "resetting" | "ready" | "failed";
 type SecurityState = "none" | "permission-denied" | "step-up-required" | "step-up-complete" | "break-glass-denied";
 
+const flowEvidence: Record<string, { source: string; version: string; owner: string; action: string }> = {
+  price: { source: "Canonical price decision", version: "pricing-data@1.4", owner: "Data Operations", action: "Inspect observations" },
+  spread: { source: "Pinned spread decision", version: "spread-engine@1.2", owner: "Pricing & Product", action: "Open component ledger" },
+  protect: { source: "Protected position", version: "rules-engine@1.2", owner: "Customer Operations", action: "View affected positions" },
+  ledger: { source: "Journal projection", version: "ledger@1.0", owner: "Finance & Reconciliation", action: "Rebuild projection" },
+  settle: { source: "Settlement decision", version: "settlement@1.1", owner: "Settlement Operations", action: "Open match evidence" },
+  risk: { source: "Exposure snapshot", version: "risk-model@0.4-demo", owner: "Risk & Treasury", action: "Review recommendation" },
+};
+
 function StatusDot({ state }: { state: "healthy" | "watch" | "controlled" }) {
   return <span className={`status-dot status-dot--${state}`} aria-label={state} />;
 }
@@ -74,8 +83,11 @@ export function ControlRoom() {
   const [resetState, setResetState] = useState<ResetState>("idle");
   const [approvalState, setApprovalState] = useState<ApprovalState>("idle");
   const [securityState, setSecurityState] = useState<SecurityState>("none");
+  const [selectedFlowKey, setSelectedFlowKey] = useState<string | null>(null);
+  const [traceActive, setTraceActive] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const scenario = scenarios[scenarioId];
+  const selectedFlowNode = scenario.flow.find((node) => node.key === selectedFlowKey) ?? null;
   const auditId = useMemo(() => `AUD-DEMO-${scenarioId.toUpperCase()}-00842`, [scenarioId]);
 
   function changePrincipal(nextPrincipalId: string) {
@@ -112,6 +124,8 @@ export function ControlRoom() {
     setScenarioReady(runtime.reset(scenarios[id].manifestId));
     setResetState("idle");
     setApprovalState("idle");
+    setSelectedFlowKey(null);
+    setTraceActive(false);
   }
 
   async function resetScenario() {
@@ -231,19 +245,22 @@ export function ControlRoom() {
           <section className="operations-panel">
             <div className="section-heading">
               <div><span className="section-kicker">Living Operations Map</span><h2>From market signal to controlled outcome</h2></div>
-              <div className="lineage-chip"><LockKeyhole size={14} /><span>Lineage complete</span><strong>DEC-021 · RULE-09</strong></div>
+              <div className="map-heading-actions">
+                <button className={`trace-button ${traceActive ? "trace-button--active" : ""}`} type="button" onClick={() => setTraceActive((active) => !active)}><Activity size={14} />{traceActive ? "Pause transaction trace" : "Trace selected transaction"}</button>
+                <div className="lineage-chip"><LockKeyhole size={14} /><span>Lineage complete</span><strong>DEC-021 · RULE-09</strong></div>
+              </div>
             </div>
 
-            <div className="flow-grid">
+            <div className={`flow-grid ${traceActive ? "flow-grid--tracing" : ""}`}>
               {scenario.flow.map((node, index) => (
-                <article className={`flow-node flow-node--${node.state}`} key={node.key}>
+                <button className={`flow-node flow-node--${node.state} ${selectedFlowKey === node.key ? "flow-node--selected" : ""}`} key={node.key} type="button" onClick={() => setSelectedFlowKey(node.key)} aria-pressed={selectedFlowKey === node.key}>
                   <div className="flow-node__top"><span>{String(index + 1).padStart(2, "0")}</span><StatusDot state={node.state} /></div>
                   <p>{node.eyebrow}</p>
                   <h3>{node.title}</h3>
                   <strong>{node.value}</strong>
                   <span>{node.detail}</span>
                   {index < scenario.flow.length - 1 && <div className="flow-connector" aria-hidden="true"><span>›</span></div>}
-                </article>
+                </button>
               ))}
             </div>
 
@@ -253,6 +270,24 @@ export function ControlRoom() {
               <span><FileCheck2 size={14} /> Rebuild verified from journal sequence</span>
             </div>
           </section>
+
+          {selectedFlowNode && <aside className="evidence-drawer" aria-label={`${selectedFlowNode.title} evidence`}>
+            <div className="evidence-drawer__heading">
+              <div><span className="section-kicker">Node evidence</span><h2>{selectedFlowNode.title}</h2></div>
+              <button className="icon-button" type="button" onClick={() => setSelectedFlowKey(null)} aria-label="Close evidence drawer"><X size={18} /></button>
+            </div>
+            <div className="evidence-drawer__value"><span>{selectedFlowNode.eyebrow}</span><strong>{selectedFlowNode.value}</strong><p>{selectedFlowNode.detail}</p></div>
+            <dl className="evidence-facts">
+              <div><dt>Source record</dt><dd>{flowEvidence[selectedFlowNode.key].source}</dd></div>
+              <div><dt>Decision version</dt><dd>{flowEvidence[selectedFlowNode.key].version}</dd></div>
+              <div><dt>Data freshness</dt><dd>{selectedFlowNode.key === "price" ? "42 seconds" : "Current scenario clock"}</dd></div>
+              <div><dt>Control owner</dt><dd>{flowEvidence[selectedFlowNode.key].owner}</dd></div>
+              <div><dt>Open alerts</dt><dd>{selectedFlowNode.state === "watch" ? "1 governed review" : "None blocking"}</dd></div>
+              <div><dt>Provenance</dt><dd>Synthetic-seeded · demonstrator</dd></div>
+            </dl>
+            <div className="evidence-drawer__lineage"><FileCheck2 size={16} /><span>Scenario manifest → contract → decision → audit record</span><strong>{auditId}</strong></div>
+            <button className="drawer-action" type="button">{flowEvidence[selectedFlowNode.key].action}<span>→</span></button>
+          </aside>}
 
           <div className="lower-grid">
             <section className="ai-panel">
