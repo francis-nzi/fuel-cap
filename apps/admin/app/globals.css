@@ -37,7 +37,7 @@ button:focus-visible, select:focus-visible { outline: 3px solid rgba(47, 118, 89
 .admin-shell { display: flex; min-height: 100vh; }
 .sidebar {
   position: fixed; inset: 0 auto 0 0; z-index: 30; width: 244px; padding: 20px 14px 14px;
-  display: flex; flex-direction: column; background: var(--forest-deep); color: #edf4ef;
+  display: flex; flex-direction: column; overflow-x: hidden; background: var(--forest-deep); color: #edf4ef;
   border-right: 1px solid rgba(255,255,255,.08);
 }
 .brand-row { display: flex; align-items: center; gap: 11px; padding: 0 7px 19px; }
