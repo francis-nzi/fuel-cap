@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fleetForOrganisation, fleetMultiVehicleScenario, fleetProtectedGallons } from "./fleet";
+import { fleetForOrganisation, fleetMultiVehicleScenario, fleetProtectedGallons, fleetReservedMinor, fleetRolloversDue } from "./fleet";
 
 describe("fleet multi-vehicle scenario", () => {
   it("contains three vehicles, three drivers and two governed groups", () => {
@@ -17,6 +17,12 @@ describe("fleet multi-vehicle scenario", () => {
   it("remains below the organisation aggregate limit", () => {
     expect(fleetProtectedGallons(fleetMultiVehicleScenario)).toBe(105);
     expect(fleetProtectedGallons(fleetMultiVehicleScenario)).toBeLessThanOrEqual(fleetMultiVehicleScenario.aggregateLimitGallons);
+  });
+
+  it("reconciles reserved value and deterministic rollover exposure", () => {
+    expect(fleetReservedMinor(fleetMultiVehicleScenario)).toBe(38588);
+    expect(fleetRolloversDue(fleetMultiVehicleScenario)).toBe(1);
+    expect(fleetMultiVehicleScenario.vehicles.filter(({ eligibility }) => eligibility === "NEEDS_ATTENTION")).toHaveLength(1);
   });
 
   it("does not return fleet data across organisation scope", () => {
