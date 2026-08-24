@@ -63,6 +63,11 @@ export function CustomerWorkspace({ organisationId, principal, environment }: { 
   }
 
   const eligiblePercentage = totals.customerCount ? Math.round(totals.eligibleCount / totals.customerCount * 100) : 0;
+  const evidenceHeading = evidenceSection === "eligibility" ? selectedCustomer.eligibilityReason
+    : evidenceSection === "funds" ? "Customer-owned value is fully accounted for"
+      : evidenceSection === "protection" ? (selectedCustomer.evidence.protectionId ? "Protection terms and lifecycle" : "No active protection while review is open")
+        : evidenceSection === "communications" ? selectedCustomer.lastCommunication
+          : selectedCustomer.eligibility === "ELIGIBLE" ? "No intervention recommended" : "Open an evidence-backed eligibility review";
 
   return <div className="workspace-wrap customer-workspace">
     <section className="workspace-heading"><div><span className="demo-badge"><ShieldCheck size={13} /> Demonstrator data</span><h1>Customers</h1><p>Identity, eligibility, customer funds, protection, cases and communications in one organisation-scoped operational view.</p></div><div className="workspace-version">Scenario {selectedCustomer.scenarioId} · v{selectedCustomer.scenarioVersion}</div></section>
@@ -93,7 +98,7 @@ export function CustomerWorkspace({ organisationId, principal, environment }: { 
     </div>
     {evidenceSection && <><button className="evidence-backdrop" type="button" aria-label="Close customer evidence" onClick={closeEvidence} /><aside ref={drawerRef} className="evidence-drawer customer-evidence-drawer" role="dialog" aria-modal="true" aria-label={`${selectedCustomer.name} ${evidenceSection} evidence`}>
       <div className="evidence-drawer__heading"><div><span className="section-kicker">Customer evidence · read only</span><h2>{selectedCustomer.name}</h2></div><button className="icon-button" type="button" onClick={closeEvidence} aria-label="Close customer evidence"><X size={18} /></button></div>
-      <div className="customer-evidence-context"><span>{evidenceSection}</span><strong>{selectedCustomer.eligibilityReason}</strong><p>{selectedCustomer.customerId} · {selectedCustomer.organisationId}</p></div>
+      <div className="customer-evidence-context"><span>{evidenceSection}</span><strong>{evidenceHeading}</strong><p>{selectedCustomer.customerId} · {selectedCustomer.organisationId}</p></div>
       <dl className="evidence-facts"><div><dt>Decision</dt><dd>{selectedCustomer.evidence.eligibilityDecisionId}</dd></div><div><dt>Decision version</dt><dd>{selectedCustomer.evidence.eligibilityDecisionVersion}</dd></div><div><dt>Rule version</dt><dd>{selectedCustomer.evidence.ruleVersion}</dd></div><div><dt>Control owner</dt><dd>{selectedCustomer.evidence.controlOwner}</dd></div><div><dt>Observed at</dt><dd>{selectedCustomer.evidence.observedAt}</dd></div><div><dt>Provenance</dt><dd>{selectedCustomer.provenance} · demonstrator</dd></div></dl>
       {evidenceSection === "eligibility" && <section className="customer-evidence-section"><span className="section-kicker">Reason codes</span>{selectedCustomer.evidence.reasonCodes.map((code) => <code key={code}>{code}</code>)}</section>}
       {evidenceSection === "funds" && <section className="customer-evidence-section customer-funds-evidence"><span className="section-kicker">Safeguarding components</span><div><span>Available</span><strong>{money(selectedCustomer.availableMinor, selectedCustomer.currency)}</strong></div><div><span>Reserved</span><strong>{money(selectedCustomer.reservedMinor, selectedCustomer.currency)}</strong></div><div><span>Refund payable</span><strong>{money(selectedCustomer.refundPayableMinor, selectedCustomer.currency)}</strong></div><div><span>In flight</span><strong>{money(selectedCustomer.inFlightMinor, selectedCustomer.currency)}</strong></div></section>}
