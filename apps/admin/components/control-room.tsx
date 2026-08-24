@@ -316,6 +316,12 @@ export function ControlRoom() {
           </div>
         </header>
 
+        <div className="mobile-organisation-switcher">
+          <Building2 size={15} aria-hidden="true" />
+          <label htmlFor="mobile-active-organisation">Organisation</label>
+          <select id="mobile-active-organisation" value={activeOrganisationId} onChange={(event) => setActiveOrganisationId(event.target.value)}>{memberOrganisations.map((organisation) => <option value={organisation.organisationId} key={organisation.organisationId}>{organisation.name}</option>)}</select>
+        </div>
+
         {activeWorkspace === "customers" ? <CustomerWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "fleets-vehicles" ? <FleetWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : <>
         <section className="operating-strip" aria-label="Operating status">
           <div className="operating-strip__intro"><Activity size={15} /><strong>Operating state</strong><span className={`state-pill state-pill--${scenario.status.toLowerCase().replaceAll(" ", "-")}`}>{scenario.status}</span></div>
