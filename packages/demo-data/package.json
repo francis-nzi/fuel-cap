@@ -24,6 +24,7 @@
     "./exception-controls": "./src/exception-controls.ts",
     "./ai-control-centre": "./src/ai-control-centre.ts",
     "./growth-dashboard": "./src/growth-dashboard.ts",
+    "./release-rehearsal": "./src/release-rehearsal.ts",
     "./ports": "./src/ports.ts",
     "./reset": "./src/reset.ts"
   },

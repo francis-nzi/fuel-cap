@@ -88,7 +88,7 @@ export function ControlRoom() {
   const [principalId, setPrincipalId] = useState("principal-presenter");
   const [activeOrganisationId, setActiveOrganisationId] = useState("org-fuelcap-global");
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace>("control-room");
-  const [platformInitialSelection, setPlatformInitialSelection] = useState<"health" | "approvals" | "case" | "catalogue" | "alerts" | "exceptions" | "ai" | "growth">("health");
+  const [platformInitialSelection, setPlatformInitialSelection] = useState<"health" | "approvals" | "case" | "catalogue" | "alerts" | "exceptions" | "ai" | "growth" | "release">("health");
   const principal = demoPrincipals.find((candidate) => candidate.principalId === principalId) ?? demoPrincipals[0];
   const memberOrganisations = demoOrganisations.filter(({ organisationId }) => principal.organisationIds.includes(organisationId));
   const allowedWorkspaceKeys = visibleWorkspaces(principal, authzEnvironment, activeOrganisationId, workspaces.map(({ key }) => key));
@@ -441,6 +441,7 @@ export function ControlRoom() {
               <button type="button" onClick={() => { setPlatformInitialSelection("exceptions"); setActiveWorkspace("platform-integrations-audit"); }}>Open exception controls <span>→</span></button>
               <button type="button" onClick={() => { setPlatformInitialSelection("ai"); setActiveWorkspace("platform-integrations-audit"); }}>Open AI Control Centre <span>→</span></button>
               <button type="button" onClick={() => { setPlatformInitialSelection("growth"); setActiveWorkspace("platform-integrations-audit"); }}>Open Growth workspace <span>→</span></button>
+              <button type="button" onClick={() => { setPlatformInitialSelection("release"); setActiveWorkspace("platform-integrations-audit"); }}>Open release readiness <span>→</span></button>
             </article>
           </section>
 
