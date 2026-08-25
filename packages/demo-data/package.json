@@ -12,6 +12,7 @@
     "./risk-hedging": "./src/risk-hedging.ts",
     "./transactions-ledger": "./src/transactions-ledger.ts",
     "./billing-reconciliation": "./src/billing-reconciliation.ts",
+    "./fraud-cases": "./src/fraud-cases.ts",
     "./ports": "./src/ports.ts",
     "./reset": "./src/reset.ts"
   },
