@@ -208,3 +208,31 @@ h1, h2, h3, p { margin-top: 0; }.page-heading h1 { max-width: 770px; margin: 11p
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+
+.spread-fx-layout { display: grid; grid-template-columns: minmax(0,2fr) minmax(270px,.72fr); gap: 12px; }
+.spread-editor-panel, .fx-rates-panel { padding: 19px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel); box-shadow: var(--shadow); }
+.evidence-link { border: 0; color: var(--green); background: transparent; font-size: 9px; font-weight: 750; cursor: pointer; }
+.spread-component-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 9px; margin: 16px 0 10px; }
+.spread-component-grid label { padding: 11px; border: 1px solid var(--line); border-radius: 8px; }
+.spread-component-grid label > span, .spread-component-grid small, .spread-reason > span { display: block; color: var(--muted); font-size: 8px; }
+.spread-component-grid label > div { margin: 9px 0 6px; display: flex; align-items: center; }
+.spread-component-grid input { width: 100%; min-width: 0; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 22px; font-weight: 650; }
+.spread-component-grid b { color: var(--muted); }
+.spread-reconciliation { padding: 10px 12px; display: flex; align-items: center; gap: 10px; border-radius: 7px; font-size: 9px; }
+.spread-reconciliation strong { margin-left: auto; font-size: 15px; }
+.spread-reconciliation--valid { color: var(--forest); background: var(--mint); }
+.spread-reconciliation--invalid { color: var(--rust); background: var(--rust-soft); }
+.spread-reason { display: block; margin-top: 12px; }
+.spread-reason textarea { width: 100%; margin-top: 6px; padding: 9px; resize: vertical; border: 1px solid var(--line); border-radius: 7px; color: var(--ink); background: #fff; font: inherit; font-size: 9px; }
+.spread-action-row { margin-top: 10px; display: flex; align-items: center; gap: 10px; }
+.spread-action-row button { min-height: 36px; padding: 0 12px; border: 0; border-radius: 7px; color: #fff; background: var(--forest); font-size: 9px; font-weight: 750; cursor: pointer; }
+.spread-action-row span { color: var(--muted); font-size: 8px; }
+.fx-rates-panel h2 { margin: 6px 0 14px; font-size: 16px; }
+.fx-rates-panel > button { width: 100%; margin-bottom: 8px; padding: 11px; display: grid; grid-template-columns: 1fr auto; gap: 5px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: #fff; text-align: left; cursor: pointer; }
+.fx-rates-panel button span { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 9px; }
+.fx-rates-panel button strong { font-size: 13px; }.fx-rates-panel button small { grid-column: 1 / -1; color: var(--muted); font-size: 8px; }
+.spread-proof-row { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.spread-proof-row > button, .spread-proof-row > div { padding: 14px; display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); background: var(--panel); text-align: left; }
+.spread-proof-row > button { cursor: pointer; }.spread-proof-row svg { color: var(--green); }.spread-proof-row small, .spread-proof-row strong { display: block; }.spread-proof-row small { color: var(--muted); font-size: 8px; }.spread-proof-row strong { margin-top: 4px; font-size: 11px; }.spread-proof-row p { margin: 4px 0 0; color: var(--muted); font-size: 8px; }.spread-proof-row b { color: var(--green); font-size: 9px; }
+@media (max-width: 900px) { .spread-fx-layout { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .spread-component-grid, .spread-proof-row { grid-template-columns: 1fr; }.spread-action-row { align-items: stretch; flex-direction: column; }.spread-action-row button { width: 100%; }.spread-proof-row > button, .spread-proof-row > div { grid-template-columns: auto 1fr; }.spread-proof-row b { grid-column: 2; } }
