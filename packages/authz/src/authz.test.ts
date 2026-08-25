@@ -27,6 +27,11 @@ describe("admin authorization policy", () => {
     expect(authorize({ principal: auditor, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "transactions-ledger", verb: "initiate" }).reasonCode).toBe("DENY_POLICY");
   });
 
+  it("allows scoped audit export but keeps Presenter export denied", () => {
+    expect(authorize({ principal: auditor, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "platform-integrations-audit", verb: "export" }).reasonCode).toBe("ALLOW");
+    expect(authorize({ principal: presenter, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "platform-integrations-audit", verb: "export" }).reasonCode).toBe("DENY_POLICY");
+  });
+
   it("rejects structurally conflicting role assignments", () => {
     const conflicting: Principal = { ...auditor, roles: ["AU", "FR"] };
     expect(authorize({ principal: conflicting, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "transactions-ledger", verb: "view" }).reasonCode).toBe("DENY_ASSIGNMENT_CONFLICT");

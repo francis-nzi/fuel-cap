@@ -16,6 +16,7 @@
     "./rules-automation": "./src/rules-automation.ts",
     "./communications": "./src/communications.ts",
     "./platform-integrations-audit": "./src/platform-integrations-audit.ts",
+    "./audit-timeline": "./src/audit-timeline.ts",
     "./ports": "./src/ports.ts",
     "./reset": "./src/reset.ts"
   },
