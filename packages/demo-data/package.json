@@ -13,6 +13,7 @@
     "./transactions-ledger": "./src/transactions-ledger.ts",
     "./billing-reconciliation": "./src/billing-reconciliation.ts",
     "./fraud-cases": "./src/fraud-cases.ts",
+    "./rules-automation": "./src/rules-automation.ts",
     "./ports": "./src/ports.ts",
     "./reset": "./src/reset.ts"
   },
