@@ -120,4 +120,14 @@ describe("admin authorization policy", () => {
     expect(authorize({ principal: auditor, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "fraud-cases", verb: "initiate" }).allowed).toBe(false);
     expect(authorize({ principal: presenter, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "platform-integrations-audit", verb: "approve", actionOwnerPrincipalId: "principal-data" }).allowed).toBe(false);
   });
+
+  it("keeps AI Control Centre mutation governed while Presenter remains read only", () => {
+    const platform = demoPrincipals.find(({ principalId }) => principalId === "principal-platform")!;
+    const data = demoPrincipals.find(({ principalId }) => principalId === "principal-data")!;
+    const presenter = demoPrincipals.find(({ principalId }) => principalId === "principal-presenter")!;
+    expect(authorize({ principal: platform, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "ai-control-centre", verb: "initiate" }).allowed).toBe(true);
+    expect(authorize({ principal: data, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "ai-control-centre", verb: "initiate" }).allowed).toBe(true);
+    expect(authorize({ principal: presenter, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "ai-control-centre", verb: "view" }).allowed).toBe(true);
+    expect(authorize({ principal: presenter, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "ai-control-centre", verb: "initiate" }).allowed).toBe(false);
+  });
 });
