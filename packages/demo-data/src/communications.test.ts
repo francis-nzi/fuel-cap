@@ -1,0 +1,15 @@
+import { describe, expect, it } from "vitest";
+import { afterNotice, approveRequiredTemplate, communicationPreference, criticalDelivery, draftRequiredTemplate, enqueueCommunication, noticeHoursBeforeAction, outboxEvidence, preNotice, rolloverTemplates } from "./communications";
+
+const approval = { initiatedBy: "op-maker", approvedBy: "cf-checker", approverRole: "CF", assurance: "step-up", evidenceIds: ["TPL-DIFF-013", "AUD-CONTENT-013"], sensitiveContentCheck: "PASS" } as const;
+
+describe("communications", () => {
+  it("sends the rollover pre-notice within the approved 48-72 hour window", () => { const hours = noticeHoursBeforeAction(preNotice.noticeAt, preNotice.actionAt); expect(hours).toBeGreaterThanOrEqual(48); expect(hours).toBeLessThanOrEqual(72); });
+  it("links the required after-notice and acknowledgement", () => expect(afterNotice).toMatchObject({ linkedPreNoticeId: preNotice.communicationId, state: "ACKNOWLEDGED", simulated: true }));
+  it("keeps required notices independent of marketing opt-out", () => { expect(communicationPreference.marketingEmail).toBe(false); expect(communicationPreference.requiredEmailAvailable).toBe(true); expect(preNotice.requiredDespiteMarketingOptOut).toBe(true); });
+  it("versions templates and preserves immutable rendered evidence", () => { expect(rolloverTemplates.every(({ version, market, language, sensitiveContentCheck }) => version && market && language && sensitiveContentCheck === "PASS")).toBe(true); expect(preNotice.renderedContentHash).toMatch(/^sha256:/); expect(draftRequiredTemplate.lifecycle).toBe("DRAFT"); });
+  it("commits outbox intent atomically and suppresses duplicates", () => { expect(outboxEvidence).toMatchObject({ intentCommittedAtomically: true, duplicateSuppressed: true }); const keys = new Set<string>(); expect(enqueueCommunication(preNotice.idempotencyKey, keys).status).toBe("QUEUED"); expect(enqueueCommunication(preNotice.idempotencyKey, keys).status).toBe("DUPLICATE_SUPPRESSED"); });
+  it("bounds retry and uses an approved available fallback", () => expect(criticalDelivery).toMatchObject({ maxPrimaryAttempts: 2, exhaustedPrimaryQueue: true, fallbackApproved: true, fallbackRespectsPreference: true, subjectContainsSensitiveDetail: false, simulated: true }));
+  it("requires different-CF step-up and complete safe-content evidence", () => { expect(approveRequiredTemplate(approval).status).toBe("APPROVED"); expect(() => approveRequiredTemplate({ ...approval, approvedBy: approval.initiatedBy })).toThrow("Self-approval"); expect(() => approveRequiredTemplate({ ...approval, approverRole: "OP" })).toThrow("Compliance"); expect(() => approveRequiredTemplate({ ...approval, assurance: "standard" })).toThrow("Step-up"); expect(() => approveRequiredTemplate({ ...approval, sensitiveContentCheck: "FAIL" })).toThrow("safe-content"); });
+  it("never enables real customer delivery", () => expect([preNotice.simulated, afterNotice.simulated, criticalDelivery.simulated]).toEqual([true, true, true]));
+});
