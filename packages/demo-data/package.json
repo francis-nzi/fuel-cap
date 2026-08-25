@@ -17,6 +17,7 @@
     "./communications": "./src/communications.ts",
     "./platform-integrations-audit": "./src/platform-integrations-audit.ts",
     "./audit-timeline": "./src/audit-timeline.ts",
+    "./maker-checker": "./src/maker-checker.ts",
     "./ports": "./src/ports.ts",
     "./reset": "./src/reset.ts"
   },
