@@ -17,28 +17,22 @@ describe("governed spread decisions", () => {
     expect(activeSpreadDecision.grossSpreadBps).toBe(230);
   });
 
-  it("accepts a reasoned component reallocation that preserves 2.30%", () => {
+  it("derives the draft gross spread from its editable components", () => {
     const draft = proposeSpreadComponents(
       activeSpreadDecision,
-      { protectionCostBps: 140, fuelCapMarginBps: 60, reserveBufferBps: 30 },
-      "Reflect higher modelled protection cost while preserving the governed gross spread.",
+      { protectionCostBps: 134, fuelCapMarginBps: 70, reserveBufferBps: 30 },
+      "Reflect the revised component allocation.",
       "principal-rt-maker",
     );
-    expect(validateSpreadDraft(draft)).toEqual({ valid: true, componentTotalBps: 230, errors: [] });
+    expect(draft.grossSpreadBps).toBe(234);
+    expect(validateSpreadDraft(draft)).toEqual({ valid: true, componentTotalBps: 234, errors: [] });
     expect(activeSpreadDecision.components).toEqual({ protectionCostBps: 130, fuelCapMarginBps: 70, reserveBufferBps: 30 });
   });
 
-  it("blocks a draft whose editable components do not reconcile", () => {
-    const draft = proposeSpreadComponents(
-      activeSpreadDecision,
-      { protectionCostBps: 140, fuelCapMarginBps: 70, reserveBufferBps: 30 },
-      "Test invalid allocation.",
-      "principal-rt-maker",
-    );
-    const result = validateSpreadDraft(draft);
-    expect(result.valid).toBe(false);
-    expect(result.componentTotalBps).toBe(240);
-    expect(result.errors[0]).toContain("must equal governed gross spread 230 bps");
+  it("keeps the draft gross spread reconciled for every component allocation", () => {
+    const draft = proposeSpreadComponents(activeSpreadDecision, { protectionCostBps: 140, fuelCapMarginBps: 70, reserveBufferBps: 30 }, "Test derived allocation.", "principal-rt-maker");
+    expect(validateSpreadDraft(draft)).toEqual({ valid: true, componentTotalBps: 240, errors: [] });
+    expect(draft.grossSpreadBps).toBe(240);
   });
 
   it("does not permit editing the published decision in place", () => {

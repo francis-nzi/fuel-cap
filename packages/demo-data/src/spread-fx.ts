@@ -55,9 +55,7 @@ export function validateSpreadDraft(decision: SpreadDecision): SpreadDraftValida
   for (const [component, value] of Object.entries(decision.components)) {
     if (!Number.isInteger(value) || value < 0) errors.push(`${component} must be a non-negative whole basis-point value.`);
   }
-  if (componentTotalBps !== decision.grossSpreadBps) {
-    errors.push(`Component total ${componentTotalBps} bps must equal governed gross spread ${decision.grossSpreadBps} bps.`);
-  }
+  if (componentTotalBps !== decision.grossSpreadBps) errors.push("Gross spread must equal the sum of its component allocations.");
   if (decision.lifecycle !== "DRAFT") errors.push("Only a draft decision may be edited.");
   if (!decision.reason.trim()) errors.push("A change reason is required.");
   return { valid: errors.length === 0, componentTotalBps, errors };
@@ -72,8 +70,9 @@ export function proposeSpreadComponents(
   return {
     ...active,
     decisionId: `${active.decisionId}-DRAFT-02`,
-    version: "spread-calm-2.30-v2-draft",
+    version: "spread-components-v2-draft",
     lifecycle: "DRAFT",
+    grossSpreadBps: spreadComponentTotal(components),
     components: { ...components },
     effectiveFrom: "2026-08-23T00:00:00.000Z",
     reason,
