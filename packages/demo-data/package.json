@@ -18,6 +18,7 @@
     "./platform-integrations-audit": "./src/platform-integrations-audit.ts",
     "./audit-timeline": "./src/audit-timeline.ts",
     "./maker-checker": "./src/maker-checker.ts",
+    "./shared-case": "./src/shared-case.ts",
     "./ports": "./src/ports.ts",
     "./reset": "./src/reset.ts"
   },
