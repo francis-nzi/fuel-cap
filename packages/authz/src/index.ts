@@ -68,7 +68,7 @@ const baseline: Record<RoleCode, Partial<Record<Workspace, readonly Verb[]>>> = 
   CF: { "control-room": VRI, "customers": VRIA, "fleets-vehicles": VRIA, "pricing-data": V, "spread-fx": V, "risk-hedging": VR, "transactions-ledger": V, "billing-reconciliation": V, "fraud-cases": ALL, "rules-automation": VRIA, "communications": VRIA, "platform-integrations-audit": V },
   CS: { "control-room": V, "customers": VRI, "fleets-vehicles": VRI, "pricing-data": V, "transactions-ledger": V, "billing-reconciliation": V, "fraud-cases": ["view", "initiate"], "rules-automation": V, "communications": VRI },
   DI: { "control-room": VRI, "customers": V, "fleets-vehicles": V, "pricing-data": ["view", "recommend", "initiate", "execute"], "spread-fx": V, "risk-hedging": V, "transactions-ledger": V, "billing-reconciliation": V, "fraud-cases": V, "rules-automation": VRI, "communications": V, "platform-integrations-audit": ["view", "recommend", "initiate", "approve", "execute"] },
-  AU: viewAll,
+  AU: { ...viewAll, "platform-integrations-audit": ["view", "export"] },
   DP: viewAll,
 };
 

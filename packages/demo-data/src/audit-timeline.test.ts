@@ -1,0 +1,14 @@
+import { describe, expect, it } from "vitest";
+import { AUDIT_SCHEMA_VERSION, auditTimeline, createSimulatedAuditExport, eventsForOrganisation, exceptionalAuditEvents, governedActionAuditChain, summariseAuditChain, validateAuditTimeline, type VersionedAuditEvent } from "./audit-timeline";
+
+describe("immutable audit timeline", () => {
+  it("validates the complete versioned event projection", () => expect(validateAuditTimeline(auditTimeline)).toEqual({ valid: true, eventCount: 10 }));
+  it("preserves a chronological request-to-verification chain", () => { expect(governedActionAuditChain.map(({ outcome }) => outcome)).toEqual(["REQUESTED", "ALLOWED", "APPROVED", "EXECUTED", "VERIFIED"]); expect(governedActionAuditChain.every((event,index,events) => index === 0 || Date.parse(event.occurredAt) >= Date.parse(events[index-1].occurredAt))).toBe(true); });
+  it("retains denied, expired, superseded, correction and stale history", () => expect(exceptionalAuditEvents.map(({ outcome }) => outcome)).toEqual(["DENIED", "EXPIRED", "SUPERSEDED", "CORRECTED", "REJECTED"]));
+  it("rejects duplicate IDs, broken causation and cross-tenant rows", () => { const first = auditTimeline[0]; expect(() => validateAuditTimeline([first, first])).toThrow("Duplicate"); expect(() => validateAuditTimeline([{ ...first, causationId: "missing" }])).toThrow("Broken"); expect(() => validateAuditTimeline([first, { ...auditTimeline[1], organisationId: "org-other" }])).toThrow("Cross-tenant"); });
+  it("rejects incompatible schema versions", () => expect(() => validateAuditTimeline([{ ...auditTimeline[0], schemaVersion: "audit-event@2.0.0" } as unknown as VersionedAuditEvent])).toThrow("Incompatible"));
+  it("filters every row and aggregate by organisation", () => { expect(eventsForOrganisation(auditTimeline, "org-fuelcap-global")).toHaveLength(10); expect(eventsForOrganisation(auditTimeline, "org-fleet-northstar")).toEqual([]); });
+  it("creates only a scoped, expiring, watermarked simulated export", () => expect(createSimulatedAuditExport(auditTimeline, "org-fuelcap-global", "principal-auditor")).toMatchObject({ eventCount: 10, watermark: "FUELCAP DEMONSTRATOR — SYNTHETIC DATA", simulated: true, sensitiveValuesIncluded: false }));
+  it("cites complete chains and abstains without verification", () => { expect(summariseAuditChain(governedActionAuditChain)).toMatchObject({ status: "SUPPORTED", confidenceBps: 9800 }); expect(summariseAuditChain(governedActionAuditChain.slice(0,4))).toMatchObject({ status: "ABSTAIN", confidenceBps: 0 }); expect(summariseAuditChain(governedActionAuditChain).citations).toHaveLength(5); });
+  it("keeps immutable, redacted, versioned retention metadata on every event", () => expect(auditTimeline.every(({ immutable, sensitiveFieldsRedacted, schemaVersion, retentionPolicy }) => immutable && sensitiveFieldsRedacted && schemaVersion === AUDIT_SCHEMA_VERSION && retentionPolicy)).toBe(true));
+});
