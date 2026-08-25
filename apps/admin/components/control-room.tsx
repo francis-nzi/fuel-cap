@@ -433,6 +433,7 @@ export function ControlRoom() {
               <div className="case-facts"><div><span>Reconciliation</span><strong>{scenario.operationsControl.reconciliation}</strong></div><div><span>Open breaks</span><strong>{scenario.operationsControl.breaks}</strong></div><div><span>Downstream control</span><strong>{scenario.operationsControl.downstream}</strong></div></div>
               <div className="case-boundary"><LockKeyhole size={14} /><span>Break-glass cannot clear an unreconciled or invalid state.</span></div>
               <button type="button" onClick={() => openEvidence(scenario.operationsControl.caseClass === "risk" || scenario.operationsControl.caseClass === "eligibility" ? "risk" : scenario.operationsControl.caseClass === "pricing" ? "price" : "settle")}>Open governed evidence <span>→</span></button>
+              <button type="button" onClick={() => setActiveWorkspace("platform-integrations-audit")}>Open pending approvals <span>→</span></button>
             </article>
           </section>
 

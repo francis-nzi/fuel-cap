@@ -32,6 +32,21 @@ describe("admin authorization policy", () => {
     expect(authorize({ principal: presenter, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "platform-integrations-audit", verb: "export" }).reasonCode).toBe("DENY_POLICY");
   });
 
+  it("allows different DI or PA step-up approval for platform configuration", () => {
+    const data = demoPrincipals.find(({ principalId }) => principalId === "principal-data")!;
+    const platform = demoPrincipals.find(({ principalId }) => principalId === "principal-platform")!;
+    const request = { environment: "demo" as const, activeOrganisationId: "org-fuelcap-global", workspace: "platform-integrations-audit" as const, verb: "approve" as const, actionOwnerPrincipalId: "di-maker", reconciled: true, priceValid: true, requiresStepUp: true, assurance: "step-up" as const };
+    expect(evaluateGovernedAction({ ...request, principal: data }).reasonCode).toBe("ALLOW");
+    expect(evaluateGovernedAction({ ...request, principal: platform }).reasonCode).toBe("ALLOW");
+  });
+
+  it("denies Presenter approval and stale assurance for platform configuration", () => {
+    const data = demoPrincipals.find(({ principalId }) => principalId === "principal-data")!;
+    const request = { environment: "demo" as const, activeOrganisationId: "org-fuelcap-global", workspace: "platform-integrations-audit" as const, verb: "approve" as const, actionOwnerPrincipalId: "di-maker", reconciled: true, priceValid: true, requiresStepUp: true };
+    expect(evaluateGovernedAction({ ...request, principal: presenter, assurance: "step-up" }).reasonCode).toBe("DENY_POLICY");
+    expect(evaluateGovernedAction({ ...request, principal: data, assurance: "standard" }).reasonCode).toBe("REQUIRE_STEP_UP");
+  });
+
   it("rejects structurally conflicting role assignments", () => {
     const conflicting: Principal = { ...auditor, roles: ["AU", "FR"] };
     expect(authorize({ principal: conflicting, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "transactions-ledger", verb: "view" }).reasonCode).toBe("DENY_ASSIGNMENT_CONFLICT");
