@@ -47,6 +47,13 @@ describe("admin authorization policy", () => {
     expect(evaluateGovernedAction({ ...request, principal: data, assurance: "standard" }).reasonCode).toBe("REQUIRE_STEP_UP");
   });
 
+  it("allows scoped case initiation while keeping Presenter case actions denied", () => {
+    const data = demoPrincipals.find(({ principalId }) => principalId === "principal-data")!;
+    expect(authorize({ principal: operations, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "fraud-cases", verb: "initiate" }).reasonCode).toBe("ALLOW");
+    expect(authorize({ principal: data, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "platform-integrations-audit", verb: "initiate" }).reasonCode).toBe("ALLOW");
+    expect(authorize({ principal: presenter, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "fraud-cases", verb: "initiate" }).reasonCode).toBe("DENY_POLICY");
+  });
+
   it("rejects structurally conflicting role assignments", () => {
     const conflicting: Principal = { ...auditor, roles: ["AU", "FR"] };
     expect(authorize({ principal: conflicting, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "transactions-ledger", verb: "view" }).reasonCode).toBe("DENY_ASSIGNMENT_CONFLICT");
