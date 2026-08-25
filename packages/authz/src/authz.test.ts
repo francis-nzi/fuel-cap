@@ -87,4 +87,14 @@ describe("admin authorization policy", () => {
     expect(authorizeTenantResource({ principal: operations, environment: "demo", activeOrganisationId: "org-personal-a", resourceOrganisationId: "org-fleet-northstar", workspace: "customers" }).reasonCode).toBe("DENY_TENANT_CONTEXT");
     expect(authorizeTenantResource({ principal: operations, environment: "demo", activeOrganisationId: "org-fleet-northstar", resourceOrganisationId: "org-fleet-northstar", workspace: "customers" }).reasonCode).toBe("ALLOW");
   });
+
+  it("routes seeded domain case initiation through central workspace policy", () => {
+    const compliance = demoPrincipals.find(({ principalId }) => principalId === "principal-compliance")!;
+    const data = demoPrincipals.find(({ principalId }) => principalId === "principal-data")!;
+    const presenter = demoPrincipals.find(({ principalId }) => principalId === "principal-presenter")!;
+    expect(authorize({ principal: operations, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "billing-reconciliation", verb: "initiate" }).allowed).toBe(true);
+    expect(authorize({ principal: compliance, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "fraud-cases", verb: "initiate" }).allowed).toBe(true);
+    expect(authorize({ principal: data, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "pricing-data", verb: "initiate" }).allowed).toBe(true);
+    expect(authorize({ principal: presenter, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "fraud-cases", verb: "initiate" }).allowed).toBe(false);
+  });
 });
