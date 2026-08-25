@@ -35,6 +35,7 @@ import { pricingObservationSets, scenarioOrder, scenarios, type MarketFilter, ty
 import { FleetWorkspace } from "@/components/fleet-workspace";
 import { PricingDataWorkspace } from "@/components/pricing-data-workspace";
 import { SpreadFxWorkspace } from "@/components/spread-fx-workspace";
+import { RiskHedgingWorkspace } from "@/components/risk-hedging-workspace";
 import { CustomerWorkspace } from "@/components/customer-workspace";
 
 const workspaces: readonly { key: Workspace; label: string; icon: typeof LayoutDashboard; active?: boolean }[] = [
@@ -291,7 +292,7 @@ export function ControlRoom() {
               <button className={`nav-item ${activeWorkspace === key ? "nav-item--active" : ""}`} key={label} type="button" onClick={() => { setActiveWorkspace(key); closeMobileNavigation(); }}>
                 <Icon size={17} />
                 <span>{label}</span>
-                {key !== "control-room" && key !== "customers" && key !== "fleets-vehicles" && key !== "pricing-data" && key !== "spread-fx" && <span className="nav-soon">Soon</span>}
+                {key !== "control-room" && key !== "customers" && key !== "fleets-vehicles" && key !== "pricing-data" && key !== "spread-fx" && key !== "risk-hedging" && <span className="nav-soon">Soon</span>}
               </button>
             ))}
           </div>
@@ -324,7 +325,7 @@ export function ControlRoom() {
           <select id="mobile-active-organisation" value={activeOrganisationId} onChange={(event) => setActiveOrganisationId(event.target.value)}>{memberOrganisations.map((organisation) => <option value={organisation.organisationId} key={organisation.organisationId}>{organisation.name}</option>)}</select>
         </div>
 
-        {activeWorkspace === "customers" ? <CustomerWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "fleets-vehicles" ? <FleetWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "pricing-data" ? <PricingDataWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "spread-fx" ? <SpreadFxWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : <>
+        {activeWorkspace === "customers" ? <CustomerWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "fleets-vehicles" ? <FleetWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "pricing-data" ? <PricingDataWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "spread-fx" ? <SpreadFxWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "risk-hedging" ? <RiskHedgingWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : <>
         <section className="operating-strip" aria-label="Operating status">
           <div className="operating-strip__intro"><Activity size={15} /><strong>Operating state</strong><span className={`state-pill state-pill--${scenario.status.toLowerCase().replaceAll(" ", "-")}`}>{scenario.status}</span></div>
           <div className="strip-item"><StatusDot state="healthy" /><span>Pricing</span><strong>Eligible</strong></div>

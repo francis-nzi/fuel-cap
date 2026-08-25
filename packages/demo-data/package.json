@@ -9,6 +9,7 @@
     "./fleet": "./src/fleet.ts",
     "./pricing-data": "./src/pricing-data.ts",
     "./spread-fx": "./src/spread-fx.ts",
+    "./risk-hedging": "./src/risk-hedging.ts",
     "./ports": "./src/ports.ts",
     "./reset": "./src/reset.ts"
   },
