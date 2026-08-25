@@ -15,6 +15,7 @@
     "./fraud-cases": "./src/fraud-cases.ts",
     "./rules-automation": "./src/rules-automation.ts",
     "./communications": "./src/communications.ts",
+    "./platform-integrations-audit": "./src/platform-integrations-audit.ts",
     "./ports": "./src/ports.ts",
     "./reset": "./src/reset.ts"
   },
