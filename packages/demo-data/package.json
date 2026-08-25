@@ -19,6 +19,7 @@
     "./audit-timeline": "./src/audit-timeline.ts",
     "./maker-checker": "./src/maker-checker.ts",
     "./shared-case": "./src/shared-case.ts",
+    "./seeded-domain-cases": "./src/seeded-domain-cases.ts",
     "./ports": "./src/ports.ts",
     "./reset": "./src/reset.ts"
   },

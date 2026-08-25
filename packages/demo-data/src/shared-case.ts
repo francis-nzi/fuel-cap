@@ -1,17 +1,19 @@
 export const CASE_SCHEMA_VERSION = "shared-case@1.0.0" as const;
 export const CASE_ENTRY_SCHEMA_VERSION = "case-entry@1.0.0" as const;
 export type SharedCaseState = "OPEN" | "TRIAGED" | "INVESTIGATING" | "PENDING_ACTION" | "RESOLVED" | "CLOSED";
+export type SharedCaseDomain = "OPERATIONS" | "FRAUD" | "DATA" | "COMPLIANCE" | "PLATFORM_INTEGRATIONS";
+export type SharedCaseSeverity = "NONE" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 export type CaseEntryType = "CASE_OPENED" | "TRIAGED" | "ASSIGNED" | "INVESTIGATION_STARTED" | "EVIDENCE_LINKED" | "NOTE_ADDED" | "RECOMMENDATION_RECORDED" | "ACTION_REQUEST_LINKED" | "DECISION_RECORDED" | "CUSTOMER_NOTICE_LINKED" | "RECOVERY_VERIFIED" | "RESOLVED" | "CLOSED" | "REOPENED" | "CORRECTION_LINKED";
 
 export type SharedCase = Readonly<{
-  caseId: string; caseVersion: number; schemaVersion: typeof CASE_SCHEMA_VERSION; caseType: "INTEGRATION_CONTRACT_VALIDATION"; domain: "PLATFORM_INTEGRATIONS"; state: SharedCaseState;
-  organisationId: string; environment: "demo"; market: "GLOBAL"; scenarioId: "platform-config-change"; scenarioVersion: "1.0.0"; provenance: "synthetic-seeded";
-  severity: Readonly<{ customerMoney: "NONE"; integrity: "MEDIUM"; privacySecurity: "LOW"; operational: "MEDIUM"; regulatory: "NONE" }>;
-  title: string; reasonCodes: readonly string[]; summary: string; ownerId: string | null; ownerTeam: "DATA_INTEGRATIONS"; assignmentVersion: number;
+  caseId: string; caseVersion: number; schemaVersion: typeof CASE_SCHEMA_VERSION; caseType: string; domain: SharedCaseDomain; state: SharedCaseState;
+  organisationId: string; environment: "demo"; market: "GLOBAL" | "US" | "UK" | "CA"; scenarioId: string; scenarioVersion: string; provenance: "synthetic-seeded";
+  severity: Readonly<{ customerMoney: SharedCaseSeverity; integrity: SharedCaseSeverity; privacySecurity: SharedCaseSeverity; operational: SharedCaseSeverity; regulatory: SharedCaseSeverity }>;
+  title: string; reasonCodes: readonly string[]; summary: string; ownerId: string | null; ownerTeam: "OPERATIONS" | "FINANCE_OPERATIONS" | "COMPLIANCE_FRAUD" | "DATA_INTEGRATIONS"; assignmentVersion: number;
   openedAt: string; updatedAt: string; dueAt: string; slaState: "ON_TRACK" | "AT_RISK" | "BREACHED";
-  linkedEntities: Readonly<{ customerId: null; fleetId: null; vehicleId: null; transactionId: null; quoteId: null; protectionId: null; journalId: null; providerReceiptId: string; incidentId: string; alertId: null; governedActionId: string; auditCorrelationId: string }>;
-  impact: Readonly<{ customerValueMinor: 0; capability: "TEST_PAYMENT_OBSERVATION_INGEST"; holdId: null; restrictionId: null }>;
-  evidenceIds: readonly string[]; dataClassification: "CONFIDENTIAL"; sensitiveFieldsRedacted: true; retentionPolicy: "platform-case@1.0";
+  linkedEntities: Readonly<{ customerId: string | null; fleetId: string | null; vehicleId: string | null; transactionId: string | null; quoteId: string | null; protectionId: string | null; journalId: string | null; providerReceiptId: string | null; incidentId: string | null; alertId: string | null; governedActionId: string | null; auditCorrelationId: string }>;
+  impact: Readonly<{ customerValueMinor: number; capability: string; holdId: string | null; restrictionId: string | null }>;
+  evidenceIds: readonly string[]; dataClassification: "CONFIDENTIAL"; sensitiveFieldsRedacted: true; retentionPolicy: string;
   correlationId: string; causationId: string; auditEventIds: readonly string[]; recoveryRoute: string; resolutionReason: string | null; recoveryVerified: boolean; closedAt: string | null; linkedPriorCaseVersion: number | null;
 }>;
 
@@ -40,7 +42,8 @@ const entry = (caseRecord: SharedCase, input: Pick<CaseTimelineEntry, "entryId" 
   contentHash: `sha256:${input.entryId.toLowerCase()}`, immutable: true, toolExecutionAllowed: false,
 });
 
-export const initialCaseTimeline: readonly CaseTimelineEntry[] = [entry(representativeSharedCase, { entryId: "CASE-EVT-0092-01", actorId: "case-orchestrator", actorRole: "SERVICE", entryType: "CASE_OPENED", outcome: "OPEN", reasonCode: "INVALID_SIGNATURE", occurredAt: representativeSharedCase.openedAt, evidenceIds: representativeSharedCase.evidenceIds, untrustedInput: false, linkedEntryId: null })];
+export function openCaseTimeline(caseRecord: SharedCase): readonly CaseTimelineEntry[] { return [entry(caseRecord, { entryId: `${caseRecord.caseId}-EVT-01`, actorId: "case-orchestrator", actorRole: "SERVICE", entryType: "CASE_OPENED", outcome: "OPEN", reasonCode: caseRecord.reasonCodes[0] ?? "CASE_OPENED", occurredAt: caseRecord.openedAt, evidenceIds: caseRecord.evidenceIds, untrustedInput: false, linkedEntryId: null })]; }
+export const initialCaseTimeline: readonly CaseTimelineEntry[] = openCaseTimeline(representativeSharedCase);
 
 const allowedTransitions: Readonly<Record<SharedCaseState, readonly SharedCaseState[]>> = { OPEN: ["TRIAGED"], TRIAGED: ["INVESTIGATING"], INVESTIGATING: ["PENDING_ACTION", "RESOLVED"], PENDING_ACTION: ["RESOLVED"], RESOLVED: ["CLOSED", "INVESTIGATING"], CLOSED: ["INVESTIGATING"] };
 
@@ -79,5 +82,5 @@ export function casesForOrganisation(cases: readonly SharedCase[], organisationI
 
 export function summariseCase(caseRecord: SharedCase, timeline: readonly CaseTimelineEntry[]) {
   if (!caseRecord.evidenceIds.length || !timeline.some(({ entryType }) => entryType === "EVIDENCE_LINKED" || entryType === "CASE_OPENED")) return { status: "ABSTAIN" as const, citations: timeline.map(({ entryId }) => entryId), summary: "Case evidence is incomplete." };
-  return { status: "SUPPORTED" as const, confidenceBps: 9700, citations: [caseRecord.linkedEntities.providerReceiptId, ...timeline.map(({ entryId }) => entryId)], summary: "The invalid test-provider signature was blocked before domain processing; customer money impact is none and configuration recovery requires human verification." };
+  return { status: "SUPPORTED" as const, confidenceBps: 9700, citations: [...caseRecord.evidenceIds, ...timeline.map(({ entryId }) => entryId)], summary: `${caseRecord.summary} Customer money impact is ${caseRecord.severity.customerMoney.toLowerCase()}; recovery requires human verification.` };
 }
