@@ -88,7 +88,7 @@ export function ControlRoom() {
   const [principalId, setPrincipalId] = useState("principal-presenter");
   const [activeOrganisationId, setActiveOrganisationId] = useState("org-fuelcap-global");
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace>("control-room");
-  const [platformInitialSelection, setPlatformInitialSelection] = useState<"health" | "approvals" | "case" | "catalogue">("health");
+  const [platformInitialSelection, setPlatformInitialSelection] = useState<"health" | "approvals" | "case" | "catalogue" | "alerts">("health");
   const principal = demoPrincipals.find((candidate) => candidate.principalId === principalId) ?? demoPrincipals[0];
   const memberOrganisations = demoOrganisations.filter(({ organisationId }) => principal.organisationIds.includes(organisationId));
   const allowedWorkspaceKeys = visibleWorkspaces(principal, authzEnvironment, activeOrganisationId, workspaces.map(({ key }) => key));
@@ -437,6 +437,7 @@ export function ControlRoom() {
               <button type="button" onClick={() => { setPlatformInitialSelection("approvals"); setActiveWorkspace("platform-integrations-audit"); }}>Open pending approvals <span>→</span></button>
               <button type="button" onClick={() => { setPlatformInitialSelection("case"); setActiveWorkspace("platform-integrations-audit"); }}>Open shared case <span>→</span></button>
               <button type="button" onClick={() => { setPlatformInitialSelection("catalogue"); setActiveWorkspace("platform-integrations-audit"); }}>Open case queue <span>→</span></button>
+              <button type="button" onClick={() => { setPlatformInitialSelection("alerts"); setActiveWorkspace("platform-integrations-audit"); }}>Open alert queue <span>→</span></button>
             </article>
           </section>
 
