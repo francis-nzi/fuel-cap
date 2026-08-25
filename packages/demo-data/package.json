@@ -22,6 +22,7 @@
     "./seeded-domain-cases": "./src/seeded-domain-cases.ts",
     "./alert-lifecycle": "./src/alert-lifecycle.ts",
     "./exception-controls": "./src/exception-controls.ts",
+    "./ai-control-centre": "./src/ai-control-centre.ts",
     "./ports": "./src/ports.ts",
     "./reset": "./src/reset.ts"
   },

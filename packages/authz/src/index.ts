@@ -7,7 +7,7 @@ export type Environment = "demo" | "staging" | "production";
 export type Workspace =
   | "control-room" | "customers" | "fleets-vehicles" | "pricing-data"
   | "spread-fx" | "risk-hedging" | "transactions-ledger" | "billing-reconciliation"
-  | "fraud-cases" | "rules-automation" | "communications" | "platform-integrations-audit";
+  | "fraud-cases" | "rules-automation" | "communications" | "platform-integrations-audit" | "ai-control-centre";
 
 export type Organisation = Readonly<{
   organisationId: string;
@@ -58,16 +58,17 @@ const viewAll: Record<Workspace, readonly Verb[]> = {
   "rules-automation": V,
   "communications": V,
   "platform-integrations-audit": V,
+  "ai-control-centre": V,
 };
 
 const baseline: Record<RoleCode, Partial<Record<Workspace, readonly Verb[]>>> = {
-  PA: { "control-room": VR, "customers": ["view", "initiate"], "fleets-vehicles": ["view", "initiate"], "pricing-data": V, "spread-fx": V, "risk-hedging": V, "transactions-ledger": V, "billing-reconciliation": V, "fraud-cases": V, "rules-automation": ["view", "initiate"], "communications": V, "platform-integrations-audit": VRIA },
+  PA: { "control-room": VR, "customers": ["view", "initiate"], "fleets-vehicles": ["view", "initiate"], "pricing-data": V, "spread-fx": V, "risk-hedging": V, "transactions-ledger": V, "billing-reconciliation": V, "fraud-cases": V, "rules-automation": ["view", "initiate"], "communications": V, "platform-integrations-audit": VRIA, "ai-control-centre": VRIA },
   OP: { "control-room": VRI, "customers": VRI, "fleets-vehicles": VRI, "pricing-data": V, "spread-fx": V, "risk-hedging": VR, "transactions-ledger": VRI, "billing-reconciliation": ["view", "initiate"], "fraud-cases": ["view", "initiate"], "rules-automation": VR, "communications": VRI, "platform-integrations-audit": V },
   RT: { "control-room": VRI, "customers": V, "fleets-vehicles": V, "pricing-data": VRIA, "spread-fx": VRIA, "risk-hedging": ALL, "transactions-ledger": V, "billing-reconciliation": V, "fraud-cases": VR, "rules-automation": VRIA, "communications": V, "platform-integrations-audit": V },
   FR: { "control-room": VRI, "customers": V, "fleets-vehicles": V, "pricing-data": V, "spread-fx": VR, "risk-hedging": VR, "transactions-ledger": VRIA, "billing-reconciliation": ALL, "fraud-cases": V, "rules-automation": VRI, "communications": V, "platform-integrations-audit": V },
   CF: { "control-room": VRI, "customers": VRIA, "fleets-vehicles": VRIA, "pricing-data": V, "spread-fx": V, "risk-hedging": VR, "transactions-ledger": V, "billing-reconciliation": V, "fraud-cases": ALL, "rules-automation": VRIA, "communications": VRIA, "platform-integrations-audit": V },
   CS: { "control-room": V, "customers": VRI, "fleets-vehicles": VRI, "pricing-data": V, "transactions-ledger": V, "billing-reconciliation": V, "fraud-cases": ["view", "initiate"], "rules-automation": V, "communications": VRI },
-  DI: { "control-room": VRI, "customers": V, "fleets-vehicles": V, "pricing-data": ["view", "recommend", "initiate", "execute"], "spread-fx": V, "risk-hedging": V, "transactions-ledger": V, "billing-reconciliation": V, "fraud-cases": V, "rules-automation": VRI, "communications": V, "platform-integrations-audit": ["view", "recommend", "initiate", "approve", "execute"] },
+  DI: { "control-room": VRI, "customers": V, "fleets-vehicles": V, "pricing-data": ["view", "recommend", "initiate", "execute"], "spread-fx": V, "risk-hedging": V, "transactions-ledger": V, "billing-reconciliation": V, "fraud-cases": V, "rules-automation": VRI, "communications": V, "platform-integrations-audit": ["view", "recommend", "initiate", "approve", "execute"], "ai-control-centre": VRI },
   AU: { ...viewAll, "platform-integrations-audit": ["view", "export"] },
   DP: viewAll,
 };
