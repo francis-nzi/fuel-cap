@@ -1,4 +1,4 @@
-export type GovernedActionState = "DRAFT" | "VALIDATED" | "SIMULATED" | "PENDING_APPROVAL" | "APPROVED" | "EXECUTING" | "EXECUTED" | "VERIFIED";
+export type GovernedActionState = "DRAFT" | "VALIDATED" | "SIMULATED" | "PENDING_APPROVAL" | "APPROVED" | "EXECUTING" | "EXECUTED" | "VERIFIED" | "REJECTED" | "EXPIRED";
 
 export type GovernedActionRequest = Readonly<{
   requestId: string;
@@ -32,9 +32,11 @@ export type GovernedActionRequest = Readonly<{
   stepUpRequired: true;
   authzPolicyVersion: string;
   clock: string;
+  expiresAt: string;
   correlationId: string;
   causationId: string;
   approval: Readonly<{ checkerId: string; checkerRole: "DI" | "PA"; assurance: "step-up"; requestVersion: number; evidenceDigest: string; approvedAt: string; approvalHash: string }> | null;
+  rejection: Readonly<{ checkerId: string; checkerRole: "DI" | "PA"; requestVersion: number; evidenceDigest: string; reasonCode: string; rationaleReference: string; rejectedAt: string }> | null;
   executorId: string | null;
   executionHash: string | null;
   verificationEvidenceId: string | null;
@@ -49,8 +51,8 @@ export const draftConfigurationRequest: GovernedActionRequest = {
   beforeHash: "sha256:stripe-test-config-v4", afterHash: "sha256:stripe-test-config-v5", credentialReference: "secret://stripe/test-v2", secretValueDisplayed: false,
   reason: "Rotate the test credential reference after the simulated invalid-signature incident.", evidenceIds: ["INC-WEBHOOK-0091", "RULE-VAL-CONFIG-0092", "ROLLBACK-ADAPTER-STRIPE-TEST-0092"], evidenceDigest: "sha256:evidence-ga-0092-v1",
   compatibilityStatus: "PENDING", rollbackReference: "ROLLBACK-ADAPTER-STRIPE-TEST-0092", requiredApproverRoles: ["DI", "PA"], differentPrincipalRequired: true, stepUpRequired: true,
-  authzPolicyVersion: "admin-authz-demo-1.0.0", clock: "2026-08-25T16:33:00.000Z", correlationId: "CORR-CONFIG-0092", causationId: "INC-WEBHOOK-0091",
-  approval: null, executorId: null, executionHash: null, verificationEvidenceId: null, immutableTransitionIds: ["GA-EVT-0092-DRAFT"],
+  authzPolicyVersion: "admin-authz-demo-1.0.0", clock: "2026-08-25T16:33:00.000Z", expiresAt: "2026-08-25T18:00:00.000Z", correlationId: "CORR-CONFIG-0092", causationId: "INC-WEBHOOK-0091",
+  approval: null, rejection: null, executorId: null, executionHash: null, verificationEvidenceId: null, immutableTransitionIds: ["GA-EVT-0092-DRAFT"],
 };
 
 const next = (request: GovernedActionRequest, state: GovernedActionState, transitionId: string, changes: Partial<GovernedActionRequest> = {}): GovernedActionRequest => ({ ...request, ...changes, state, immutableTransitionIds: [...request.immutableTransitionIds, transitionId] });
