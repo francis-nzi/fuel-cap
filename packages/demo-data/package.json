@@ -11,6 +11,7 @@
     "./spread-fx": "./src/spread-fx.ts",
     "./risk-hedging": "./src/risk-hedging.ts",
     "./transactions-ledger": "./src/transactions-ledger.ts",
+    "./billing-reconciliation": "./src/billing-reconciliation.ts",
     "./ports": "./src/ports.ts",
     "./reset": "./src/reset.ts"
   },
