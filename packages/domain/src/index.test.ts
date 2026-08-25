@@ -1,0 +1,17 @@
+import { describe, expect, it } from "vitest";
+import { FUEL_DOMAIN_CONTRACT_VERSION, fuelProductId, isEffectiveAt, providerId, stationId, validateFuelProduct, validateFuelReferenceCatalogue, validateProvider, validateStation, type FuelDataProvider, type FuelProduct, type FuelReferenceCatalogue, type FuelStation } from "./index";
+
+const effective = { validFrom: "2026-01-01T00:00:00.000Z", validTo: null } as const;
+const product: FuelProduct = { productId: fuelProductId("fuel-us-regular"), schemaVersion: FUEL_DOMAIN_CONTRACT_VERSION, family: "GASOLINE", grade: "REGULAR", market: "US", unit: "US_GALLON", currency: "USD", displayName: "Regular unleaded", active: true, effective };
+const provider: FuelDataProvider = { providerId: providerId("provider-demo-us"), schemaVersion: FUEL_DOMAIN_CONTRACT_VERSION, name: "Demo US provider", mode: "TEST", provenance: "SYNTHETIC", markets: ["US"], licence: { licenceId: "LIC-DEMO-001", permitsCanonicalSelection: true, permitsDerivedBenchmarks: true, permitsRedistribution: false, attribution: "Synthetic demonstrator", effective }, endpointReference: "adapter://fuel/demo-us", credentialReference: "secret://fuel/demo-us", secretDisplayed: false, active: true, effective };
+const station: FuelStation = { stationId: stationId("station-us-tx-001"), schemaVersion: FUEL_DOMAIN_CONTRACT_VERSION, providerId: provider.providerId, providerStationReference: "TX-001", market: "US", region: "TX", postalCode: "78701", name: "Demo Austin Central", location: { latitudeE6: 30_267_200, longitudeE6: -97_743_100 }, timeZone: "America/Chicago", supportedProductIds: [product.productId], active: true, effective, dataClassification: "PUBLIC_LOCATION" };
+const catalogue: FuelReferenceCatalogue = { contractVersion: FUEL_DOMAIN_CONTRACT_VERSION, products: [product], providers: [provider], stations: [station] };
+
+describe("canonical fuel/provider/station domain", () => {
+  it("normalises and brands stable identifiers", () => { expect(fuelProductId(" fuel-us-regular ")).toBe("FUEL-US-REGULAR"); expect(()=>stationId("bad id")).toThrow("Invalid"); });
+  it("validates market-specific unit, currency and grade semantics", () => { expect(validateFuelProduct(product)).toBe(product); expect(()=>validateFuelProduct({...product,unit:"LITRE"})).toThrow("Market unit"); expect(()=>validateFuelProduct({...product,family:"DIESEL"})).toThrow("family"); });
+  it("validates provider modes, licences and secret references", () => { expect(validateProvider(provider)).toBe(provider); expect(()=>validateProvider({...provider,mode:"LIVE",endpointReference:null})).toThrow("Live provider"); expect(()=>validateProvider({...provider,credentialReference:"plaintext"})).toThrow("secret reference"); });
+  it("validates station coordinates and effective dating", () => { expect(validateStation(station)).toBe(station); expect(()=>validateStation({...station,location:{latitudeE6:91_000_000,longitudeE6:0}})).toThrow("coordinates"); expect(isEffectiveAt(effective,"2026-08-25T00:00:00.000Z")).toBe(true); });
+  it("validates canonical reference integrity and counts", () => expect(validateFuelReferenceCatalogue(catalogue)).toEqual({valid:true,productCount:1,providerCount:1,stationCount:1}));
+  it("rejects duplicates and cross-market references", () => { expect(()=>validateFuelReferenceCatalogue({...catalogue,products:[product,product]})).toThrow("Duplicate"); expect(()=>validateFuelReferenceCatalogue({...catalogue,stations:[{...station,market:"GB"}]})).toThrow("provider market"); });
+});
