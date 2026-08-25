@@ -3,14 +3,15 @@ import type { SharedCaseDomain, SharedCaseSeverity } from "./shared-case";
 
 export const ALERT_SCHEMA_VERSION = "governed-alert@1.0.0" as const;
 export const ALERT_EVENT_SCHEMA_VERSION = "alert-event@1.0.0" as const;
-export type AlertState = "OPEN" | "ACKNOWLEDGED" | "ASSIGNED" | "RESOLVED";
-export type AlertEventType = "ALERT_OPENED" | "ACKNOWLEDGED" | "ASSIGNED" | "RESOLVED";
+export type AlertState = "OPEN" | "ACKNOWLEDGED" | "ASSIGNED" | "ESCALATED" | "RESOLVED";
+export type AlertEventType = "ALERT_OPENED" | "ACKNOWLEDGED" | "ASSIGNED" | "ESCALATED" | "RESOLVED";
 
 export type GovernedAlert = Readonly<{
   alertId: string; alertVersion: number; schemaVersion: typeof ALERT_SCHEMA_VERSION; organisationId: string; environment: "demo"; domain: Exclude<SharedCaseDomain, "PLATFORM_INTEGRATIONS">; provenance: "synthetic-seeded";
   state: AlertState; title: string; reasonCodes: readonly string[]; severity: SharedCaseSeverity; openedAt: string; acknowledgedAt: string | null; assignedAt: string | null; resolvedAt: string | null;
   ownerId: string | null; ownerTeam: "FINANCE_OPERATIONS" | "COMPLIANCE_FRAUD" | "DATA_INTEGRATIONS"; assignmentVersion: number; dueAt: string; slaState: "ON_TRACK" | "AT_RISK" | "BREACHED";
   linkedCaseId: string; evidenceIds: readonly string[]; correlationId: string; causationId: string; resolutionRequirement: string; resolutionReason: string | null; resolutionEvidenceIds: readonly string[];
+  escalationLevel: 0 | 1 | 2; escalatedAt: string | null; escalationTarget: string | null; escalationDueAt: string | null;
   dataClassification: "CONFIDENTIAL"; sensitiveFieldsRedacted: true; retentionPolicy: string;
 }>;
 
@@ -29,7 +30,7 @@ const domainMeta = {
 export const seededAlerts: readonly GovernedAlert[] = seededDomainCases.map((caseRecord, index) => {
   const domain = caseRecord.domain as GovernedAlert["domain"];
   const meta = domainMeta[domain];
-  return { alertId: meta.alertId, alertVersion: 1, schemaVersion: ALERT_SCHEMA_VERSION, organisationId: caseRecord.organisationId, environment: "demo", domain, provenance: "synthetic-seeded", state: "OPEN", title: meta.title, reasonCodes: caseRecord.reasonCodes, severity: meta.severity, openedAt: `2026-08-25T17:${String(30 + index * 5).padStart(2, "0")}:00.000Z`, acknowledgedAt: null, assignedAt: null, resolvedAt: null, ownerId: null, ownerTeam: meta.ownerTeam, assignmentVersion: 0, dueAt: caseRecord.dueAt, slaState: caseRecord.slaState, linkedCaseId: caseRecord.caseId, evidenceIds: caseRecord.evidenceIds, correlationId: `CORR-${meta.alertId}`, causationId: caseRecord.correlationId, resolutionRequirement: meta.requirement, resolutionReason: null, resolutionEvidenceIds: [], dataClassification: "CONFIDENTIAL", sensitiveFieldsRedacted: true, retentionPolicy: caseRecord.retentionPolicy };
+  return { alertId: meta.alertId, alertVersion: 1, schemaVersion: ALERT_SCHEMA_VERSION, organisationId: caseRecord.organisationId, environment: "demo", domain, provenance: "synthetic-seeded", state: "OPEN", title: meta.title, reasonCodes: caseRecord.reasonCodes, severity: meta.severity, openedAt: `2026-08-25T17:${String(30 + index * 5).padStart(2, "0")}:00.000Z`, acknowledgedAt: null, assignedAt: null, resolvedAt: null, ownerId: null, ownerTeam: meta.ownerTeam, assignmentVersion: 0, dueAt: caseRecord.dueAt, slaState: caseRecord.slaState, linkedCaseId: caseRecord.caseId, evidenceIds: caseRecord.evidenceIds, correlationId: `CORR-${meta.alertId}`, causationId: caseRecord.correlationId, resolutionRequirement: meta.requirement, resolutionReason: null, resolutionEvidenceIds: [], escalationLevel: 0, escalatedAt: null, escalationTarget: null, escalationDueAt: null, dataClassification: "CONFIDENTIAL", sensitiveFieldsRedacted: true, retentionPolicy: caseRecord.retentionPolicy };
 });
 
 const event = (alert: GovernedAlert, eventType: AlertEventType, actorId: string, actorRole: string, reasonCode: string, occurredAt: string, evidenceIds: readonly string[]): AlertEvent => ({ eventId: `${alert.alertId}-EVT-${String(alert.alertVersion).padStart(2, "0")}`, eventVersion: 1, schemaVersion: ALERT_EVENT_SCHEMA_VERSION, alertId: alert.alertId, alertVersion: alert.alertVersion, organisationId: alert.organisationId, occurredAt, actorId, actorRole, eventType, outcome: alert.state, reasonCode, ownerId: alert.ownerId, evidenceIds, correlationId: alert.correlationId, causationId: alert.alertVersion === 1 ? alert.causationId : `${alert.alertId}-EVT-${String(alert.alertVersion - 1).padStart(2, "0")}`, immutable: true, sensitiveFieldsRedacted: true });
@@ -52,7 +53,7 @@ export function assignAlert(alert: GovernedAlert, events: readonly AlertEvent[],
 
 export function resolveAlert(alert: GovernedAlert, events: readonly AlertEvent[], actorId: string, actorRole: "OP" | "CF" | "DI" | "DP", reason: string, evidenceIds: readonly string[]) {
   if (actorRole === "DP") throw new Error("Alert resolution is not authorised.");
-  if (alert.state !== "ASSIGNED" || !alert.ownerId) throw new Error("Only assigned alerts with an owner can be resolved.");
+  if ((alert.state !== "ASSIGNED" && alert.state !== "ESCALATED") || !alert.ownerId) throw new Error("Only assigned or escalated alerts with an owner can be resolved.");
   if (!reason.trim() || !evidenceIds.length) throw new Error("Resolution reason and verification evidence are required.");
   const next: GovernedAlert = { ...alert, alertVersion: alert.alertVersion + 1, state: "RESOLVED", resolvedAt: "2026-08-25T18:10:00.000Z", resolutionReason: reason, resolutionEvidenceIds: evidenceIds };
   return { alert: next, events: [...events, event(next, "RESOLVED", actorId, actorRole, "RECOVERY_VERIFIED", next.resolvedAt!, evidenceIds)] as readonly AlertEvent[] };

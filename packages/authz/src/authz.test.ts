@@ -109,4 +109,15 @@ describe("admin authorization policy", () => {
     expect(authorize({ principal: auditor, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "fraud-cases", verb: "initiate" }).allowed).toBe(false);
     expect(authorize({ principal: presenter, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "pricing-data", verb: "initiate" }).allowed).toBe(false);
   });
+
+  it("authorises exception controls only through checker and domain policy", () => {
+    const platform = demoPrincipals.find(({ principalId }) => principalId === "principal-platform")!;
+    const compliance = demoPrincipals.find(({ principalId }) => principalId === "principal-compliance")!;
+    const auditor = demoPrincipals.find(({ principalId }) => principalId === "principal-auditor")!;
+    const presenter = demoPrincipals.find(({ principalId }) => principalId === "principal-presenter")!;
+    expect(authorize({ principal: platform, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "platform-integrations-audit", verb: "approve", actionOwnerPrincipalId: "principal-data" }).allowed).toBe(true);
+    expect(authorize({ principal: compliance, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "fraud-cases", verb: "initiate" }).allowed).toBe(true);
+    expect(authorize({ principal: auditor, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "fraud-cases", verb: "initiate" }).allowed).toBe(false);
+    expect(authorize({ principal: presenter, environment: "demo", activeOrganisationId: "org-fuelcap-global", workspace: "platform-integrations-audit", verb: "approve", actionOwnerPrincipalId: "principal-data" }).allowed).toBe(false);
+  });
 });
