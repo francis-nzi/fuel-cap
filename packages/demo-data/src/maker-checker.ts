@@ -44,7 +44,7 @@ export type GovernedActionRequest = Readonly<{
 export const draftConfigurationRequest: GovernedActionRequest = {
   requestId: "GA-INT-CONFIG-0092", requestVersion: 1, actionType: "INTEGRATION_CONFIGURATION_CHANGE", state: "DRAFT",
   organisationId: "org-fuelcap-global", environment: "demo", workspace: "platform-integrations-audit", targetType: "INTEGRATION_ADAPTER", targetId: "adapter-stripe",
-  makerId: "principal-data-maker", makerRole: "DI", requestedEffectiveAt: "2026-08-26T09:00:00.000Z", maintenanceWindow: "2026-08-26T09:00:00.000Z/2026-08-26T09:15:00.000Z",
+  makerId: "principal-data", makerRole: "DI", requestedEffectiveAt: "2026-08-26T09:00:00.000Z", maintenanceWindow: "2026-08-26T09:00:00.000Z/2026-08-26T09:15:00.000Z",
   capabilityScope: "payment-observation-ingest", customerImpact: "NONE", moneyMovement: false, integrityImpact: "TEST_ADAPTER_RESTART",
   beforeHash: "sha256:stripe-test-config-v4", afterHash: "sha256:stripe-test-config-v5", credentialReference: "secret://stripe/test-v2", secretValueDisplayed: false,
   reason: "Rotate the test credential reference after the simulated invalid-signature incident.", evidenceIds: ["INC-WEBHOOK-0091", "RULE-VAL-CONFIG-0092", "ROLLBACK-ADAPTER-STRIPE-TEST-0092"], evidenceDigest: "sha256:evidence-ga-0092-v1",
