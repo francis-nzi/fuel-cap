@@ -16,6 +16,7 @@
     "@fontsource-variable/inter": "^5.2.8",
     "@fuelcap/authz": "workspace:*",
     "@fuelcap/demo-data": "workspace:*",
+    "@fuelcap/pricing-control": "workspace:*",
     "lucide-react": "^1.26.0",
     "next": "16.2.11",
     "react": "19.2.4",
