@@ -1,0 +1,25 @@
+import { describe, expect, it } from "vitest";
+import { applyFxConversion, approveFxAdjustmentProposal, createDirectCanonicalRate, createFxAdjustmentProposal, createTriangulatedCanonicalRate, publishFxAdjustment, validateFxObservation, type FxAdjustmentPolicy, type FxReferenceObservation } from "./index";
+
+const observedAt = "2026-08-26T12:00:00.000Z";
+const hash = "a".repeat(64);
+const observation = (id: string, baseCurrency: "USD" | "CAD" | "GBP" | "EUR", quoteCurrency: "USD" | "CAD" | "GBP" | "EUR", rate6dp: number): FxReferenceObservation => ({ observationId: id, pair: `${baseCurrency}/${quoteCurrency}`, baseCurrency, quoteCurrency, rate6dp, provider: "Frankfurter reference fixture", sourceObservedAt: observedAt, ingestedAt: "2026-08-26T12:00:04.000Z", provenance: "ILLUSTRATIVE_FIXED", licenceClass: "REFERENCE_DEMONSTRATOR", rawPayloadSha256: hash });
+const usdCad = observation("FX-OBS-USDCAD", "USD", "CAD", 1_371_200);
+const gbpUsd = observation("FX-OBS-GBPUSD", "GBP", "USD", 1_286_400);
+const policy: FxAdjustmentPolicy = { policyId: "FX-POLICY-1", maximumAdjustmentBps: 300, approvedPivots: ["USD"] };
+const proposal = () => createFxAdjustmentProposal({ proposalId: "FX-PROPOSAL-1", makerId: "rates-maker", reason: "Publish demonstrator FX components", createdAt: "2026-08-26T12:00:06.000Z", components: { modelledConversionCostBps: 20, fuelCapFxMarginBps: 15, reserveBufferBps: 5 } }, policy);
+const approval = () => approveFxAdjustmentProposal(proposal(), { approvalId: "FX-APPROVAL-1", checkerId: "finance-checker", assurance: "STEP_UP", approvedAt: "2026-08-26T12:00:07.000Z" });
+const adjustment = () => publishFxAdjustment("FX-ADJUSTMENT-1", proposal(), approval(), "2026-08-26T12:00:08.000Z", policy);
+
+describe("FX engine", () => {
+  it("creates a direct rate with explicit direction and evidence", () => { const rate = createDirectCanonicalRate("FX-RATE-USDCAD", usdCad, "2026-08-26T12:00:05.000Z"); expect(rate).toMatchObject({ pair: "USD/CAD", rate6dp: 1_371_200, method: "DIRECT", observationIds: ["FX-OBS-USDCAD"] }); });
+  it("rejects stale observations and inconsistent pair directions", () => { expect(() => validateFxObservation(usdCad, "2026-08-26T12:06:00.000Z")).toThrow(/stale/i); expect(() => validateFxObservation({ ...usdCad, pair: "CAD/USD" }, "2026-08-26T12:00:05.000Z")).toThrow(/direction/i); });
+  it("triangulates GBP/CAD only through the approved USD pivot", () => { const rate = createTriangulatedCanonicalRate("FX-RATE-GBPCAD", gbpUsd, usdCad, "GBP/CAD", "USD", policy, "2026-08-26T12:00:05.000Z"); expect(rate).toMatchObject({ rate6dp: 1_763_912, method: "TRIANGULATED", pivotCurrency: "USD", observationIds: ["FX-OBS-GBPUSD", "FX-OBS-USDCAD"] }); });
+  it("never silently inverts or accepts an unapproved triangulation path", () => { expect(() => createTriangulatedCanonicalRate("BAD", usdCad, gbpUsd, "CAD/GBP", "USD", policy, "2026-08-26T12:00:05.000Z")).toThrow(/never silently inverted/i); expect(() => createTriangulatedCanonicalRate("BAD", gbpUsd, usdCad, "GBP/CAD", "EUR", policy, "2026-08-26T12:00:05.000Z")).toThrow(/approved/i); });
+  it("derives the customer adjustment solely from separately retained components", () => { const result = proposal(); expect(result.totalAdjustmentBps).toBe(40); expect(result.components).toEqual({ modelledConversionCostBps: 20, fuelCapFxMarginBps: 15, reserveBufferBps: 5 }); });
+  it("rejects invalid and policy-breaching component values", () => { expect(() => createFxAdjustmentProposal({ ...proposal(), components: { modelledConversionCostBps: -1, fuelCapFxMarginBps: 15, reserveBufferBps: 5 } }, policy)).toThrow(); expect(() => createFxAdjustmentProposal({ ...proposal(), components: { modelledConversionCostBps: 200, fuelCapFxMarginBps: 100, reserveBufferBps: 1 } }, policy)).toThrow(/limit/i); });
+  it("enforces different-maker step-up approval", () => { expect(() => approveFxAdjustmentProposal(proposal(), { approvalId: "A", checkerId: "rates-maker", assurance: "STEP_UP", approvedAt: "2026-08-26T12:00:07.000Z" })).toThrow(/differ/i); });
+  it("detects a tampered component total before publication", () => { expect(() => publishFxAdjustment("FX-A", { ...proposal(), totalAdjustmentBps: 41 }, approval(), "2026-08-26T12:00:08.000Z", policy)).toThrow(/component-derived/i); });
+  it("applies a pinned direct conversion with deterministic half-up rounding", () => { const rate = createDirectCanonicalRate("FX-RATE-USDCAD", usdCad, "2026-08-26T12:00:05.000Z"); const result = applyFxConversion("CONVERSION-1", 10_000, "USD", "CAD", rate, adjustment(), "2026-08-26T12:00:09.000Z"); expect(result).toMatchObject({ sourceAmountMinor: 10_000, destinationAmountMinor: 13_767, referenceRate6dp: 1_371_200, customerRate6dp: 1_376_685, canonicalRateId: "FX-RATE-USDCAD", adjustmentDecisionId: "FX-ADJUSTMENT-1" }); });
+  it("rejects conversion requests whose currencies reverse the pinned rate", () => { const rate = createDirectCanonicalRate("FX-RATE-USDCAD", usdCad, "2026-08-26T12:00:05.000Z"); expect(() => applyFxConversion("BAD", 10_000, "CAD", "USD", rate, adjustment(), "2026-08-26T12:00:09.000Z")).toThrow(/direction/i); });
+});
