@@ -227,6 +227,25 @@ importers:
         specifier: ^4.1.10
         version: 4.1.11(@types/node@20.19.43)(jsdom@29.1.1)(vite@8.2.2(@types/node@20.19.43)(jiti@2.7.0))
 
+  packages/quote-engine:
+    dependencies:
+      '@fuelcap/benchmark-engine':
+        specifier: workspace:*
+        version: link:../benchmark-engine
+      '@fuelcap/domain':
+        specifier: workspace:*
+        version: link:../domain
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.43
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.11(@types/node@20.19.43)(jsdom@29.1.1)(vite@8.2.2(@types/node@20.19.43)(jiti@2.7.0))
+
 packages:
 
   '@adobe/css-tools@4.5.0':
