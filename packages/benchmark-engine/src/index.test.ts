@@ -1,0 +1,18 @@
+import { describe, expect, it } from "vitest";
+import type { NormalizedPriceObservation, ObservationId } from "@fuelcap/pricing-ingestion";
+import { decideBenchmark, type BenchmarkCandidate } from "./index";
+
+const observation = (id: string, priceMinor4dp: number, overrides: Partial<NormalizedPriceObservation> = {}): NormalizedPriceObservation => ({ observationId: id as ObservationId, contractVersion: "pricing-ingestion@1.0.0", providerId: "PROVIDER-TEST-ONE" as NormalizedPriceObservation["providerId"], stationId: "STATION-US-ONE" as NormalizedPriceObservation["stationId"], productId: "FUEL-US-REGULAR" as NormalizedPriceObservation["productId"], kind: "ACTUAL_PUMP", observedAt: "2026-08-26T09:00:00Z", receivedAt: "2026-08-26T09:00:10Z", priceMinor4dp, currency: "USD", unit: "US_GALLON", requestedUses: ["DISPLAY", "QUOTE"], permittedUses: ["DISPLAY", "QUOTE"], rawPayloadHash: `sha256:${id}`, adapterVersion: "adapter@1.0.0", correlationId: "CORR-1", ...overrides });
+const candidate = (id: string, price: number, weight: number, overrides: Partial<NormalizedPriceObservation> = {}): BenchmarkCandidate => ({ observation: observation(id, price, overrides), eligibleStationCount: weight });
+const policy = { policyId: "POLICY-US-REGULAR-1", minimumCandidateCount: 2, minimumCoverageBps: 5_000, maximumDispersionBps: 1_000, expectedEligibleStationCount: 10 };
+const decide = (candidates: readonly BenchmarkCandidate[], custom = policy) => decideBenchmark("BENCH-1", "2026-08-26T09:01:00Z", candidates, custom);
+
+describe("benchmark engine", () => {
+  it("publishes the deterministic weighted median", () => { const result = decide([candidate("OBS-A", 35000, 2), candidate("OBS-B", 35800, 5), candidate("OBS-C", 36000, 3)]); expect(result.status).toBe("PUBLISHED"); expect(result.benchmarkPriceMinor4dp).toBe(35800); expect(result.selectedObservationId).toBe("OBS-B"); });
+  it("is order independent with observation ID tie-breaking", () => { const a = decide([candidate("OBS-C", 36000, 3), candidate("OBS-B", 35800, 5), candidate("OBS-A", 35000, 2)]); const b = decide([candidate("OBS-A", 35000, 2), candidate("OBS-B", 35800, 5), candidate("OBS-C", 36000, 3)]); expect(a.selectedObservationId).toBe(b.selectedObservationId); expect(a.benchmarkPriceMinor4dp).toBe(b.benchmarkPriceMinor4dp); });
+  it("blocks insufficient candidate count", () => { expect(decide([candidate("OBS-A", 35000, 10)]).reasonCode).toBe("INSUFFICIENT_CANDIDATES"); });
+  it("blocks insufficient eligible coverage", () => { expect(decide([candidate("OBS-A", 35000, 2), candidate("OBS-B", 35100, 2)]).reasonCode).toBe("INSUFFICIENT_COVERAGE"); });
+  it("blocks excessive dispersion", () => { const result = decide([candidate("OBS-A", 30000, 5), candidate("OBS-B", 40000, 5)]); expect(result.reasonCode).toBe("EXCESSIVE_DISPERSION"); expect(result.benchmarkPriceMinor4dp).toBeNull(); });
+  it("preserves non-actual and unlicensed inputs as rejected evidence", () => { const result = decide([candidate("OBS-A", 35000, 5), candidate("OBS-B", 35100, 5), candidate("OBS-REF", 34900, 2, { kind: "REFERENCE" }), candidate("OBS-NOQUOTE", 35200, 2, { permittedUses: ["DISPLAY"] })]); expect(result.evidence.find(({observationId})=>observationId === "OBS-REF")?.reasonCode).toBe("NON_ACTUAL_INPUT"); expect(result.evidence.find(({observationId})=>observationId === "OBS-NOQUOTE")?.reasonCode).toBe("NOT_QUOTE_LICENSED"); });
+  it("records exactly one selected candidate for a published decision", () => { const result = decide([candidate("OBS-A", 35000, 5), candidate("OBS-B", 35100, 5)]); expect(result.evidence.filter(({outcome})=>outcome === "SELECTED")).toHaveLength(1); });
+});
