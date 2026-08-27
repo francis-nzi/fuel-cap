@@ -78,3 +78,30 @@ export const assuranceEngagements: readonly AssuranceEngagement[] = [
   { engagementId: "ASR-DR-001", controlId: "RES-DR", assessorOrganisation: "Independent resilience assessor (unappointed)", state: "SCOPED", scopedBy: "operations-lead", approvedBy: "finance-operations-lead", commissionedAt: null, dueAt: "2026-10-29T17:00:00Z", requiredDeliverables: ["restore-report"], submittedEvidenceIds: [], acceptedEvidenceIds: [], rejectionReason: null },
 ] as const;
 export const assurancePortfolio = evaluateAssurancePortfolio(assuranceEngagements, productionReadinessControls, "2026-08-27T15:00:00Z");
+
+export interface AssuranceCommissioningPack { readonly packId: string; readonly engagementId: string; readonly controlId: string; readonly version: string; readonly objectives: readonly string[]; readonly inScope: readonly string[]; readonly outOfScope: readonly string[]; readonly rulesOfEngagement: readonly string[]; readonly evidenceHandling: readonly string[]; readonly requiredDeliverables: readonly string[]; readonly acceptanceCriteria: readonly string[]; readonly owner: string; readonly approver: string; readonly contentHash: string; }
+export interface AssessorAppointment { readonly engagementId: string; readonly assessorOrganisation: string; readonly leadAssessor: string; readonly independenceDeclared: boolean; readonly conflictsDisclosed: readonly string[]; readonly confidentialityAccepted: boolean; readonly dataHandlingAccepted: boolean; readonly appointedBy: string; readonly approvedBy: string; readonly appointedAt: string; }
+
+const packDetails: Readonly<Record<string, Pick<AssuranceCommissioningPack, "objectives" | "inScope" | "outOfScope">>> = {
+  "SEC-PENTEST": { objectives: ["Independently test tenant isolation, authentication, authorization and exposed application boundaries", "Verify material findings are remediated and retested"], inScope: ["FuelCap admin and customer HTTP surfaces", "Authentication and role boundaries", "Tenant isolation and evidence access", "Documented API endpoints"], outOfScope: ["Denial-of-service testing", "Social engineering", "Third-party infrastructure not owned by FuelCap"] },
+  "PRI-DPIA": { objectives: ["Assess jurisdictional privacy risks and mitigations", "Verify consent, retention, rights and minimisation controls"], inScope: ["Identity and customer profile processing", "Consent and communications evidence", "Retention, correction and deletion workflows", "AI evidence boundaries"], outOfScope: ["Legal opinion outside the selected jurisdictions", "Uncontracted live-provider processing"] },
+  "RES-DR": { objectives: ["Independently observe recovery against declared RTO and RPO", "Verify ledger-safe restoration and deterministic projection rebuild"], inScope: ["Application and database recovery procedure", "Ledger and safeguarding reconciliation", "Projection rebuild", "Incident command and customer communications handoff"], outOfScope: ["Destructive testing against production", "Unapproved third-party failover"] },
+};
+
+export function createAssuranceCommissioningPack(engagement: AssuranceEngagement): AssuranceCommissioningPack {
+  const details = packDetails[engagement.controlId]; if (!details) throw new Error("No approved commissioning pack exists for this control.");
+  return { packId: `PACK-${engagement.engagementId}`, engagementId: engagement.engagementId, controlId: engagement.controlId, version: "1.0.0", ...details, rulesOfEngagement: ["Use synthetic or explicitly authorised data only", "Stop and notify on suspected live customer exposure", "Do not alter ledger authority or initiate money movement", "Record timestamps, methods, affected scope and reproducible evidence"], evidenceHandling: ["Encrypt evidence in transit and at rest", "Store secrets and personal data only as redacted references", "Return content-addressed deliverables through the governed evidence intake", "Delete working copies after accepted retention handoff"], requiredDeliverables: engagement.requiredDeliverables, acceptanceCriteria: engagement.requiredDeliverables.map((kind) => `${kind}: independently issued, passing, content-addressed and current`), owner: engagement.scopedBy, approver: engagement.approvedBy ?? "UNAPPROVED", contentHash: `sha256:${engagement.engagementId}-pack-v1` };
+}
+
+export function validateAssessorAppointment(appointment: AssessorAppointment, engagement: AssuranceEngagement): Readonly<{ valid: boolean; blockers: readonly string[] }> {
+  const blockers: string[] = [];
+  if (appointment.engagementId !== engagement.engagementId) blockers.push("Appointment does not match the engagement.");
+  if (!appointment.assessorOrganisation.trim() || !appointment.leadAssessor.trim()) blockers.push("Assessor organisation and lead are required.");
+  if (!appointment.independenceDeclared || appointment.conflictsDisclosed.length) blockers.push("Assessor independence is not established.");
+  if (!appointment.confidentialityAccepted || !appointment.dataHandlingAccepted) blockers.push("Evidence handling terms are not accepted.");
+  if (!appointment.appointedBy.trim() || appointment.appointedBy === appointment.approvedBy) blockers.push("Segregated appointment approval is required.");
+  if (!Number.isFinite(Date.parse(appointment.appointedAt))) blockers.push("A valid appointment timestamp is required.");
+  return { valid: blockers.length === 0, blockers };
+}
+
+export const assuranceCommissioningPacks: readonly AssuranceCommissioningPack[] = assuranceEngagements.map(createAssuranceCommissioningPack);
