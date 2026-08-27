@@ -59,3 +59,5 @@ export function runApprovedStressSuite(snapshot: ExposureSnapshot, assumptions: 
   if (assumptions.length !== required.length || required.some((kind) => assumptions.filter((item) => item.kind === kind).length !== 1)) throw new Error("The calm state and all six approved adverse stresses are required exactly once.");
   return assumptions.map((assumption) => runExposureStress(snapshot, assumption));
 }
+
+export * from "./paper";
