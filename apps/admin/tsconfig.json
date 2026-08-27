@@ -4,7 +4,8 @@
     "incremental": true,
     "plugins": [{ "name": "next" }],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@fuelcap/eu-pricing-source": ["../../packages/eu-pricing-source/src/index.ts"]
     }
   },
   "include": [

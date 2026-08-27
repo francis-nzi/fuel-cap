@@ -139,3 +139,53 @@ export function assessOfficialSourceEvidence(evidence: readonly OfficialWorkbook
 }
 
 export const officialWeeklyBulletinGate2Decision = assessOfficialSourceEvidence(officialWeeklyBulletinGate2Evidence);
+
+export type EuPublicationState = "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "PUBLISHED" | "ROLLED_BACK";
+export type EuReleaseHealth = "CURRENT" | "STALE" | "EXPIRED" | "QUARANTINED";
+export interface EuBenchmarkConfiguration { readonly configurationId: string; readonly version: number; readonly state: EuPublicationState; readonly makerId: string; readonly checkerId: string | null; readonly sourceEvidenceHashes: readonly `sha256:${string}`[]; readonly countries: readonly EuCountryCode[]; readonly products: readonly EuBulletinProduct[]; readonly taxBases: readonly TaxBasis[]; readonly licenceApproval: "CHECKER_APPROVED"; readonly attribution: string; readonly freshnessCurrentDays: 10; readonly freshnessExpiredDays: 17; readonly rollbackReference: string; readonly evidenceDigest: `sha256:${string}`; readonly requestedAt: string; readonly approvedAt: string | null; readonly publishedAt: string | null; readonly supersedesConfigurationId: string | null; }
+export interface EuBenchmarkRelease { readonly releaseId: string; readonly configurationId: string; readonly sourceFileHash: `sha256:${string}`; readonly effectiveDate: string; readonly publishedAt: string; readonly ingestedAt: string; readonly state: "PUBLISHED" | "QUARANTINED" | "ROLLED_BACK"; readonly health: EuReleaseHealth; readonly observationCount: number; readonly countryCount: number; readonly provenance: "OFFICIAL_BENCHMARK_FIXTURE"; readonly permittedUses: readonly ["DISPLAY", "SIMULATE"]; readonly quoteEligible: false; readonly settlementEligible: false; readonly reasonCodes: readonly string[]; readonly correctionOfReleaseId: string | null; }
+export interface EuBenchmarkMonitoring { readonly assessedAt: string; readonly current: number; readonly stale: number; readonly expired: number; readonly quarantined: number; readonly corrected: number; readonly activeReleaseId: string | null; readonly publicationHealthy: boolean; readonly alerts: readonly string[]; }
+
+export function createEuBenchmarkConfiguration(input: Readonly<Omit<EuBenchmarkConfiguration, "state" | "checkerId" | "approvedAt" | "publishedAt">>): EuBenchmarkConfiguration {
+  if (!input.makerId.trim() || input.sourceEvidenceHashes.length !== 2 || new Set(input.sourceEvidenceHashes).size !== 2 || input.countries.length !== 27 || input.products.length !== 2 || input.taxBases.length !== 2 || !input.attribution.trim() || !input.rollbackReference.trim() || !/^sha256:[a-f0-9]{64}$/.test(input.evidenceDigest) || !Number.isFinite(Date.parse(input.requestedAt))) throw new Error("Complete source, mapping, licence, attribution and rollback evidence is required.");
+  return { ...input, state: "PENDING_APPROVAL", checkerId: null, approvedAt: null, publishedAt: null };
+}
+
+export function approveEuBenchmarkConfiguration(configuration: EuBenchmarkConfiguration, input: Readonly<{ checkerId: string; assurance: "STEP_UP"; evidenceDigest: string; approvedAt: string }>): EuBenchmarkConfiguration {
+  if (configuration.state !== "PENDING_APPROVAL") throw new Error("Only a pending configuration can be approved.");
+  if (!input.checkerId.trim() || input.checkerId === configuration.makerId) throw new Error("Approval requires a different checker.");
+  if (input.assurance !== "STEP_UP" || input.evidenceDigest !== configuration.evidenceDigest || !Number.isFinite(Date.parse(input.approvedAt)) || Date.parse(input.approvedAt) < Date.parse(configuration.requestedAt)) throw new Error("Fresh step-up approval of the exact evidence digest is required.");
+  return { ...configuration, state: "APPROVED", checkerId: input.checkerId, approvedAt: input.approvedAt };
+}
+
+export function publishEuBenchmarkConfiguration(configuration: EuBenchmarkConfiguration, publishedAt: string): EuBenchmarkConfiguration {
+  if (configuration.state !== "APPROVED" || !configuration.checkerId || !Number.isFinite(Date.parse(publishedAt)) || Date.parse(publishedAt) < Date.parse(configuration.approvedAt!)) throw new Error("Only an approved configuration can be published in order.");
+  return { ...configuration, state: "PUBLISHED", publishedAt };
+}
+
+export function createEuBenchmarkRelease(configuration: EuBenchmarkConfiguration, decision: EuReleaseDecision, input: Readonly<{ releaseId: string; ingestedAt: string; correctionOfReleaseId?: string | null }>): EuBenchmarkRelease {
+  if (configuration.state !== "PUBLISHED") throw new Error("A published configuration is required.");
+  const observation = decision.observations[0];
+  if (decision.disposition === "QUARANTINED" || !observation) return { releaseId: input.releaseId, configurationId: configuration.configurationId, sourceFileHash: "sha256:quarantined-no-publish", effectiveDate: "1970-01-01", publishedAt: input.ingestedAt, ingestedAt: input.ingestedAt, state: "QUARANTINED", health: "QUARANTINED", observationCount: 0, countryCount: decision.countryCount, provenance: "OFFICIAL_BENCHMARK_FIXTURE", permittedUses: ["DISPLAY","SIMULATE"], quoteEligible: false, settlementEligible: false, reasonCodes: decision.issues.map(({code})=>code), correctionOfReleaseId: input.correctionOfReleaseId ?? null };
+  if (!Number.isFinite(Date.parse(input.ingestedAt)) || Date.parse(input.ingestedAt) < Date.parse(observation.publishedAt)) throw new Error("Valid ordered ingestion time is required.");
+  return { releaseId: input.releaseId, configurationId: configuration.configurationId, sourceFileHash: observation.sourceFileHash, effectiveDate: observation.effectiveDate, publishedAt: observation.publishedAt, ingestedAt: input.ingestedAt, state: "PUBLISHED", health: "CURRENT", observationCount: decision.observations.length, countryCount: decision.countryCount, provenance: "OFFICIAL_BENCHMARK_FIXTURE", permittedUses: ["DISPLAY","SIMULATE"], quoteEligible: false, settlementEligible: false, reasonCodes: decision.disposition === "CORRECTION" ? ["CORRECTION_LINKED"] : [], correctionOfReleaseId: input.correctionOfReleaseId ?? null };
+}
+
+export function assessEuBenchmarkMonitoring(releases: readonly EuBenchmarkRelease[], assessedAt: string): EuBenchmarkMonitoring {
+  const assessed = Date.parse(assessedAt); if (!Number.isFinite(assessed)) throw new Error("A valid assessment clock is required.");
+  const evaluated = releases.map((release): EuBenchmarkRelease => { if (release.state !== "PUBLISHED") return release; const age = (assessed-Date.parse(`${release.effectiveDate}T00:00:00Z`))/86_400_000; return { ...release, health: age <= 10 ? "CURRENT" : age <= 17 ? "STALE" : "EXPIRED" }; });
+  const active = [...evaluated].reverse().find(({state,health})=>state === "PUBLISHED" && health === "CURRENT");
+  const count = (health: EuReleaseHealth) => evaluated.filter((release)=>release.health === health).length;
+  const alerts = [...(count("QUARANTINED") ? ["QUARANTINE_REVIEW_REQUIRED"] : []), ...(!active ? ["NO_CURRENT_RELEASE"] : []), ...(count("STALE") ? ["STALE_RELEASE_PRESENT"] : []), ...(count("EXPIRED") ? ["EXPIRED_RELEASE_PRESENT"] : [])];
+  return { assessedAt, current: count("CURRENT"), stale: count("STALE"), expired: count("EXPIRED"), quarantined: count("QUARANTINED"), corrected: evaluated.filter(({correctionOfReleaseId})=>correctionOfReleaseId).length, activeReleaseId: active?.releaseId ?? null, publicationHealthy: Boolean(active) && !count("QUARANTINED"), alerts };
+}
+
+export function rollbackEuBenchmarkRelease(release: EuBenchmarkRelease, input: Readonly<{ makerId: string; checkerId: string; rollbackReference: string; rolledBackAt: string }>): EuBenchmarkRelease {
+  if (release.state !== "PUBLISHED" || !input.makerId.trim() || !input.checkerId.trim() || input.makerId === input.checkerId || !input.rollbackReference.trim() || !Number.isFinite(Date.parse(input.rolledBackAt))) throw new Error("Rollback requires a published release, different principals and evidence.");
+  return { ...release, state: "ROLLED_BACK", reasonCodes: [...release.reasonCodes, `ROLLED_BACK:${input.rollbackReference}`] };
+}
+
+const SEEDED_EU_CONFIGURATION_DIGEST = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" as const;
+export const seededEuBenchmarkConfiguration = publishEuBenchmarkConfiguration(approveEuBenchmarkConfiguration(createEuBenchmarkConfiguration({ configurationId: "EU-BENCHMARK-CONFIG-1", version: 1, makerId: "principal-data", sourceEvidenceHashes: officialWeeklyBulletinGate2Evidence.map(({sha256})=>sha256), countries: EU_COUNTRIES, products, taxBases, licenceApproval: "CHECKER_APPROVED", attribution: "European Commission, Weekly Oil Bulletin; synthetic fixture transformation marked by FuelCap.", freshnessCurrentDays: 10, freshnessExpiredDays: 17, rollbackReference: "RB-EU-BENCHMARK-001", evidenceDigest: SEEDED_EU_CONFIGURATION_DIGEST, requestedAt: "2026-08-27T20:20:00Z", supersedesConfigurationId: null }), { checkerId: "principal-platform", assurance: "STEP_UP", evidenceDigest: SEEDED_EU_CONFIGURATION_DIGEST, approvedAt: "2026-08-27T20:21:00Z" }), "2026-08-27T20:22:00Z");
+export const seededEuBenchmarkRelease = createEuBenchmarkRelease(seededEuBenchmarkConfiguration, syntheticEuWeeklyBulletinDecision, { releaseId: "EU-BENCHMARK-2026-08-24-V1", ingestedAt: "2026-08-27T20:23:00Z" });
+export const seededEuBenchmarkMonitoring = assessEuBenchmarkMonitoring([seededEuBenchmarkRelease], "2026-08-27T20:24:00Z");

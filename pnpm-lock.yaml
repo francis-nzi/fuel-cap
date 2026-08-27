@@ -87,6 +87,9 @@ importers:
       '@fuelcap/demo-data':
         specifier: workspace:*
         version: link:../../packages/demo-data
+      '@fuelcap/eu-pricing-source':
+        specifier: workspace:*
+        version: link:../../packages/eu-pricing-source
       '@fuelcap/pricing-control':
         specifier: workspace:*
         version: link:../../packages/pricing-control
