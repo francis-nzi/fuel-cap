@@ -1,6 +1,7 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 export * from "./catalogue";
 export * from "./invoicing";
+export * from "./xero";
 
 export const BILLING_VERSION = "billing@1.0.0" as const;
 export type BillingCurrency = "USD" | "CAD" | "GBP";
