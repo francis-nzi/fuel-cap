@@ -308,6 +308,10 @@ importers:
         version: 4.1.11(@types/node@20.19.43)(jsdom@29.1.1)(vite@8.2.2(@types/node@20.19.43)(jiti@2.7.0))
 
   packages/identity:
+    dependencies:
+      '@fuelcap/compliance':
+        specifier: workspace:*
+        version: link:../compliance
     devDependencies:
       typescript:
         specifier: ^5
