@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateProductionReadiness, operationalRunbooks, productionReadinessAssessment, productionReadinessControls, readinessEvidence, recoveryExercises, supportReadiness, type ReadinessEvidence } from "./index";
+import { acceptAssuranceEvidence, assuranceEngagements, assurancePortfolio, evaluateAssurancePortfolio, evaluateProductionReadiness, operationalRunbooks, productionReadinessAssessment, productionReadinessControls, readinessEvidence, recoveryExercises, supportReadiness, type AssuranceEngagement, type ReadinessEvidence } from "./index";
 const external = (controlId: string, kind: string): ReadinessEvidence => ({ evidenceId: `EXT-${controlId}-${kind}`, controlId, kind, status: "PASS", source: "INDEPENDENT", issuedAt: "2026-08-27T00:00:00Z", expiresAt: "2027-08-27T00:00:00Z", contentHash: `sha256:${controlId}-${kind}`, makerActorId: "external-maker", checkerActorId: "external-checker" });
 const allExternal = [external("SEC-PENTEST", "scope"), external("SEC-PENTEST", "report"), external("SEC-PENTEST", "remediation-verification"), external("PRI-DPIA", "approved-dpia"), external("RES-DR", "restore-report")];
 const run = (overrides = {}) => evaluateProductionReadiness({ controls: productionReadinessControls, evidence: [...readinessEvidence, ...allExternal], exercises: recoveryExercises, runbooks: operationalRunbooks, support: supportReadiness, assessedAt: "2026-08-27T15:00:00Z", ...overrides });
@@ -16,4 +16,16 @@ describe("production readiness programme", () => {
   it("requires rehearsed segregated support handoff", () => { expect(run({ support: { ...supportReadiness, handoffRehearsed: false } }).decision).toBe("BLOCKED"); expect(run({ support: { ...supportReadiness, secondaryOwner: supportReadiness.primaryOwner } }).decision).toBe("BLOCKED"); });
   it("reports all four readiness domains", () => expect(run().domainResults.map(({ domain }) => domain)).toEqual(["SECURITY", "PRIVACY", "RESILIENCE", "OPERATIONS"]));
   it("rejects invalid assessment time", () => expect(() => run({ assessedAt: "invalid" })).toThrow(/valid/));
+});
+
+describe("independent assurance commissioning", () => {
+  const submitted = (controlId: string, deliverables: readonly string[]): AssuranceEngagement => ({ ...assuranceEngagements.find((item) => item.controlId === controlId)!, state: "EVIDENCE_SUBMITTED", submittedEvidenceIds: deliverables });
+  it("tracks all three external gates without claiming commission or acceptance", () => expect(assurancePortfolio).toMatchObject({ status: "AT_RISK", commissioned: 0, accepted: 0, total: 3, outstandingDeliverables: 5 }));
+  it("rejects unknown or internal controls from the independent portfolio", () => expect(evaluateAssurancePortfolio([{ ...assuranceEngagements[0], controlId: "OPS-SUPPORT" }], productionReadinessControls, "2026-08-27T15:00:00Z").blockers[0]).toMatch(/not an independent/));
+  it("detects missing assessors and scope self-approval", () => expect(evaluateAssurancePortfolio([{ ...assuranceEngagements[0], assessorOrganisation: "", approvedBy: assuranceEngagements[0].scopedBy }], productionReadinessControls, "2026-08-27T15:00:00Z").blockers).toHaveLength(3));
+  it("marks incomplete engagements overdue after their due date", () => expect(evaluateAssurancePortfolio(assuranceEngagements, productionReadinessControls, "2026-11-01T00:00:00Z").status).toBe("OVERDUE"));
+  it("requires submitted state and an independent acceptance reviewer", () => { expect(() => acceptAssuranceEvidence(assuranceEngagements[0], allExternal, "reviewer")).toThrow(/submitted/); expect(() => acceptAssuranceEvidence(submitted("SEC-PENTEST", ["scope", "report", "remediation-verification"]), allExternal, "security-lead")).toThrow(/independent/); });
+  it("requires every scoped deliverable to have passing independent evidence", () => expect(() => acceptAssuranceEvidence(submitted("SEC-PENTEST", ["scope", "report", "remediation-verification"]), allExternal.slice(0, 2), "acceptance-reviewer")).toThrow(/deliverables/));
+  it("accepts only matching independent evidence after segregated review", () => expect(acceptAssuranceEvidence(submitted("SEC-PENTEST", ["scope", "report", "remediation-verification"]), allExternal, "acceptance-reviewer")).toMatchObject({ state: "ACCEPTED", acceptedEvidenceIds: ["EXT-SEC-PENTEST-scope", "EXT-SEC-PENTEST-report", "EXT-SEC-PENTEST-remediation-verification"] }));
+  it("rejects an invalid portfolio timestamp", () => expect(() => evaluateAssurancePortfolio(assuranceEngagements, productionReadinessControls, "invalid")).toThrow(/valid/));
 });

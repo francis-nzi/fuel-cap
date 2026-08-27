@@ -42,3 +42,39 @@ export const recoveryExercises: readonly RecoveryExercise[] = [{ exerciseId: "EX
 export const operationalRunbooks: readonly Runbook[] = ["PRICING", "LEDGER", "PAYMENTS", "IDENTITY", "COMMUNICATIONS"].map((capability) => ({ runbookId: `RB-${capability}`, capability, owner: `${capability} Operations`, version: "1.0.0", approved: true, lastRehearsedAt: "2026-08-27T14:00:00Z", escalationRoute: ["On-call", "Incident Commander"], rollbackSteps: ["Stop new activity", "Restore last verified configuration"], verificationSteps: ["Verify health", "Reconcile evidence"] }));
 export const supportReadiness: SupportReadiness = { rotaId: "ROTA-PILOT-001", coverage: "BUSINESS_HOURS", primaryOwner: "operations-primary", secondaryOwner: "operations-secondary", incidentCommander: "incident-commander", customerCommunicationOwner: "customer-operations", severityResponseMinutes: { SEV1: 15, SEV2: 60, SEV3: 240 }, handoffRehearsed: true, evidenceId: "EVD-HANDOFF-001" };
 export const productionReadinessAssessment = evaluateProductionReadiness({ controls: productionReadinessControls, evidence: readinessEvidence, exercises: recoveryExercises, runbooks: operationalRunbooks, support: supportReadiness, assessedAt: "2026-08-27T15:00:00Z" });
+
+export type AssuranceEngagementState = "DRAFT" | "SCOPED" | "COMMISSIONED" | "EVIDENCE_SUBMITTED" | "ACCEPTED" | "REJECTED";
+export interface AssuranceEngagement { readonly engagementId: string; readonly controlId: string; readonly assessorOrganisation: string; readonly state: AssuranceEngagementState; readonly scopedBy: string; readonly approvedBy: string | null; readonly commissionedAt: string | null; readonly dueAt: string; readonly requiredDeliverables: readonly string[]; readonly submittedEvidenceIds: readonly string[]; readonly acceptedEvidenceIds: readonly string[]; readonly rejectionReason: string | null; }
+export interface AssurancePortfolio { readonly status: "ON_TRACK" | "AT_RISK" | "OVERDUE"; readonly commissioned: number; readonly accepted: number; readonly total: number; readonly outstandingDeliverables: number; readonly blockers: readonly string[]; }
+
+export function evaluateAssurancePortfolio(engagements: readonly AssuranceEngagement[], controls: readonly ReadinessControl[], assessedAt: string): AssurancePortfolio {
+  const now = Date.parse(assessedAt); if (!Number.isFinite(now)) throw new Error("A valid assurance portfolio timestamp is required.");
+  const blockers: string[] = []; let outstandingDeliverables = 0;
+  for (const engagement of engagements) {
+    const control = controls.find(({ controlId }) => controlId === engagement.controlId);
+    if (!control?.externalAttestationRequired) { blockers.push(`${engagement.engagementId}: control is not an independent assurance gate`); continue; }
+    if (!engagement.assessorOrganisation.trim()) blockers.push(`${engagement.engagementId}: independent assessor is missing`);
+    if (engagement.approvedBy && engagement.approvedBy === engagement.scopedBy) blockers.push(`${engagement.engagementId}: scope self-approval is prohibited`);
+    const submitted = new Set(engagement.submittedEvidenceIds); outstandingDeliverables += engagement.requiredDeliverables.filter((item) => !submitted.has(item)).length;
+    if (engagement.state !== "ACCEPTED") blockers.push(`${engagement.engagementId}: ${engagement.state.toLowerCase().replaceAll("_", " ")}`);
+  }
+  const overdue = engagements.some((item) => item.state !== "ACCEPTED" && Date.parse(item.dueAt) < now);
+  const accepted = engagements.filter(({ state }) => state === "ACCEPTED").length;
+  return { status: overdue ? "OVERDUE" : blockers.length ? "AT_RISK" : "ON_TRACK", commissioned: engagements.filter(({ commissionedAt }) => commissionedAt !== null).length, accepted, total: engagements.length, outstandingDeliverables, blockers };
+}
+
+export function acceptAssuranceEvidence(engagement: AssuranceEngagement, evidence: readonly ReadinessEvidence[], reviewerActorId: string): AssuranceEngagement {
+  if (engagement.state !== "EVIDENCE_SUBMITTED") throw new Error("Only submitted assurance evidence can be accepted.");
+  if (!reviewerActorId.trim() || reviewerActorId === engagement.scopedBy || reviewerActorId === engagement.approvedBy) throw new Error("An independent acceptance reviewer is required.");
+  const matching = evidence.filter((item) => item.controlId === engagement.controlId && item.source === "INDEPENDENT" && item.status === "PASS");
+  const evidenceKinds = new Set(matching.map(({ kind }) => kind));
+  if (!engagement.requiredDeliverables.every((kind) => evidenceKinds.has(kind))) throw new Error("All scoped independent deliverables must pass before acceptance.");
+  return { ...engagement, state: "ACCEPTED", acceptedEvidenceIds: matching.map(({ evidenceId }) => evidenceId), rejectionReason: null };
+}
+
+export const assuranceEngagements: readonly AssuranceEngagement[] = [
+  { engagementId: "ASR-PENTEST-001", controlId: "SEC-PENTEST", assessorOrganisation: "Independent security assessor (unappointed)", state: "SCOPED", scopedBy: "security-lead", approvedBy: "compliance-lead", commissionedAt: null, dueAt: "2026-10-15T17:00:00Z", requiredDeliverables: ["scope", "report", "remediation-verification"], submittedEvidenceIds: [], acceptedEvidenceIds: [], rejectionReason: null },
+  { engagementId: "ASR-DPIA-001", controlId: "PRI-DPIA", assessorOrganisation: "Independent privacy assessor (unappointed)", state: "SCOPED", scopedBy: "privacy-lead", approvedBy: "platform-lead", commissionedAt: null, dueAt: "2026-10-22T17:00:00Z", requiredDeliverables: ["approved-dpia"], submittedEvidenceIds: [], acceptedEvidenceIds: [], rejectionReason: null },
+  { engagementId: "ASR-DR-001", controlId: "RES-DR", assessorOrganisation: "Independent resilience assessor (unappointed)", state: "SCOPED", scopedBy: "operations-lead", approvedBy: "finance-operations-lead", commissionedAt: null, dueAt: "2026-10-29T17:00:00Z", requiredDeliverables: ["restore-report"], submittedEvidenceIds: [], acceptedEvidenceIds: [], rejectionReason: null },
+] as const;
+export const assurancePortfolio = evaluateAssurancePortfolio(assuranceEngagements, productionReadinessControls, "2026-08-27T15:00:00Z");
