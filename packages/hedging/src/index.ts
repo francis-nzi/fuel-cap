@@ -61,3 +61,4 @@ export function runApprovedStressSuite(snapshot: ExposureSnapshot, assumptions: 
 }
 
 export * from "./paper";
+export * from "./pool";
