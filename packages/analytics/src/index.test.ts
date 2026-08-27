@@ -1,0 +1,21 @@
+import { describe, expect, it } from "vitest";
+import { approveMetric, createFinanceReport, publishMetric, type FinanceRecord, type MetricDefinition } from "./index";
+
+const draft: MetricDefinition = { metricId: "UNIT-ECONOMICS", version: 2, businessName: "Protection unit economics", meaning: "Gross component economics without silent netting", formula: "charge + hedge recovery - claims - hedge cost", authoritativeSources: ["JRN"], ownerId: "finance-owner", approverId: null, grain: "organisation/currency/period", currencyTreatment: "source currency; no implicit FX", freshnessMinutes: 60, exclusions: ["tax"], status: "DRAFT" };
+const metric = () => publishMetric(approveMetric(draft, "finance-approver"));
+const record = (category: FinanceRecord["category"], amountMinor: number, overrides: Partial<FinanceRecord> = {}): FinanceRecord => ({ recordId: `REC-${category}`, organisationId: "ORG-1", category, amountMinor, currency: "USD", provenance: "LEDGER_ACTUAL", eventAt: "2026-08-27T10:00:00.000Z", processedAt: "2026-08-27T10:01:00.000Z", sourceId: `JRN-${category}`, assumptionVersion: null, ...overrides });
+const actual = [record("POOL_COST_FUNDING", 91), record("MARGIN_REVENUE", 49), record("BUFFER_RESERVE", 21), record("PROTECTION_CLAIM", 450)];
+const report = (records: readonly FinanceRecord[] = actual, ledgerActualByCategory: Partial<Record<FinanceRecord["category"], number>> = { POOL_COST_FUNDING: 91, MARGIN_REVENUE: 49, BUFFER_RESERVE: 21, PROTECTION_CLAIM: 450 }) => createFinanceReport({ reportId: "RPT-1", organisationId: "ORG-1", currency: "USD", periodStart: "2026-08-27T00:00:00.000Z", periodEnd: "2026-08-28T00:00:00.000Z", generatedAt: "2026-08-27T10:30:00.000Z", metric: metric(), records, ledgerActualByCategory, exclusions: ["statutory tax treatment pending"] });
+
+describe("governed profitability reporting", () => {
+  it("requires a different metric approver before publication", () => { expect(() => approveMetric(draft, "finance-owner")).toThrow(/different approver/); expect(metric()).toMatchObject({ status: "PUBLISHED", approverId: "finance-approver" }); });
+  it("reports protection charge components separately", () => expect(report().actual).toMatchObject({ poolCostFundingMinor: 91, marginRevenueMinor: 49, bufferReserveMinor: 21, totalProtectionChargeMinor: 161 }));
+  it("preserves gross claims and derives canonical net economics", () => expect(report().actual).toMatchObject({ protectionClaimsMinor: 450, netEconomicsMinor: -289, poolResultMinor: -338 }));
+  it("does not rewrite margin when a claim exceeds charge", () => expect(report().actual.marginRevenueMinor).toBe(49));
+  it("keeps simulated values visibly separate with assumption lineage", () => { const simulated = record("PROTECTION_CLAIM", 700, { recordId: "SIM-1", provenance: "SIMULATED", sourceId: "SCENARIO-BOUNDARY", assumptionVersion: "assumptions@3" }); const value = report([...actual, simulated]); expect(value.actual.protectionClaimsMinor).toBe(450); expect(value.simulated.protectionClaimsMinor).toBe(700); expect(value.assumptionVersions).toEqual(["assumptions@3"]); });
+  it("marks ledger mismatches unreconciled", () => expect(report(actual, { MARGIN_REVENUE: 50 })).toMatchObject({ reconciliationStatus: "BREAK", quality: "UNRECONCILED" }));
+  it("marks stale reports rather than calling them current", () => { const stale = actual.map((item) => ({ ...item, processedAt: "2026-08-27T08:00:00.000Z" })); expect(report(stale).quality).toBe("STALE"); });
+  it("marks missing authoritative inputs incomplete", () => { const withoutJournalSource = actual.map((item) => ({ ...item, sourceId: "OTHER" })); expect(report(withoutJournalSource).quality).toBe("INCOMPLETE"); });
+  it("rejects cross-tenant and cross-currency aggregation", () => { expect(() => report([...actual, record("MARGIN_REVENUE", 1, { organisationId: "ORG-2" })])).toThrow(/Cross-tenant/); expect(() => report([...actual, record("MARGIN_REVENUE", 1, { currency: "GBP" })])).toThrow(/cross-currency/); });
+  it("uses event time for reporting periods and exposes source lineage", () => { expect(report().actualSourceIds).toHaveLength(4); expect(() => report([record("MARGIN_REVENUE", 1, { eventAt: "2026-08-28T00:00:00.000Z" })])).toThrow(/in-period/); });
+});
