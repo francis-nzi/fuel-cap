@@ -105,3 +105,37 @@ export function validateAssessorAppointment(appointment: AssessorAppointment, en
 }
 
 export const assuranceCommissioningPacks: readonly AssuranceCommissioningPack[] = assuranceEngagements.map(createAssuranceCommissioningPack);
+
+export type EvidenceRoomState = "PREPARED" | "ISSUED" | "SUBMISSION_OPEN" | "UNDER_REVIEW" | "ACCEPTED" | "REJECTED";
+export type FindingSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export interface AssuranceFinding { readonly findingId: string; readonly severity: FindingSeverity; readonly title: string; readonly status: "OPEN" | "REMEDIATED" | "ACCEPTED_RISK"; readonly remediationEvidenceId: string | null; readonly acceptedRiskBy: string | null; }
+export interface AssuranceSubmission { readonly submissionId: string; readonly engagementId: string; readonly assessorOrganisation: string; readonly submittedAt: string; readonly evidence: readonly ReadinessEvidence[]; readonly findings: readonly AssuranceFinding[]; readonly supersedesSubmissionId: string | null; readonly contentHash: string; }
+export interface AssuranceEvidenceRoom { readonly roomId: string; readonly engagementId: string; readonly packId: string; readonly state: EvidenceRoomState; readonly issuedAt: string | null; readonly issuedBy: string | null; readonly assessorOrganisation: string | null; readonly submissionIds: readonly string[]; readonly acceptedSubmissionId: string | null; readonly chainOfCustody: readonly Readonly<{ eventId: string; action: string; actorId: string; occurredAt: string; contentHash: string }>[]; }
+
+export function issueAssuranceEvidenceRoom(room: AssuranceEvidenceRoom, pack: AssuranceCommissioningPack, engagement: AssuranceEngagement, appointment: AssessorAppointment, actorId: string, issuedAt: string): AssuranceEvidenceRoom {
+  if (room.state !== "PREPARED" || room.engagementId !== engagement.engagementId || room.packId !== pack.packId) throw new Error("Evidence room is not prepared for this engagement and pack.");
+  const appointmentResult = validateAssessorAppointment(appointment, engagement); if (!appointmentResult.valid) throw new Error(`Assessor appointment is invalid: ${appointmentResult.blockers.join(" ")}`);
+  if (!actorId.trim() || actorId !== appointment.appointedBy || !Number.isFinite(Date.parse(issuedAt))) throw new Error("Authorised issuer and valid issuance time are required.");
+  return { ...room, state: "ISSUED", issuedAt, issuedBy: actorId, assessorOrganisation: appointment.assessorOrganisation, chainOfCustody: [...room.chainOfCustody, { eventId: `CUST-${room.roomId}-ISSUED`, action: "PACK_ISSUED", actorId, occurredAt: issuedAt, contentHash: pack.contentHash }] };
+}
+
+export function submitAssuranceEvidence(room: AssuranceEvidenceRoom, submission: AssuranceSubmission): AssuranceEvidenceRoom {
+  if (room.state !== "ISSUED" && room.state !== "SUBMISSION_OPEN" && room.state !== "UNDER_REVIEW") throw new Error("Evidence room is not accepting submissions.");
+  if (submission.engagementId !== room.engagementId || submission.assessorOrganisation !== room.assessorOrganisation) throw new Error("Submission scope or assessor does not match the evidence room.");
+  if (!submission.contentHash.startsWith("sha256:") || !Number.isFinite(Date.parse(submission.submittedAt)) || !submission.evidence.length) throw new Error("Submission integrity, timestamp and evidence are required.");
+  if (submission.evidence.some((item) => item.source !== "INDEPENDENT" || item.controlId !== assuranceEngagements.find(({ engagementId }) => engagementId === room.engagementId)?.controlId)) throw new Error("Only matching independent evidence may enter the room.");
+  if (room.submissionIds.includes(submission.submissionId)) return room;
+  if (room.submissionIds.length && submission.supersedesSubmissionId !== room.submissionIds.at(-1)) throw new Error("A new submission must explicitly supersede the latest immutable submission.");
+  return { ...room, state: "UNDER_REVIEW", submissionIds: [...room.submissionIds, submission.submissionId], chainOfCustody: [...room.chainOfCustody, { eventId: `CUST-${submission.submissionId}`, action: "EVIDENCE_SUBMITTED", actorId: submission.assessorOrganisation, occurredAt: submission.submittedAt, contentHash: submission.contentHash }] };
+}
+
+export function acceptEvidenceRoomSubmission(room: AssuranceEvidenceRoom, submission: AssuranceSubmission, engagement: AssuranceEngagement, reviewerActorId: string): AssuranceEvidenceRoom {
+  if (room.state !== "UNDER_REVIEW" || room.submissionIds.at(-1) !== submission.submissionId) throw new Error("Only the latest reviewed submission can be accepted.");
+  const blockingFindings = submission.findings.filter((finding) => (finding.severity === "HIGH" || finding.severity === "CRITICAL") && finding.status !== "REMEDIATED");
+  if (blockingFindings.length || submission.findings.some((finding) => finding.status === "REMEDIATED" && !finding.remediationEvidenceId)) throw new Error("Blocking findings or missing remediation evidence prevent acceptance.");
+  acceptAssuranceEvidence({ ...engagement, state: "EVIDENCE_SUBMITTED", submittedEvidenceIds: submission.evidence.map(({ kind }) => kind) }, submission.evidence, reviewerActorId);
+  const acceptedAt = submission.submittedAt;
+  return { ...room, state: "ACCEPTED", acceptedSubmissionId: submission.submissionId, chainOfCustody: [...room.chainOfCustody, { eventId: `CUST-${submission.submissionId}-ACCEPTED`, action: "SUBMISSION_ACCEPTED", actorId: reviewerActorId, occurredAt: acceptedAt, contentHash: submission.contentHash }] };
+}
+
+export const assuranceEvidenceRooms: readonly AssuranceEvidenceRoom[] = assuranceCommissioningPacks.map((pack) => ({ roomId: `ROOM-${pack.engagementId}`, engagementId: pack.engagementId, packId: pack.packId, state: "PREPARED", issuedAt: null, issuedBy: null, assessorOrganisation: null, submissionIds: [], acceptedSubmissionId: null, chainOfCustody: [] }));
