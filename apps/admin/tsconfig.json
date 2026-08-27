@@ -5,6 +5,7 @@
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./*"],
+      "@fuelcap/basis-model": ["../../packages/basis-model/src/index.ts"],
       "@fuelcap/eu-pricing-source": ["../../packages/eu-pricing-source/src/index.ts"]
     }
   },
