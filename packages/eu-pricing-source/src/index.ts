@@ -51,3 +51,91 @@ export function parseEuWeeklyBulletinFixture(workbook: SyntheticBulletinWorkbook
 
 export const syntheticEuWeeklyBulletin = createSyntheticBulletinWorkbook();
 export const syntheticEuWeeklyBulletinDecision = parseEuWeeklyBulletinFixture(syntheticEuWeeklyBulletin, "2026-08-27T12:00:00Z");
+
+export type OfficialWorkbookKind = "WITH_TAXES" | "WITHOUT_TAXES";
+export type OfficialSourceEvidenceStatus = "EVIDENCE_ACCEPTED" | "EVIDENCE_REJECTED";
+
+export interface OfficialWorkbookEvidence {
+  readonly kind: OfficialWorkbookKind;
+  readonly sourceUrl: `https://${string}`;
+  readonly observedAt: string;
+  readonly contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  readonly contentLength: number;
+  readonly sha256: `sha256:${string}`;
+  readonly containerMagic: "PK\u0003\u0004";
+  readonly worksheetNames: readonly ["Sheet1"];
+  readonly publisher: "EUROPEAN_COMMISSION_DG_ENERGY";
+  readonly provenance: "OFFICIAL_SOURCE_EVIDENCE";
+  readonly licenceEvidence: "EC_LEGAL_NOTICE_CC_BY_4_UNLESS_OTHERWISE_INDICATED";
+  readonly licenceApproval: "PENDING_CHECKER";
+  readonly permittedUses: readonly ["EVIDENCE_REVIEW"];
+  readonly publicationEligible: false;
+  readonly quoteEligible: false;
+  readonly settlementEligible: false;
+}
+
+export interface OfficialSourceEvidenceDecision {
+  readonly status: OfficialSourceEvidenceStatus;
+  readonly issues: readonly string[];
+  readonly evidence: readonly OfficialWorkbookEvidence[];
+}
+
+const OFFICIAL_DOCUMENT_HOST = "energy.ec.europa.eu";
+const EXPECTED_OFFICIAL_KINDS = ["WITH_TAXES", "WITHOUT_TAXES"] as const;
+
+export const officialWeeklyBulletinGate2Evidence: readonly OfficialWorkbookEvidence[] = [
+  {
+    kind: "WITH_TAXES",
+    sourceUrl: "https://energy.ec.europa.eu/document/download/264c2d0f-f161-4ea3-a777-78faae59bea0_en?filename=Weekly+Oil+Bulletin+Weekly+prices+with+Taxes+-+2024-02-19.xlsx",
+    observedAt: "2026-08-27T20:08:00Z",
+    contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    contentLength: 14_158,
+    sha256: "sha256:6bd0f4d658d49bcc9a1bb652d3e9baa44c55c0319f1da1fafdb752c35de91c3c",
+    containerMagic: "PK\u0003\u0004",
+    worksheetNames: ["Sheet1"],
+    publisher: "EUROPEAN_COMMISSION_DG_ENERGY",
+    provenance: "OFFICIAL_SOURCE_EVIDENCE",
+    licenceEvidence: "EC_LEGAL_NOTICE_CC_BY_4_UNLESS_OTHERWISE_INDICATED",
+    licenceApproval: "PENDING_CHECKER",
+    permittedUses: ["EVIDENCE_REVIEW"],
+    publicationEligible: false,
+    quoteEligible: false,
+    settlementEligible: false,
+  },
+  {
+    kind: "WITHOUT_TAXES",
+    sourceUrl: "https://energy.ec.europa.eu/document/download/78311f92-68f8-4b82-b5cf-1293beeaae77_en?filename=Weekly+Oil+Bulletin+Weekly+prices+without+taxes+-+2024-02-19.xlsx",
+    observedAt: "2026-08-27T20:08:00Z",
+    contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    contentLength: 17_335,
+    sha256: "sha256:ace16948eb111f7a5ddf35f1c80a1fa633701167f13645b7aaa5d9f9ad7820b0",
+    containerMagic: "PK\u0003\u0004",
+    worksheetNames: ["Sheet1"],
+    publisher: "EUROPEAN_COMMISSION_DG_ENERGY",
+    provenance: "OFFICIAL_SOURCE_EVIDENCE",
+    licenceEvidence: "EC_LEGAL_NOTICE_CC_BY_4_UNLESS_OTHERWISE_INDICATED",
+    licenceApproval: "PENDING_CHECKER",
+    permittedUses: ["EVIDENCE_REVIEW"],
+    publicationEligible: false,
+    quoteEligible: false,
+    settlementEligible: false,
+  },
+] as const;
+
+export function assessOfficialSourceEvidence(evidence: readonly OfficialWorkbookEvidence[]): OfficialSourceEvidenceDecision {
+  const issues: string[] = [];
+  const kinds = evidence.map(({ kind }) => kind);
+  if (evidence.length !== EXPECTED_OFFICIAL_KINDS.length || EXPECTED_OFFICIAL_KINDS.some((kind) => !kinds.includes(kind)) || new Set(kinds).size !== kinds.length) issues.push("Exactly one with-taxes and one without-taxes workbook are required.");
+  for (const item of evidence) {
+    let url: URL | undefined;
+    try { url = new URL(item.sourceUrl); } catch { issues.push(`${item.kind}: source URL is invalid.`); }
+    if (url && (url.protocol !== "https:" || url.hostname !== OFFICIAL_DOCUMENT_HOST || !url.pathname.startsWith("/document/download/") || !url.searchParams.get("filename")?.toLowerCase().endsWith(".xlsx"))) issues.push(`${item.kind}: source is not a pinned Commission XLSX document URL.`);
+    if (!Number.isFinite(Date.parse(item.observedAt))) issues.push(`${item.kind}: observation time is invalid.`);
+    if (item.contentLength <= 0 || !/^sha256:[a-f0-9]{64}$/.test(item.sha256) || item.containerMagic !== "PK\u0003\u0004") issues.push(`${item.kind}: immutable XLSX identity is invalid.`);
+    if (item.worksheetNames.length !== 1 || item.worksheetNames[0] !== "Sheet1") issues.push(`${item.kind}: workbook structure drifted from the observed single-sheet shape.`);
+    if (item.licenceApproval !== "PENDING_CHECKER" || item.permittedUses.join() !== "EVIDENCE_REVIEW" || item.publicationEligible || item.quoteEligible || item.settlementEligible) issues.push(`${item.kind}: Gate 2 evidence exceeded its permitted-use boundary.`);
+  }
+  return { status: issues.length ? "EVIDENCE_REJECTED" : "EVIDENCE_ACCEPTED", issues, evidence: issues.length ? [] : evidence };
+}
+
+export const officialWeeklyBulletinGate2Decision = assessOfficialSourceEvidence(officialWeeklyBulletinGate2Evidence);
