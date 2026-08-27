@@ -1,0 +1,18 @@
+import { describe, expect, it } from "vitest";
+import { acknowledgeXeroProjection, approveAccountingMapping, blockXeroProjection, createXeroProjection, failXeroProjection, sendXeroProjection, type AccountingMapping } from "./xero";
+
+const draft: AccountingMapping = { mappingId: "MAP-1", version: 3, fuelCapAccount: "MARGIN_REVENUE", xeroAccountCode: "200", xeroTaxType: "OUTPUT", status: "DRAFT", makerId: "finance-maker", checkerId: null };
+const approved = () => approveAccountingMapping(draft, "finance-checker");
+const pending = () => createXeroProjection({ projectionId: "XP-1", organisationId: "ORG-1", documentType: "INVOICE", sourceId: "INV-1", sourceVersion: 2, sourceApproved: true, mapping: approved(), payload: { totalMinor: 1100 } });
+
+describe("Xero sandbox projection", () => {
+  it("requires maker-checker approval for mapping changes", () => { expect(approved()).toMatchObject({ status: "APPROVED", checkerId: "finance-checker" }); expect(() => approveAccountingMapping(draft, "finance-maker")).toThrow(/different checker/); });
+  it("rejects unapproved sources and mappings", () => { expect(() => createXeroProjection({ projectionId: "XP", organisationId: "ORG", documentType: "INVOICE", sourceId: "INV", sourceVersion: 1, sourceApproved: false, mapping: approved(), payload: {} })).toThrow(/approved/); expect(() => createXeroProjection({ projectionId: "XP", organisationId: "ORG", documentType: "INVOICE", sourceId: "INV", sourceVersion: 1, sourceApproved: true, mapping: draft, payload: {} })).toThrow(/approved/); });
+  it("pins source and mapping versions with immutable payload evidence", () => expect(pending()).toMatchObject({ sourceVersion: 2, mappingVersion: 3, status: "PENDING", simulated: true, attemptCount: 0 }));
+  it("creates deterministic payload hashes", () => expect(pending().payloadHash).toBe(pending().payloadHash));
+  it("records simulated send and acknowledgement evidence", () => { const sent = sendXeroProjection(pending()); expect(sent).toMatchObject({ status: "SENT", attemptCount: 1 }); expect(acknowledgeXeroProjection(sent, "XERO-INV-1", "ACK-1")).toMatchObject({ status: "ACKNOWLEDGED", xeroId: "XERO-INV-1", acknowledgementId: "ACK-1" }); });
+  it("turns failures into blocking tenant-scoped reconciliation breaks", () => { const failed = failXeroProjection(sendXeroProjection(pending()), "Account code rejected"); expect(failed.projection.status).toBe("FAILED"); expect(failed.reconciliationBreak).toMatchObject({ organisationId: "ORG-1", status: "OPEN", blocksDownstream: true }); expect(blockXeroProjection(failed.projection, failed.reconciliationBreak).status).toBe("BLOCKED"); });
+  it("supports governed retry without losing failure history from the prior value", () => { const first = failXeroProjection(sendXeroProjection(pending()), "Timeout"); const retry = sendXeroProjection(first.projection); expect(retry).toMatchObject({ status: "SENT", attemptCount: 2, failureReason: null }); expect(first.projection).toMatchObject({ status: "FAILED", failureReason: "Timeout" }); });
+  it("rejects cross-tenant break application", () => { const failed = failXeroProjection(sendXeroProjection(pending()), "Mismatch"); expect(() => blockXeroProjection(failed.projection, { ...failed.reconciliationBreak, organisationId: "ORG-2" })).toThrow(/tenant-matched/); });
+  it("carries correction lineage outward", () => expect(createXeroProjection({ projectionId: "XP-C", organisationId: "ORG-1", documentType: "CREDIT_NOTE", sourceId: "CN-1", sourceVersion: 1, sourceApproved: true, mapping: approved(), payload: { amountMinor: 1100 }, correctionOf: "XP-1" }).correctionOf).toBe("XP-1"));
+});
