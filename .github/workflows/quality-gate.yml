@@ -40,17 +40,6 @@ jobs:
         run: pnpm quality:performance
       - name: Critical production dependency audit
         run: pnpm audit --prod --audit-level critical
-      - name: Release evidence manifest
-        env:
-          RELEASE_COMMIT: ${{ github.sha }}
-          RELEASE_RUN_ID: ${{ github.run_id }}
-        run: pnpm quality:manifest
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-evidence-${{ github.sha }}
-          path: release-evidence/release-manifest.json
-          if-no-files-found: error
-
   admin-browser:
     needs: verify
     runs-on: ubuntu-latest
@@ -75,9 +64,30 @@ jobs:
           path: test-results/admin
           if-no-files-found: ignore
 
+  release-evidence:
+    needs: [verify, admin-browser]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.0
+      - name: Create release candidate evidence after all required jobs pass
+        env:
+          RELEASE_COMMIT: ${{ github.sha }}
+          RELEASE_RUN_ID: ${{ github.run_id }}
+        run: node scripts/create-release-manifest.mjs
+      - name: Validate release evidence and rollback contract
+        run: node scripts/verify-release-manifest.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-evidence-${{ github.sha }}
+          path: release-evidence/release-manifest.json
+          if-no-files-found: error
+
   production-smoke:
     if: github.event_name == 'workflow_dispatch'
-    needs: [verify, admin-browser]
+    needs: release-evidence
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
