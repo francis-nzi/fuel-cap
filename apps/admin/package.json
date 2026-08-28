@@ -18,6 +18,7 @@
     "@fuelcap/basis-model": "workspace:*",
     "@fuelcap/demo-data": "workspace:*",
     "@fuelcap/eu-pricing-source": "workspace:*",
+    "@fuelcap/hedge-optimizer": "workspace:*",
     "@fuelcap/pricing-control": "workspace:*",
     "@fuelcap/production-readiness": "workspace:*",
     "lucide-react": "^1.26.0",
