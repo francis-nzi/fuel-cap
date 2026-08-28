@@ -1,4 +1,5 @@
 export * from "./deployment-orchestration";
+export * from "./service-topology";
 
 export type ReadinessDomain = "SECURITY" | "PRIVACY" | "RESILIENCE" | "OPERATIONS";
 export type EvidenceStatus = "PASS" | "FAIL" | "OPEN" | "EXPIRED";

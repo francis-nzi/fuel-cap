@@ -1,4 +1,4 @@
-export type RenderDeployStatus = "queued" | "build_in_progress" | "update_in_progress" | "live" | "failed" | "deactivated" | "canceled";
+export type RenderDeployStatus = "queued" | "build_in_progress" | "update_in_progress" | "live" | "build_failed" | "update_failed" | "deactivated" | "canceled";
 export type DeploymentSnapshot = { readonly deployId: string; readonly commit: string; readonly status: RenderDeployStatus; readonly createdAt: string; readonly updatedAt: string };
 export type DeploymentDecision =
   | { readonly action: "WAIT"; readonly reason: string; readonly activeDeployIds: readonly string[] }
@@ -7,7 +7,7 @@ export type DeploymentDecision =
   | { readonly action: "REVIEW_FAILURE"; readonly reason: string; readonly deployId: string; readonly activeDeployIds: readonly [] };
 
 const activeStatuses = new Set<RenderDeployStatus>(["queued", "build_in_progress", "update_in_progress"]);
-const terminalFailureStatuses = new Set<RenderDeployStatus>(["failed", "canceled"]);
+const terminalFailureStatuses = new Set<RenderDeployStatus>(["build_failed", "update_failed", "canceled"]);
 
 export function decideSingleFlightDeployment(input: Readonly<{ expectedCommit: string; deployments: readonly DeploymentSnapshot[]; cacheClearDeployId: string | null; automaticDeployGraceExpired: boolean }>): DeploymentDecision {
   if (!/^[a-f0-9]{40}$/.test(input.expectedCommit)) throw new Error("Expected commit must be a full SHA-1 identifier.");
