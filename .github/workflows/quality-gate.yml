@@ -1,0 +1,91 @@
+name: Release quality gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Recursive tests
+        run: pnpm -r test
+      - name: Recursive type-checks
+        run: pnpm -r typecheck
+      - name: Admin lint
+        run: pnpm --filter @fuelcap/admin lint
+      - name: Production builds
+        run: pnpm workspace:build
+      - name: Performance budget
+        run: pnpm quality:performance
+      - name: Critical production dependency audit
+        run: pnpm audit --prod --audit-level critical
+      - name: Release evidence manifest
+        env:
+          RELEASE_COMMIT: ${{ github.sha }}
+          RELEASE_RUN_ID: ${{ github.run_id }}
+        run: pnpm quality:manifest
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-evidence-${{ github.sha }}
+          path: release-evidence/release-manifest.json
+          if-no-files-found: error
+
+  admin-browser:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Golden, adverse, isolation and accessibility journeys
+        run: pnpm test:e2e:admin
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-failure-${{ github.sha }}
+          path: test-results/admin
+          if-no-files-found: ignore
+
+  production-smoke:
+    if: github.event_name == 'workflow_dispatch'
+    needs: [verify, admin-browser]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.0
+      - name: Verify production health provenance
+        env:
+          HEALTH_URL: https://fuelcap-app.onrender.com/api/health
+          EXPECTED_COMMIT: ${{ github.sha }}
+        run: node scripts/verify-production-smoke.mjs

@@ -76,7 +76,7 @@ const flowEvidence: Record<string, { source: string; version: string; owner: str
 };
 
 function StatusDot({ state }: { state: "healthy" | "watch" | "controlled" }) {
-  return <span className={`status-dot status-dot--${state}`} aria-label={state} />;
+  return <span className={`status-dot status-dot--${state}`} role="img" aria-label={state} />;
 }
 
 export function ControlRoom() {
@@ -333,7 +333,7 @@ export function ControlRoom() {
         </div>
 
         {activeWorkspace === "customers" ? <CustomerWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "fleets-vehicles" ? <FleetWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "pricing-data" ? <PricingDataWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "spread-fx" ? <SpreadFxWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "risk-hedging" ? <RiskHedgingWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "transactions-ledger" ? <TransactionsLedgerWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "billing-reconciliation" ? <BillingReconciliationWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "fraud-cases" ? <FraudCasesWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "rules-automation" ? <RulesAutomationWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "communications" ? <CommunicationsWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "platform-integrations-audit" ? <PlatformIntegrationsAuditWorkspace key={`${activeOrganisationId}-${platformInitialSelection}`} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} initialSelection={platformInitialSelection} /> : <>
-        <section className="operating-strip" aria-label="Operating status">
+        <section className="operating-strip" aria-label="Operating status" tabIndex={0}>
           <div className="operating-strip__intro"><Activity size={15} /><strong>Operating state</strong><span className={`state-pill state-pill--${scenario.status.toLowerCase().replaceAll(" ", "-")}`}>{scenario.status}</span></div>
           <div className="strip-item"><StatusDot state="healthy" /><span>Pricing</span><strong>Eligible</strong></div>
           <div className="strip-item"><StatusDot state="healthy" /><span>Ledger</span><strong>Balanced</strong></div>
