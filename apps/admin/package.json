@@ -22,6 +22,7 @@
     "@fuelcap/hedge-optimizer": "workspace:*",
     "@fuelcap/pricing-control": "workspace:*",
     "@fuelcap/production-readiness": "workspace:*",
+    "@fuelcap/treasury-risk-transfer": "workspace:*",
     "lucide-react": "^1.26.0",
     "next": "16.2.11",
     "react": "19.2.4",
