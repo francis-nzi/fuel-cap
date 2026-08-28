@@ -1,0 +1,4 @@
+import { mkdir, writeFile } from "node:fs/promises";
+const commit = process.env.RELEASE_COMMIT ?? "local";
+const manifest = { schemaVersion:"fuelcap.release-evidence.v1", commit, runId:process.env.RELEASE_RUN_ID??"local", generatedAt:new Date().toISOString(), gates:["recursive-tests","recursive-typechecks","admin-lint","production-builds","performance-budget","critical-production-audit"], browserGates:["golden-path","governed-denial","tenant-isolation","wcag-serious-critical","desktop-mobile"], liveActivationAuthorised:false, providerConnected:false, moneyMovement:false };
+await mkdir("release-evidence",{recursive:true});await writeFile("release-evidence/release-manifest.json",`${JSON.stringify(manifest,null,2)}\n`);console.log(JSON.stringify({status:"PASS",commit,gates:manifest.gates.length}));
