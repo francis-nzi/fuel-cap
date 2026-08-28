@@ -55,6 +55,8 @@ test("release provenance reconciles deploy, smoke and rollback evidence", async 
   await expect(page.getByText("dep-da8mncko5n7c73ffh02g", { exact: false })).toBeVisible();
   await expect(page.getByText("Previous healthy f05a4b4", { exact: false })).toBeVisible();
   await expect(page.getByText("Release evidence never authorises live financial activation", { exact: false })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Single-flight Render orchestration" })).toBeVisible();
+  await expect(page.getByText("At most one Render deployment may be active", { exact: false })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectNoSeriousAccessibilityViolations(page);
 });
