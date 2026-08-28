@@ -12,7 +12,7 @@ if (![pollMs, automaticGraceMs, timeoutMs, stabilizationMs].every((value) => Num
 
 const headers = { authorization: `Bearer ${apiKey}`, accept: "application/json", "content-type": "application/json" };
 const activeStatuses = new Set(["queued", "build_in_progress", "update_in_progress"]);
-const terminalFailures = new Set(["failed", "canceled"]);
+const terminalFailures = new Set(["build_failed", "update_failed", "canceled"]);
 const startedAt = Date.now();
 let cacheClearDeployId = null;
 let stableSince = null;
