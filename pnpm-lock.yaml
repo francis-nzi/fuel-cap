@@ -93,6 +93,9 @@ importers:
       '@fuelcap/eu-pricing-source':
         specifier: workspace:*
         version: link:../../packages/eu-pricing-source
+      '@fuelcap/hedge-optimizer':
+        specifier: workspace:*
+        version: link:../../packages/hedge-optimizer
       '@fuelcap/pricing-control':
         specifier: workspace:*
         version: link:../../packages/pricing-control
@@ -318,6 +321,15 @@ importers:
       '@types/node':
         specifier: ^20
         version: 20.19.43
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.11(@types/node@20.19.43)(jsdom@29.1.1)(vite@8.2.2(@types/node@20.19.43)(jiti@2.7.0))
+
+  packages/hedge-optimizer:
+    devDependencies:
       typescript:
         specifier: ^5
         version: 5.9.3
