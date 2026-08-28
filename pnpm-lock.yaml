@@ -90,6 +90,9 @@ importers:
       '@fuelcap/demo-data':
         specifier: workspace:*
         version: link:../../packages/demo-data
+      '@fuelcap/enterprise-platform':
+        specifier: workspace:*
+        version: link:../../packages/enterprise-platform
       '@fuelcap/eu-pricing-source':
         specifier: workspace:*
         version: link:../../packages/eu-pricing-source
@@ -216,6 +219,15 @@ importers:
         specifier: ^4.1.10
         version: 4.1.11(@types/node@20.19.43)(jsdom@29.1.1)(vite@8.2.2(@types/node@20.19.43)(jiti@2.7.0))
 
+  packages/basis-model:
+    devDependencies:
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.11(@types/node@20.19.43)(jsdom@29.1.1)(vite@8.2.2(@types/node@20.19.43)(jiti@2.7.0))
+
   packages/benchmark-engine:
     dependencies:
       '@fuelcap/pricing-ingestion':
@@ -225,15 +237,6 @@ importers:
       '@types/node':
         specifier: ^20
         version: 20.19.43
-      typescript:
-        specifier: ^5
-        version: 5.9.3
-      vitest:
-        specifier: ^4.1.10
-        version: 4.1.11(@types/node@20.19.43)(jsdom@29.1.1)(vite@8.2.2(@types/node@20.19.43)(jiti@2.7.0))
-
-  packages/basis-model:
-    devDependencies:
       typescript:
         specifier: ^5
         version: 5.9.3
@@ -291,6 +294,15 @@ importers:
       '@types/node':
         specifier: ^20
         version: 20.19.43
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.11(@types/node@20.19.43)(jsdom@29.1.1)(vite@8.2.2(@types/node@20.19.43)(jiti@2.7.0))
+
+  packages/enterprise-platform:
+    devDependencies:
       typescript:
         specifier: ^5
         version: 5.9.3
