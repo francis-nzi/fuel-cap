@@ -32,6 +32,8 @@ jobs:
         run: pnpm -r test
       - name: Recursive type-checks
         run: pnpm -r typecheck
+      - name: Deployment orchestrator syntax
+        run: node --check scripts/deploy-render-single-flight.mjs
       - name: Admin lint
         run: pnpm --filter @fuelcap/admin lint
       - name: Production builds

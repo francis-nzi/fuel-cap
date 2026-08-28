@@ -17,6 +17,7 @@
     "quality:manifest": "node scripts/create-release-manifest.mjs",
     "quality:manifest:verify": "node scripts/verify-release-manifest.mjs",
     "quality:smoke": "node scripts/verify-production-smoke.mjs",
+    "deploy:render:single-flight": "node scripts/deploy-render-single-flight.mjs",
     "workspace:build": "corepack pnpm build && corepack pnpm --filter @fuelcap/admin build && corepack pnpm --filter landing-page build",
     "workspace:lint": "turbo run lint",
     "workspace:typecheck": "turbo run typecheck"

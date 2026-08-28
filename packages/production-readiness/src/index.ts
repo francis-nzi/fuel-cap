@@ -1,3 +1,5 @@
+export * from "./deployment-orchestration";
+
 export type ReadinessDomain = "SECURITY" | "PRIVACY" | "RESILIENCE" | "OPERATIONS";
 export type EvidenceStatus = "PASS" | "FAIL" | "OPEN" | "EXPIRED";
 export interface ReadinessControl { readonly controlId: string; readonly domain: ReadinessDomain; readonly title: string; readonly ownerRole: string; readonly externalAttestationRequired: boolean; readonly blocksPilot: boolean; readonly requiredEvidenceKinds: readonly string[]; }
