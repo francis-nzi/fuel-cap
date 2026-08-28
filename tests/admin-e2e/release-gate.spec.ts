@@ -59,7 +59,8 @@ test("release provenance reconciles deploy, smoke and rollback evidence", async 
   await expect(page.getByText("At most one Render deployment may be active", { exact: false })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Consumer, admin and marketing topology" })).toBeVisible();
   await expect(page.getByText("fuel-cap-1 · CONSUMER", { exact: false })).toBeVisible();
-  await expect(page.getByText("No inference-based retirement", { exact: false })).toBeVisible();
+  await expect(page.getByText("Three services only", { exact: false })).toBeVisible();
+  await expect(page.getByText("Legacy services excluded", { exact: false })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectNoSeriousAccessibilityViolations(page);
 });
