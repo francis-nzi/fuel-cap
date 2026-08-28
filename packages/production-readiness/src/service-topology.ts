@@ -1,5 +1,5 @@
 export type ApplicationRole = "CONSUMER" | "ADMIN" | "MARKETING";
-export type ServiceDisposition = "CANONICAL" | "REVIEW_REQUIRED";
+export type ServiceDisposition = "CANONICAL";
 
 export interface RenderServiceContract {
   readonly serviceId: string;
@@ -44,7 +44,6 @@ export const renderServiceTopology: readonly RenderServiceContract[] = [
   { serviceId: "srv-d9hltsfaqgkc73al7lig", serviceName: "fuel-cap-1", role: "CONSUMER", disposition: "CANONICAL", publicUrl: "https://fuel-cap-1.onrender.com", rootDirectory: "", buildCommand: pnpmBuild, startCommand: "pnpm start", nodeVersion: "22.22.0", autoDeploy: true, healthPath: "/api/health", owner: "Consumer Product", notes: "Canonical consumer prototype; Supabase authentication redirect target." },
   { serviceId: "srv-da49ao2fngtc7388cec0", serviceName: "fuelcap-app", role: "ADMIN", disposition: "CANONICAL", publicUrl: "https://fuelcap-app.onrender.com", rootDirectory: "apps/admin", buildCommand: pnpmBuild, startCommand: "pnpm start", nodeVersion: "22.22.0", autoDeploy: true, healthPath: "/api/health", owner: "Platform Operations", notes: "Canonical administration and control-room service." },
   { serviceId: "srv-d9ve5ku1egvs73e3brk0", serviceName: "fuel-cap-web", role: "MARKETING", disposition: "CANONICAL", publicUrl: "https://fuel-cap-web.onrender.com", rootDirectory: "landing-page", buildCommand: pnpmBuild, startCommand: "pnpm start", nodeVersion: "22.22.0", autoDeploy: true, healthPath: null, owner: "Growth", notes: "Canonical marketing service behind fuelcap.tech." },
-  { serviceId: "srv-d9hlsf7aqgkc73al5hl0", serviceName: "fuel-cap", role: "CONSUMER", disposition: "REVIEW_REQUIRED", publicUrl: "https://fuel-cap.onrender.com", rootDirectory: "", buildCommand: "npm install; npm run build", startCommand: "npm run start", nodeVersion: "UNVERIFIED", autoDeploy: true, healthPath: "/api/health", owner: "Founder decision required", notes: "Second root consumer deployment. Preserve until ownership, traffic, auth and retirement impact are explicitly reviewed." },
 ] as const;
 
 export function evaluateServiceTopology(contracts: readonly RenderServiceContract[], observations: readonly RenderServiceObservation[]): ServiceTopologyAssessment {
@@ -63,10 +62,6 @@ export function evaluateServiceTopology(contracts: readonly RenderServiceContrac
   for (const contract of contracts) {
     const observed = observations.find(({ serviceId }) => serviceId === contract.serviceId);
     if (!observed) { blockers.push(`${contract.serviceName}: service observation is missing`); continue; }
-    if (contract.disposition === "REVIEW_REQUIRED") {
-      blockers.push(`${contract.serviceName}: product ownership and retirement decision remain open`);
-      continue;
-    }
     const drift = [
       observed.serviceName !== contract.serviceName && "name",
       observed.publicUrl !== contract.publicUrl && "public URL",

@@ -37,4 +37,4 @@ for (const contract of renderServiceTopology) {
 
 const assessment = evaluateServiceTopology(renderServiceTopology, observations);
 console.log(JSON.stringify({ ...assessment, checkedAt: new Date().toISOString() }, null, 2));
-if (assessment.blockers.some((blocker) => !blocker.startsWith("fuel-cap: product ownership"))) process.exitCode = 1;
+if (assessment.blockers.length) process.exitCode = 1;
