@@ -44,3 +44,17 @@ test("tenant switching fails closed for platform risk records", async ({ page })
   await page.getByRole("button", { name: "Risk & Hedging" }).click();
   await expect(page.getByRole("heading", { name: "Risk exposure is platform-scoped" })).toBeVisible();
 });
+
+test("release provenance reconciles deploy, smoke and rollback evidence", async ({ page }) => {
+  await page.goto("/");
+  if (await page.getByRole("button", { name: "Open navigation" }).isVisible()) await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("button", { name: "Platform, Integrations & Audit" }).click();
+  await expect(page.getByRole("heading", { name: "Platform, Integrations & Audit" })).toBeVisible();
+  await page.getByRole("button", { name: /Release provenance/ }).click();
+  await expect(page.getByRole("heading", { name: "Gate C deployed release evidence" })).toBeVisible();
+  await expect(page.getByText("dep-da8mncko5n7c73ffh02g", { exact: false })).toBeVisible();
+  await expect(page.getByText("Previous healthy f05a4b4", { exact: false })).toBeVisible();
+  await expect(page.getByText("Release evidence never authorises live financial activation", { exact: false })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expectNoSeriousAccessibilityViolations(page);
+});

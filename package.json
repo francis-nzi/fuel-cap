@@ -15,6 +15,7 @@
     "test:e2e:admin": "playwright test --config playwright.admin.config.ts",
     "quality:performance": "node scripts/check-performance-budget.mjs",
     "quality:manifest": "node scripts/create-release-manifest.mjs",
+    "quality:manifest:verify": "node scripts/verify-release-manifest.mjs",
     "quality:smoke": "node scripts/verify-production-smoke.mjs",
     "workspace:build": "corepack pnpm build && corepack pnpm --filter @fuelcap/admin build && corepack pnpm --filter landing-page build",
     "workspace:lint": "turbo run lint",
