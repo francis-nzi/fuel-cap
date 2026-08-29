@@ -1,4 +1,4 @@
-export const RELEASE_REHEARSAL_VERSION = "release-evidence@2.0.0" as const;
+export const RELEASE_REHEARSAL_VERSION = "release-evidence@2.1.0" as const;
 export const rehearsalPaths = [
   { pathId: "PATH-B2C-RISE", class: "GOLDEN", title: "B2C price cap and rise outcome", scenarioId: "rise-within-boundary-us", evidenceIds: ["GOLDEN-RISE", "JRN-RISE"] },
   { pathId: "PATH-B2B-FLEET", class: "GOLDEN", title: "B2B fleet group pricing and consolidated view", scenarioId: "fleet-multi-vehicle-us", evidenceIds: ["FLEET-DEC-3017", "fleet-policy@1.3"] },
@@ -32,23 +32,23 @@ export type ReleaseCandidateEvidence = {
 
 export const latestVerifiedRelease: ReleaseCandidateEvidence = {
   schemaVersion: "fuelcap.release-evidence.v2",
-  releaseId: "RC-001",
-  pullRequest: 92,
-  commit: "1ca3cb719a343433106b69d288b11454ba06c1d5",
-  previousHealthyCommit: "f05a4b4545b75fa773a4f5d5bc0fdeb742a0bcfc",
-  qualityRunId: "33164952358",
+  releaseId: "RC-004",
+  pullRequest: 96,
+  commit: "f4583d8f97e01d476facdddc9fd5a405f22fbf95",
+  previousHealthyCommit: "a2558b1caabdad4fa1ca143788443223dc101569",
+  qualityRunId: "33179944960",
   qualityGates: [
-    { gateId: "recursive-tests", result: "PASS", evidence: "587 tests" },
+    { gateId: "recursive-tests", result: "PASS", evidence: "605 tests" },
     { gateId: "recursive-typechecks", result: "PASS", evidence: "34 workspaces" },
     { gateId: "admin-lint", result: "PASS", evidence: "zero errors" },
     { gateId: "production-builds", result: "PASS", evidence: "customer, admin, landing" },
-    { gateId: "performance-budget", result: "PASS", evidence: "1,037,594 / 3,000,000 bytes" },
+    { gateId: "performance-budget", result: "PASS", evidence: "1,049,511 / 3,000,000 bytes" },
     { gateId: "production-audit", result: "PASS", evidence: "no known vulnerabilities" },
   ],
   browserEvidence: { engine: "chromium", journeys: 8, viewports: ["desktop-chromium", "mobile-chromium"], maximumAxeImpact: "moderate", result: "PASS" },
-  deployment: { provider: "Render", deployId: "dep-da8mncko5n7c73ffh02g", commit: "1ca3cb719a343433106b69d288b11454ba06c1d5", status: "live", cacheCleared: true },
-  smoke: { service: "fuelcap-admin", expectedCommit: "1ca3cb7", observedCommit: "1ca3cb7", provenance: "synthetic-seeded", result: "PASS" },
-  rollback: { targetCommit: "f05a4b4545b75fa773a4f5d5bc0fdeb742a0bcfc", targetWasHealthy: true, procedure: ["select previous healthy Render deploy", "redeploy with cache clear", "verify health commit and synthetic provenance"], rehearsedWithoutMutation: true },
+  deployment: { provider: "Render", deployId: "dep-da8upc9srm7s73aloi30", commit: "f4583d8f97e01d476facdddc9fd5a405f22fbf95", status: "live", cacheCleared: true },
+  smoke: { service: "fuelcap-admin", expectedCommit: "f4583d8", observedCommit: "f4583d8", provenance: "synthetic-seeded", result: "PASS" },
+  rollback: { targetCommit: "a2558b1caabdad4fa1ca143788443223dc101569", targetWasHealthy: true, procedure: ["select previous healthy Render deploy", "redeploy with cache clear", "verify health commit and synthetic provenance"], rehearsedWithoutMutation: true },
   liveActivationAuthorised: false,
 };
 
