@@ -1,10 +1,12 @@
+import { latestVerifiedRelease } from "./release-rehearsal";
+
 export type AdapterMode = "LIVE" | "TEST" | "MOCK" | "SIMULATED";
 export type ServiceHealth = "HEALTHY" | "DEGRADED" | "BLOCKED";
 
 export const platformRelease = {
   service: "fuelcap-app",
   environment: "production",
-  deploymentCommit: "a56110f",
+  deploymentCommit: latestVerifiedRelease.commit.slice(0, 7),
   releaseVersion: "admin-demonstrator@1.0",
   checkedAt: "2026-08-25T16:36:59.360Z",
   health: "HEALTHY" as ServiceHealth,
