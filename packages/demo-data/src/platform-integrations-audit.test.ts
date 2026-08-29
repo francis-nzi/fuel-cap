@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { adapters, approveIntegrationConfiguration, auditRecords, configurationProposal, correlationTrace, incident, platformRelease, replayEvent, serviceChecks, validateWebhook, webhookReceipt } from "./platform-integrations-audit";
+import { latestVerifiedRelease } from "./release-rehearsal";
 
 const approval = { initiatedBy: "di-maker", approvedBy: "di-checker", approverRole: "DI", assurance: "step-up", compatibilityStatus: "PASS", rollbackReference: configurationProposal.rollbackReference, secretValueDisplayed: false } as const;
 
 describe("platform, integrations and audit", () => {
-  it("exposes release and honest demonstrator health evidence", () => { expect(platformRelease).toMatchObject({ deploymentCommit: "a56110f", health: "HEALTHY", productionGradeSloClaimed: false }); expect(serviceChecks.some(({ health }) => health === "DEGRADED")).toBe(true); });
+  it("exposes the verified release anchor and honest demonstrator health evidence", () => { expect(platformRelease).toMatchObject({ deploymentCommit: latestVerifiedRelease.commit.slice(0, 7), health: "HEALTHY", productionGradeSloClaimed: false }); expect(serviceChecks.some(({ health }) => health === "DEGRADED")).toBe(true); });
   it("labels every adapter mode and never displays credentials", () => { expect(adapters.map(({ mode }) => mode)).toEqual(["TEST", "SIMULATED", "MOCK"]); expect(adapters.every(({ compatible, secretDisplayed }) => compatible && !secretDisplayed)).toBe(true); });
   it("blocks an invalid signature before domain processing", () => expect(validateWebhook(webhookReceipt)).toEqual({ accepted: false, reasonCode: "DENY_INVALID_SIGNATURE" }));
   it("preserves typed receipt and dead-letter ownership", () => expect(webhookReceipt).toMatchObject({ processingState: "DEAD_LETTER", reasonCode: "INVALID_SIGNATURE", deadLetterOwner: "Data & Integrations", rawPayloadDisplayed: false, tenantValid: true, schemaCompatible: true }));
