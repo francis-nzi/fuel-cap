@@ -20,8 +20,8 @@
     "deploy:render:single-flight": "node scripts/deploy-render-single-flight.mjs",
     "quality:render-topology": "node scripts/verify-render-topology.mjs",
     "workspace:build": "corepack pnpm build && corepack pnpm --filter @fuelcap/admin build && corepack pnpm --filter landing-page build",
-    "workspace:lint": "turbo run lint",
-    "workspace:typecheck": "turbo run typecheck"
+    "workspace:lint": "corepack pnpm -r --if-present lint",
+    "workspace:typecheck": "corepack pnpm -r --if-present typecheck"
   },
   "engines": {
     "node": "22.22.x"
