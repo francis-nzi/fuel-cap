@@ -8,10 +8,10 @@ const eslintConfig = defineConfig([
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
-    ".next/**",
-    "out/**",
-    "build/**",
-    "next-env.d.ts",
+    "**/.next/**",
+    "**/out/**",
+    "**/build/**",
+    "**/next-env.d.ts",
     // The marketing site is a separate Next app in this monorepo; it has its
     // own build/lint and must not be swept into the app's.
     "landing-page/**",
