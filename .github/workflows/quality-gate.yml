@@ -19,11 +19,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.34.5
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22.22.0
           cache: pnpm
@@ -47,11 +47,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.34.5
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22.22.0
           cache: pnpm
@@ -59,7 +59,7 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium firefox webkit
       - name: Cross-browser golden, adverse, isolation and accessibility journeys
         run: pnpm test:e2e:admin
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: cross-browser-playwright-failure-${{ github.sha }}
@@ -70,8 +70,8 @@ jobs:
     needs: [verify, admin-browser]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22.22.0
       - name: Create release candidate evidence after all required jobs pass
@@ -81,7 +81,7 @@ jobs:
         run: node scripts/create-release-manifest.mjs
       - name: Validate release evidence and rollback contract
         run: node scripts/verify-release-manifest.mjs
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-evidence-${{ github.sha }}
           path: release-evidence/release-manifest.json
@@ -92,8 +92,8 @@ jobs:
     needs: release-evidence
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22.22.0
       - name: Verify production health provenance
