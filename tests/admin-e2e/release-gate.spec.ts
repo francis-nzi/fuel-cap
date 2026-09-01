@@ -49,6 +49,22 @@ test("spread decisions expose impact and fail closed beyond change limits", asyn
   await expectNoSeriousAccessibilityViolations(page);
 });
 
+test("risk trader completes a governed spread lifecycle rehearsal", async ({ page }) => {
+  await page.goto("/");
+  await page.getByLabel("Demo principal").selectOption("principal-risk");
+  if (await page.getByRole("button", { name: "Open navigation" }).isVisible()) await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("button", { name: "Spread & FX" }).click();
+  await page.getByLabel("Modelled protection cost percent").fill("1.40");
+  await page.getByRole("button", { name: "Simulate & request approval" }).click();
+  await expect(page.getByRole("status").getByText("Publication request drafted")).toBeVisible();
+  await page.getByRole("button", { name: "Run governed lifecycle rehearsal" }).click();
+  await expect(page.getByText("EVIDENCE COMPLETE", { exact: true })).toBeVisible();
+  await expect(page.getByText("Accepted quote preserved", { exact: true })).toBeVisible();
+  await expect(page.getByText("Stops new quotes only", { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expectNoSeriousAccessibilityViolations(page);
+});
+
 test("tenant switching fails closed for platform risk records", async ({ page }) => {
   await page.goto("/");
   const desktopOrganisation = page.getByLabel("Active organisation");
