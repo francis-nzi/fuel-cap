@@ -61,6 +61,8 @@ jobs:
         run: pnpm test:e2e:admin
       - name: Cross-application admin-to-customer control journey
         run: pnpm test:e2e:bridge
+      - name: Customer signup, funding, protection and retailer redemption journey
+        run: pnpm test:e2e:customer
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

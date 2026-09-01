@@ -5,6 +5,9 @@ test("admin governs the separate customer demonstrator without mutating an accep
   const admin = await context.newPage();
   await admin.goto("http://127.0.0.1:3001/");
   await page.goto("/");
+  await page.getByRole("button", { name: "Create your profile" }).click();
+  await page.getByRole("button", { name: "+$500" }).click();
+  await page.getByRole("button", { name: "Home", exact: true }).click();
 
   await admin.getByRole("button", { name: /Reset baseline/ }).click();
   await expect(page.getByRole("status").filter({ hasText: "baseline pricing available" })).toBeVisible({ timeout: 10_000 });

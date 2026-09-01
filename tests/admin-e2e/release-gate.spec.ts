@@ -8,9 +8,10 @@ async function expectNoSeriousAccessibilityViolations(page: import("@playwright/
 
 test("golden control-room journey is responsive and accessible", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "FuelCap Operating System" })).toBeVisible();
-  await expect(page.getByText("No live partner dependency", { exact: false })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Customer funds, fuel exposure and operating performance" })).toBeVisible();
+  await expect(page.getByText("Operating contribution", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByText("Advanced operations and technical controls").click();
   await page.getByRole("button", { name: /Reset scenario/ }).click();
   await expect(page.getByRole("button", { name: "Scenario ready" })).toBeVisible();
   await expectNoSeriousAccessibilityViolations(page);
@@ -18,6 +19,7 @@ test("golden control-room journey is responsive and accessible", async ({ page }
 
 test("presenter is denied a governed risk action", async ({ page }) => {
   await page.goto("/");
+  await page.getByText("Advanced operations and technical controls").click();
   await page.getByRole("button", { name: /Test denied action/ }).click();
   await expect(page.getByRole("status").getByText("Permission denied")).toBeVisible();
   await page.getByRole("button", { name: /Test break-glass boundary/ }).click();
@@ -35,26 +37,14 @@ test("risk and treasury evidence preserves simulation boundaries", async ({ page
   await expectNoSeriousAccessibilityViolations(page);
 });
 
-test("investor guide prepares and advances the governed presentation story", async ({ page }) => {
+test("business overview explains funds, coverage, pricing and scenario economics", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Start investor demo" }).click();
-  await expect(page.getByRole("region", { name: "Investor demo guide" })).toContainText("Act 1 of 6");
-  await expect(page.getByRole("heading", { name: "FuelCap Operating System" })).toBeVisible();
-  await page.getByRole("button", { name: "Next act" }).click();
-  await expect(page.getByRole("region", { name: "Investor demo guide" })).toContainText("Trusted pricing inputs");
-  await expect(page.getByRole("heading", { name: "Pricing Data" })).toBeVisible();
-  await page.getByRole("button", { name: "Next act" }).click();
-  await expect(page.getByRole("region", { name: "Investor demo guide" })).toContainText("Governed spread decision");
-  await expect(page.getByRole("heading", { name: "Spread & FX" })).toBeVisible();
-  await page.getByRole("button", { name: "Next act" }).click();
-  await expect(page.getByRole("heading", { name: "Transactions & Ledger" })).toBeVisible();
-  await page.getByRole("button", { name: "Next act" }).click();
-  await expect(page.getByRole("heading", { name: "Risk & Hedging" })).toBeVisible();
-  await page.getByRole("button", { name: "Next act" }).click();
-  await expect(page.getByRole("heading", { name: "Platform, Integrations & Audit" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Investor demo guide" })).toContainText("live partners and financial activation remain gated");
-  await page.getByRole("button", { name: "Finish demo" }).click();
-  await expect(page.getByRole("region", { name: "Investor demo guide" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Where customer money is now" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "How price-rise claims are funded" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Revenue, protection cost and profit" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Bought, protected and redeemed prices" })).toBeVisible();
+  await expect(page.getByRole("table", { name: "Price risk scenarios" })).toContainText("Maximum-boundary breach");
+  await expect(page.getByRole("heading", { name: "Publish the customer price and quote availability" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectNoSeriousAccessibilityViolations(page);
 });

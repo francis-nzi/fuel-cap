@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import {
-  Activity, BadgeCheck, Bell, ChevronRight, CircleUserRound, Fuel,
+  Activity, BadgeCheck, Bell, ChevronRight, CircleDollarSign, CircleUserRound, Fuel,
   Gift, Home, LockKeyhole, LogOut, MapPin, Menu, QrCode, ReceiptText,
   Settings, ShieldCheck, SlidersHorizontal, WalletCards, X,
 } from "lucide-react";
@@ -12,7 +12,7 @@ import { demoLockedPrice, MarketCode, markets, money } from "@/lib/markets";
 import { createClient } from "@/lib/supabase/client";
 import { initialDemoControlSnapshot, type DemoControlSnapshot } from "@fuelcap/demo-control";
 
-type View = "home" | "tank" | "lock" | "activity" | "settings";
+type View = "home" | "wallet" | "tank" | "lock" | "activity" | "settings";
 type LockScope = "station" | "provider" | "country";
 type PriceOption = {
   scopeType: LockScope;
@@ -114,6 +114,7 @@ function buildFallbackOptions(marketCode: MarketCode): PriceOption[] {
 
 const nav: { id: View; label: string; icon: typeof Home }[] = [
   { id: "home", label: "Home", icon: Home },
+  { id: "wallet", label: "Wallet", icon: WalletCards },
   { id: "tank", label: "My tank", icon: Fuel },
   { id: "lock", label: "Lock price", icon: LockKeyhole },
   { id: "activity", label: "Activity", icon: Activity },
@@ -143,6 +144,8 @@ export function FuelCapApp() {
   const [syncing, setSyncing] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [customerReady, setCustomerReady] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
   const [demoControl, setDemoControl] = useState<DemoControlSnapshot>(initialDemoControlSnapshot);
   const [bridgeReachable, setBridgeReachable] = useState(false);
   const baseMarket = markets[marketCode];
@@ -293,7 +296,7 @@ export function FuelCapApp() {
     if (!userId) localStorage.setItem("fuelcap-demo", JSON.stringify({ market: marketCode, locks }));
   }, [marketCode, locks, userId]);
 
-  const tankVolume = (userId ? 0 : market.defaultVolume) + locks.reduce((sum, item) => sum + item.remainingVolume, 0);
+  const tankVolume = locks.reduce((sum, item) => sum + item.remainingVolume, 0);
   const saved = market.code === "US" ? 142 : market.code === "CA" ? 96 : 71;
   const selectedPriceOption = priceOptions.find((option) =>
     option.scopeType === scopeType && (scopeType === "country" || option.scopeId === scopeId));
@@ -330,6 +333,14 @@ export function FuelCapApp() {
       window.setTimeout(() => setNotice(null), 3200);
       return;
     }
+    const effectiveUnitPrice = marketCode === "US" ? demoControl.displayUnitPrice : selectedOption.unitPrice;
+    const purchaseTotal = volume * effectiveUnitPrice;
+    if (!userId && walletBalance < purchaseTotal) {
+      setNotice(`Add ${money(purchaseTotal - walletBalance, market)} to your wallet before protecting this fuel.`);
+      setView("wallet");
+      window.setTimeout(() => setNotice(null), 4200);
+      return;
+    }
     setActionBusy(true);
     if (userId) {
       const { error } = await createClient().rpc("create_scoped_demo_lock", {
@@ -351,29 +362,41 @@ export function FuelCapApp() {
       id: crypto.randomUUID(),
       volume,
       remainingVolume: volume,
-      unitPrice: selectedOption.unitPrice,
-      total: volume * selectedOption.unitPrice,
+      unitPrice: effectiveUnitPrice,
+      total: volume * effectiveUnitPrice,
       status: "active",
       scopeType,
       scopeLabel: selectedOption.label,
       createdAt: new Date().toISOString(),
     };
     setLocks((current) => [record, ...current]);
+    setWalletBalance((balance) => balance - purchaseTotal);
     }
     setActionBusy(false);
-    setNotice(`${volume} ${market.unit} locked at ${money(selectedOption.unitPrice, market)}/${market.unit}`);
+    setNotice(`${volume} ${market.unit} protected at ${money(effectiveUnitPrice, market)}/${market.unit}`);
     setView("tank");
     window.setTimeout(() => setNotice(null), 3200);
   }
 
   async function redeemFuel(amount: number) {
     const activeLock = locks.find((lock) => lock.remainingVolume >= amount && ["active", "partially_redeemed"].includes(lock.status));
-    if (!userId || !activeLock) {
-      setNotice(userId ? "No active lock has enough fuel for this redemption." : "Sign in to persist a pump redemption.");
+    if (!activeLock) {
+      setNotice("No active protection has enough fuel for this redemption.");
       window.setTimeout(() => setNotice(null), 3600);
       return;
     }
     setActionBusy(true);
+    if (!userId) {
+      const pumpPrice = demoControl.displayUnitPrice + 0.35;
+      const covered = Math.max(pumpPrice - activeLock.unitPrice, 0) * amount;
+      setLocks((current) => current.map((lock) => lock.id === activeLock.id ? { ...lock, remainingVolume: lock.remainingVolume - amount, status: lock.remainingVolume === amount ? "redeemed" : "partially_redeemed" } : lock));
+      setTransactions((current) => [{ id: crypto.randomUUID(), type: "redemption", amount: amount * pumpPrice, volume: amount, unitPrice: pumpPrice, description: `${amount} ${market.unit} redeemed · FuelCap covered ${money(covered, market)}`, createdAt: new Date().toISOString() }, ...current]);
+      setShowRedeem(false);
+      setNotice(`${amount} ${market.unit} filled at ${money(pumpPrice, market)}/${market.unit}. FuelCap covered ${money(covered, market)}.`);
+      setActionBusy(false);
+      window.setTimeout(() => setNotice(null), 5000);
+      return;
+    }
     const { error } = await createClient().rpc("redeem_demo_fuel", {
       p_lock_id: activeLock.id,
       p_volume: amount,
@@ -398,7 +421,7 @@ export function FuelCapApp() {
         </nav>
         <div className="mt-auto rounded-md border border-[#dce5df] bg-[#f7faf8] p-3">
           <div className="flex items-center gap-2 text-xs font-semibold text-[#0b7a4b]">
-            <ShieldCheck size={16} /> {userId ? "Supabase synced" : "Demo environment"}
+            <ShieldCheck size={16} /> {userId ? "Account synced" : "Sandbox"}
           </div>
           <p className="mt-1 text-xs leading-5 text-[#61716b]">{userId ? "Account data persists securely." : "No real funds or fuel purchases."}</p>
         </div>
@@ -408,7 +431,7 @@ export function FuelCapApp() {
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#dce5df] bg-white/95 px-4 backdrop-blur md:px-8">
           <div className="md:hidden"><Brand compact /></div>
           <div className="hidden md:block">
-            <p className="text-xs font-medium text-[#61716b]">{userId ? "Synced prototype" : "Prototype account"}</p>
+            <p className="text-xs font-medium text-[#61716b]">{userId ? "Account synced" : "Personal account"}</p>
             <p className="text-sm font-semibold">Good morning{userEmail ? `, ${userEmail.split("@")[0]}` : ", Francis"}</p>
           </div>
           <div className="flex items-center gap-2">
@@ -431,8 +454,9 @@ export function FuelCapApp() {
         </header>
 
         <main className="mx-auto max-w-6xl px-4 pb-28 pt-6 md:px-8 md:pb-10 md:pt-8">
-          {marketCode === "US" && <section className={`mb-5 rounded-md border p-4 ${demoControl.quoteAvailability === "PAUSED" ? "border-[#efb0a8] bg-[#fff0ed]" : "border-[#9bc7ad] bg-[#edf8f1]"}`} aria-label="Admin demo control status" role="status"><div className="flex items-start gap-3"><ShieldCheck className={demoControl.quoteAvailability === "PAUSED" ? "text-[#a83c30]" : "text-[#0b7a4b]"} size={20} /><div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase tracking-wide text-[#61716b]">Admin-controlled demonstration · {bridgeReachable ? "connected" : "safe baseline"}</p><p className="mt-1 font-semibold">{demoControl.customerMessage}</p><p className="mt-1 text-xs text-[#61716b]">{demoControl.correlationId} · {demoControl.decisionId} · accepted {demoControl.acceptedQuote.quoteId} at {money(demoControl.acceptedQuote.unitPrice, market)} preserved</p></div><span className="rounded-md bg-white px-2 py-1 text-xs font-bold">{demoControl.quoteAvailability}</span></div></section>}
-          {view === "home" && <HomeView market={market} tankVolume={tankVolume} saved={saved} activeLock={activeLock} referencePrice={controlledReferencePrice} demoPrice={marketCode === "US" ? demoControl.displayUnitPrice : undefined} setView={setView} redeem={() => setShowRedeem(true)} />}
+          {marketCode === "US" && <section className={`mb-5 rounded-md border p-4 ${demoControl.quoteAvailability === "PAUSED" ? "border-[#efb0a8] bg-[#fff0ed]" : "border-[#9bc7ad] bg-[#edf8f1]"}`} aria-label="Price protection status" role="status"><div className="flex items-start gap-3"><ShieldCheck className={demoControl.quoteAvailability === "PAUSED" ? "text-[#a83c30]" : "text-[#0b7a4b]"} size={20} /><div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase tracking-wide text-[#61716b]">Price protection service · {bridgeReachable ? "live status" : "last known safe price"}</p><p className="mt-1 font-semibold">{demoControl.customerMessage.replace("Demo control connected · ", "").replace("Admin published a simulated ", "").replace("Admin withdrew ", "")}</p><p className="mt-1 text-xs text-[#61716b]">Your accepted protection at {money(demoControl.acceptedQuote.unitPrice, market)}/{market.unit} remains unchanged.</p></div><span className="rounded-md bg-white px-2 py-1 text-xs font-bold">{demoControl.quoteAvailability}</span></div></section>}
+          {view === "home" && <HomeView market={market} tankVolume={tankVolume} walletBalance={walletBalance} customerReady={customerReady || Boolean(userId)} startCustomer={() => { setCustomerReady(true); setView("wallet"); }} saved={saved} nearbyPrices={priceOptions.filter((option) => option.scopeType === "station").sort((a,b) => a.unitPrice-b.unitPrice).slice(0,3)} activeLock={activeLock} referencePrice={controlledReferencePrice} demoPrice={marketCode === "US" ? demoControl.displayUnitPrice : undefined} setView={setView} redeem={() => setShowRedeem(true)} />}
+          {view === "wallet" && <WalletView market={market} balance={walletBalance} addFunds={(amount) => { setCustomerReady(true); setWalletBalance((balance) => balance + amount); setNotice(`${money(amount, market)} added to your FuelCap wallet.`); window.setTimeout(() => setNotice(null), 3200); }} setView={setView} />}
           {view === "tank" && <TankView market={market} tankVolume={tankVolume} locks={locks} setView={setView} redeem={() => setShowRedeem(true)} />}
           {view === "lock" && <LockView market={market} volume={volume} setVolume={setVolume} confirm={confirmLock} busy={actionBusy} options={priceOptions} selected={controlledPriceOption} scopeType={scopeType} scopeId={scopeId} changeScope={changeScope} setScopeId={setScopeId} loading={optionsLoading} quotesPaused={marketCode === "US" && demoControl.quoteAvailability === "PAUSED"} />}
           {view === "activity" && <ActivityView market={market} locks={locks} transactions={transactions} cloud={Boolean(userId)} />}
@@ -440,7 +464,7 @@ export function FuelCapApp() {
         </main>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid h-[76px] grid-cols-5 border-t border-[#dce5df] bg-white px-1 pb-[env(safe-area-inset-bottom)] md:hidden" aria-label="Primary navigation">
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid h-[76px] grid-cols-6 border-t border-[#dce5df] bg-white px-1 pb-[env(safe-area-inset-bottom)] md:hidden" aria-label="Primary navigation">
         {nav.map((item) => {
           const Icon = item.icon;
           return (
@@ -452,7 +476,7 @@ export function FuelCapApp() {
       </nav>
 
       {notice && <div role="status" className="fixed bottom-24 left-1/2 z-50 w-[calc(100%-32px)] max-w-md -translate-x-1/2 rounded-md bg-[#0b1b2b] px-4 py-3 text-center text-sm font-semibold text-white shadow-xl md:bottom-6">{notice}</div>}
-      {showRedeem && <RedeemDialog market={market} volume={tankVolume} cloud={Boolean(userId)} busy={actionBusy} redeem={redeemFuel} close={() => setShowRedeem(false)} />}
+      {showRedeem && <RedeemDialog market={market} volume={tankVolume} busy={actionBusy} redeem={redeemFuel} close={() => setShowRedeem(false)} />}
       {showMenu && <AccountMenu email={userEmail} close={() => setShowMenu(false)} openAuth={() => { setShowMenu(false); setShowAuth(true); }} />}
       {showAuth && <AuthDialog close={() => setShowAuth(false)} />}
       {syncing && <div role="status" className="fixed right-4 top-20 z-40 rounded-md border border-[#dce5df] bg-white px-3 py-2 text-xs font-semibold shadow-sm">Syncing account...</div>}
@@ -476,19 +500,20 @@ function NavButton({ item, active, onClick }: { item: (typeof nav)[number]; acti
 
 type MarketProps = { market: (typeof markets)[MarketCode] };
 
-function HomeView({ market, tankVolume, saved, activeLock, referencePrice, demoPrice, setView, redeem }: MarketProps & { tankVolume: number; saved: number; activeLock?: LockRecord; referencePrice: number; demoPrice?: number; setView: (view: View) => void; redeem: () => void }) {
+function HomeView({ market, tankVolume, walletBalance, customerReady, startCustomer, saved, nearbyPrices, activeLock, referencePrice, demoPrice, setView, redeem }: MarketProps & { tankVolume: number; walletBalance: number; customerReady: boolean; startCustomer: () => void; saved: number; nearbyPrices: PriceOption[]; activeLock?: LockRecord; referencePrice: number; demoPrice?: number; setView: (view: View) => void; redeem: () => void }) {
   const capPrice = demoPrice ?? activeLock?.unitPrice ?? referencePrice;
   const advantage = Math.max(referencePrice - capPrice, 0);
   return (
     <div className="view-enter">
+      {!customerReady && <section className="mb-5 grid gap-5 rounded-lg bg-[#0b1b2b] p-6 text-white md:grid-cols-[1fr_auto] md:items-center"><div><p className="text-xs font-bold uppercase tracking-wide text-[#8fb8a6]">Welcome to FuelCap</p><h1 className="mt-2 text-2xl font-bold">Pay less for fuel with a price you can plan around</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-[#c7d6ce]">Create your profile, add funds, protect the fuel you expect to use and pay from your virtual tank at participating retailers.</p></div><button type="button" onClick={startCustomer} className={`${buttonBase} bg-[#0ba75e] text-white`}><CircleUserRound size={17} />Create your profile</button></section>}
       <div className="mb-6 flex items-end justify-between gap-4">
-        <div><p className="text-sm font-medium text-[#61716b]">Your overview</p><h1 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-bold md:text-3xl">Your fuel is protected</h1></div>
+        <div><p className="text-sm font-medium text-[#61716b]">Your overview</p><h1 className="font-[family-name:var(--font-space-grotesk)] text-2xl font-bold md:text-3xl">{tankVolume > 0 ? "Your fuel is protected" : "Plan your next fill"}</h1></div>
         <button onClick={() => setView("lock")} className={`${buttonBase} whitespace-nowrap bg-[#0ba75e] text-white hover:bg-[#0b7a4b]`}><LockKeyhole size={17} />Lock price</button>
       </div>
       <div className="grid gap-4 lg:grid-cols-[1.3fr_.7fr]">
         <section className="rounded-md bg-[#0b1b2b] p-5 text-white md:p-7">
           <div className="flex items-start justify-between gap-4">
-            <div><p className="text-xs font-bold uppercase text-[#8fb8a6]">{demoPrice !== undefined ? "Admin-controlled demo price" : activeLock ? "Your FuelCap price" : "Current open price"}</p><p className="mt-2 font-[family-name:var(--font-space-grotesk)] text-4xl font-bold md:text-5xl" data-testid="headline-unit-price">{money(capPrice, market)}<span className="ml-1 text-base font-medium text-[#8fb8a6]">/{market.unit}</span></p><p className="mt-2 max-w-md text-xs text-[#8fb8a6]">{demoPrice !== undefined ? "Synthetic US customer projection" : activeLock?.scopeLabel ?? `Any eligible ${market.name} station`}</p></div>
+            <div><p className="text-xs font-bold uppercase text-[#8fb8a6]">{activeLock ? "Your FuelCap price" : "Current protection price"}</p><p className="mt-2 font-[family-name:var(--font-space-grotesk)] text-4xl font-bold md:text-5xl" data-testid="headline-unit-price">{money(capPrice, market)}<span className="ml-1 text-base font-medium text-[#8fb8a6]">/{market.unit}</span></p><p className="mt-2 max-w-md text-xs text-[#8fb8a6]">{activeLock?.scopeLabel ?? `Available across eligible ${market.name} stations`}</p></div>
             <span className="rounded-md bg-[#17364a] px-2 py-1 text-xs font-semibold text-[#dff5e9]">Regular</span>
           </div>
           <div className="mt-7 grid grid-cols-2 gap-4 border-t border-[#284052] pt-5">
@@ -504,16 +529,25 @@ function HomeView({ market, tankVolume, saved, activeLock, referencePrice, demoP
         </section>
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <Metric icon={WalletCards} label="Available wallet balance" value={money(walletBalance, market)} detail="Ready to protect fuel" />
         <Metric icon={BadgeCheck} label="Saved this year" value={money(saved, market, 0)} detail="18 protected fills" />
-        <Metric icon={ShieldCheck} label="Price-drop protection" value="On" detail="Automatic adjustments" />
-        <Metric icon={MapPin} label="Nearby stations" value="24" detail="Within 5 miles" />
+        <Metric icon={MapPin} label="Nearby prices" value="24" detail={`Best price ${money(Math.max(referencePrice - 0.28, 0), market)}/${market.unit}`} />
       </div>
+      <section className="mt-4 rounded-md border border-[#dce5df] bg-white"><div className="flex items-center justify-between border-b border-[#dce5df] p-4"><div><h2 className="font-semibold">Best prices near you</h2><p className="text-xs text-[#61716b]">Fresh station prices, sorted lowest first</p></div><MapPin size={19} className="text-[#0b7a4b]" /></div><div className="divide-y divide-[#e5ebe7]">{nearbyPrices.map((option,index)=><div key={option.scopeId} className="grid grid-cols-[1fr_auto] gap-3 p-4"><div><p className="font-semibold">{option.label.split(" - ")[0]}</p><p className="text-xs text-[#61716b]">{option.label.split(" - ")[1]} · {index + 1}.{index + 2} miles</p></div><div className="text-right"><p className="font-semibold">{money(option.unitPrice, market)}/{market.unit}</p><p className="text-xs text-[#0b7a4b]">{index === 0 ? "Best nearby" : "Available now"}</p></div></div>)}</div></section>
       <section className="mt-4 flex flex-col justify-between gap-4 rounded-md border border-[#efd695] bg-[#fff8e6] p-5 sm:flex-row sm:items-center">
         <div><p className="font-semibold">You have not paid full price in 6 months</p><p className="mt-1 text-sm text-[#735d2c]">Share your scorecard and give friends a better first lock.</p></div>
         <button className={`${buttonBase} shrink-0 bg-[#ffc24b] text-[#0b1b2b] hover:bg-[#f0b337]`}><Gift size={17} />Share scorecard</button>
       </section>
     </div>
   );
+}
+
+function WalletView({ market, balance, addFunds, setView }: MarketProps & { balance: number; addFunds: (amount: number) => void; setView: (view: View) => void }) {
+  return <div className="view-enter"><PageTitle eyebrow="Money" title="FuelCap wallet" />
+    <section className="grid gap-5 rounded-lg bg-[#0b1b2b] p-6 text-white md:grid-cols-[1fr_auto] md:items-center"><div><p className="text-sm text-[#8fb8a6]">Available to protect fuel</p><p className="mt-2 text-5xl font-bold">{money(balance, market)}</p><p className="mt-3 text-sm text-[#c7d6ce]">Wallet funds remain visible as cash until you use them to protect a chosen fuel volume.</p></div><WalletCards size={42} className="text-[#65d49a]" /></section>
+    <section className="mt-5 rounded-lg border border-[#dce5df] bg-white p-5"><h2 className="font-semibold">Add funds</h2><p className="mt-1 text-sm text-[#61716b]">Choose an amount using your saved payment method ending 4242.</p><div className="mt-4 grid grid-cols-3 gap-2">{[100,250,500].map((amount) => <button type="button" key={amount} onClick={() => addFunds(amount)} className="h-12 rounded-md border border-[#b8d6c3] bg-[#edf8f1] font-semibold text-[#0b7a4b]">+{money(amount, market, 0)}</button>)}</div><button type="button" disabled={balance <= 0} onClick={() => setView("lock")} className={`${buttonBase} mt-5 w-full bg-[#0ba75e] text-white`}><LockKeyhole size={17} />Choose fuel protection</button></section>
+    <section className="mt-5 rounded-lg border border-[#dce5df] bg-white p-5"><div className="flex items-center gap-3"><CircleDollarSign className="text-[#0b7a4b]" /><div><h2 className="font-semibold">How your money moves</h2><p className="text-sm text-[#61716b]">Available cash → protected fuel → retailer settlement. Every step remains visible in Activity.</p></div></div></section>
+  </div>;
 }
 
 function Metric({ icon: Icon, label, value, detail }: { icon: typeof Home; label: string; value: string; detail: string }) {
@@ -622,7 +656,7 @@ function ActivityView({ market, locks, transactions, cloud }: MarketProps & { lo
 
 function SettingsView({ marketCode, changeMarket }: { marketCode: MarketCode; changeMarket: (code: MarketCode) => void }) {
   return <div className="view-enter"><PageTitle eyebrow="Preferences" title="Settings" /><div className="grid gap-4 lg:grid-cols-2">
-    <section className="rounded-md border border-[#dce5df] bg-white p-5"><div className="flex items-center gap-3"><CircleUserRound size={22} className="text-[#0b7a4b]" /><div><h2 className="font-semibold">Prototype profile</h2><p className="text-sm text-[#61716b]">Francis · Demo account</p></div></div><button className={`${buttonBase} mt-5 w-full border border-[#dce5df]`}><WalletCards size={17} />Manage payment method</button></section>
+    <section className="rounded-md border border-[#dce5df] bg-white p-5"><div className="flex items-center gap-3"><CircleUserRound size={22} className="text-[#0b7a4b]" /><div><h2 className="font-semibold">Customer profile</h2><p className="text-sm text-[#61716b]">Francis · FuelCap member</p></div></div><button className={`${buttonBase} mt-5 w-full border border-[#dce5df]`}><WalletCards size={17} />Manage payment method</button></section>
     <section className="rounded-md border border-[#dce5df] bg-white p-5"><h2 className="font-semibold">Market and units</h2><p className="mt-1 text-sm text-[#61716b]">Prices and volumes follow the selected market.</p><div className="mt-4 grid grid-cols-3 gap-2">{(Object.keys(markets) as MarketCode[]).map((code) => <button key={code} onClick={() => changeMarket(code)} className={`h-10 rounded-md border text-sm font-semibold ${marketCode === code ? "border-[#0ba75e] bg-[#dff5e9] text-[#0b7a4b]" : "border-[#dce5df]"}`}>{code === "GB" ? "UK" : code}</button>)}</div></section>
   </div></div>;
 }
@@ -632,17 +666,17 @@ function PageTitle({ eyebrow, title }: { eyebrow: string; title: string }) {
 }
 
 function EmptyState({ icon: Icon, title, text, action }: { icon: typeof Home; title: string; text: string; action: () => void }) {
-  return <div className="flex flex-col items-center px-5 py-10 text-center"><div className="grid size-11 place-items-center rounded-md bg-[#dff5e9] text-[#0b7a4b]"><Icon size={21} /></div><p className="mt-3 font-semibold">{title}</p><p className="mt-1 max-w-sm text-sm text-[#61716b]">{text}</p><button onClick={action} className={`${buttonBase} mt-4 bg-[#0ba75e] text-white`}>Create demo lock</button></div>;
+  return <div className="flex flex-col items-center px-5 py-10 text-center"><div className="grid size-11 place-items-center rounded-md bg-[#dff5e9] text-[#0b7a4b]"><Icon size={21} /></div><p className="mt-3 font-semibold">{title}</p><p className="mt-1 max-w-sm text-sm text-[#61716b]">{text}</p><button onClick={action} className={`${buttonBase} mt-4 bg-[#0ba75e] text-white`}>Protect fuel</button></div>;
 }
 
-function RedeemDialog({ market, volume, cloud, busy, redeem, close }: MarketProps & { volume: number; cloud: boolean; busy: boolean; redeem: (amount: number) => Promise<void>; close: () => void }) {
+function RedeemDialog({ market, volume, busy, redeem, close }: MarketProps & { volume: number; busy: boolean; redeem: (amount: number) => Promise<void>; close: () => void }) {
   const redeemVolume = market.unit === "gal" ? 10 : 20;
   return <div role="dialog" aria-modal="true" aria-labelledby="redeem-title" className="fixed inset-0 z-50 grid place-items-end bg-[#0b1b2b]/55 p-0 sm:place-items-center sm:p-4"><div className="w-full max-w-md rounded-t-lg bg-white p-5 shadow-2xl sm:rounded-lg">
-    <div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase text-[#0b7a4b]">Demo redemption</p><h2 id="redeem-title" className="text-xl font-bold">Pay with your tank</h2></div><button onClick={close} className="grid size-9 place-items-center rounded-md border border-[#dce5df]" aria-label="Close"><X size={18} /></button></div>
+    <div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase text-[#0b7a4b]">Retailer payment</p><h2 id="redeem-title" className="text-xl font-bold">Pay with your tank</h2></div><button onClick={close} className="grid size-9 place-items-center rounded-md border border-[#dce5df]" aria-label="Close"><X size={18} /></button></div>
     <div className="mx-auto mt-6 w-fit rounded-md border border-[#dce5df] bg-white p-4"><QRCodeSVG value={`fuelcap-demo:${market.code}:${volume}:842119`} size={210} fgColor="#0b1b2b" /></div>
-    <p className="mt-5 text-center font-semibold">{volume} {market.unit} available</p><p className="mt-1 text-center text-sm text-[#61716b]">Show this simulated code at a partner pump.</p>
-    {cloud && <button disabled={busy || volume < redeemVolume} onClick={() => redeem(redeemVolume)} className={`${buttonBase} mt-5 w-full bg-[#0ba75e] text-white`}>{busy ? "Redeeming..." : `Simulate ${redeemVolume} ${market.unit} redemption`}</button>}
-    <button onClick={close} className={`${buttonBase} mt-2 w-full ${cloud ? "border border-[#dce5df]" : "bg-[#0b1b2b] text-white"}`}>Done</button>
+    <p className="mt-5 text-center font-semibold">{volume} {market.unit} available</p><p className="mt-1 text-center text-sm text-[#61716b]">Show this code to the retailer, who confirms the quantity dispensed.</p>
+    <button disabled={busy || volume < redeemVolume} onClick={() => redeem(redeemVolume)} className={`${buttonBase} mt-5 w-full bg-[#0ba75e] text-white`}>{busy ? "Completing fill..." : `Retailer confirms ${redeemVolume} ${market.unit}`}</button>
+    <button onClick={close} className={`${buttonBase} mt-2 w-full border border-[#dce5df]`}>Cancel</button>
   </div></div>;
 }
 
@@ -653,7 +687,7 @@ function AccountMenu({ email, close, openAuth }: { email: string | null; close: 
   }
   return <div className="fixed inset-0 z-50 bg-[#0b1b2b]/40" onMouseDown={close}><div onMouseDown={(e) => e.stopPropagation()} className="ml-auto min-h-full w-full max-w-sm bg-white p-5 shadow-2xl">
     <div className="flex items-center justify-between"><Brand /><button onClick={close} className="grid size-9 place-items-center rounded-md border border-[#dce5df]" aria-label="Close menu"><X size={18} /></button></div>
-    <div className="mt-8 flex items-center gap-3 rounded-md bg-[#f3f6f4] p-4"><CircleUserRound size={32} className="text-[#0b7a4b]" /><div className="min-w-0"><p className="font-semibold">{email ? "FuelCap member" : "Prototype account"}</p><p className="truncate text-xs text-[#61716b]">{email ?? "Not signed in"}</p></div></div>
+    <div className="mt-8 flex items-center gap-3 rounded-md bg-[#f3f6f4] p-4"><CircleUserRound size={32} className="text-[#0b7a4b]" /><div className="min-w-0"><p className="font-semibold">{email ? "FuelCap member" : "Customer account"}</p><p className="truncate text-xs text-[#61716b]">{email ?? "Local sandbox profile"}</p></div></div>
     <div className="mt-5 space-y-1"><MenuRow icon={ReceiptText} label="Statements" /><MenuRow icon={ShieldCheck} label="Protection details" /><MenuRow icon={Bell} label="Notifications" /></div>
     {email ? <button onClick={signOut} className={`${buttonBase} mt-8 w-full border border-[#dce5df] text-[#b0382b]`}><LogOut size={17} />Sign out</button> :
       <button onClick={openAuth} className={`${buttonBase} mt-8 w-full bg-[#0ba75e] text-white`}><CircleUserRound size={17} />Create account or sign in</button>}

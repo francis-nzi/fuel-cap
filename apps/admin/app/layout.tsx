@@ -11,7 +11,7 @@ const inter = localFont({
 
 export const metadata: Metadata = {
   title: "FuelCap Control Room",
-  description: "FuelCap investor demonstrator administration platform",
+  description: "FuelCap operations and business management platform",
   robots: { index: false, follow: false },
 };
 

@@ -35,7 +35,7 @@ export function DemoControlBridge({ actorId, role }: { actorId: string; role: st
   }
 
   return <section className="demo-control-bridge" aria-labelledby="demo-control-title">
-    <div className="demo-control-bridge__heading"><div><span className="section-kicker"><Link2 size={13} /> Customer app control bridge</span><h2 id="demo-control-title">Show governed admin-to-customer cause and effect</h2><p>Publish one of three allow-listed synthetic states, then watch the separate customer app respond within two seconds.</p></div><span className={`state-pill ${snapshot.quoteAvailability === "PAUSED" ? "state-pill--action-required" : "state-pill--nominal"}`}>{snapshot.state}</span></div>
+    <div className="demo-control-bridge__heading"><div><span className="section-kicker"><Link2 size={13} /> Customer pricing controls</span><h2 id="demo-control-title">Publish the customer price and quote availability</h2><p>Update the price customers see, or pause new protection while preserving accepted prices.</p></div><span className={`state-pill ${snapshot.quoteAvailability === "PAUSED" ? "state-pill--action-required" : "state-pill--nominal"}`}>{snapshot.state}</span></div>
     <div className="demo-control-bridge__actions">
       <button type="button" onClick={() => dispatch("RESET_BASELINE")} disabled={busy !== null}><RotateCcw size={15} /><span><strong>Reset baseline</strong><small>$3.42/gal · quotes available</small></span></button>
       <button type="button" onClick={() => dispatch("PUBLISH_PRICE_RISE")} disabled={busy !== null}><ArrowUpRight size={15} /><span><strong>Publish price rise</strong><small>$3.67/gal · customer notified</small></span></button>

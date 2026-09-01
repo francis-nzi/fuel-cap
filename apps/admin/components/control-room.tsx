@@ -9,7 +9,6 @@ import {
   CircleDollarSign,
   Database,
   FileCheck2,
-  Flag,
   Gauge,
   Globe2,
   LayoutDashboard,
@@ -45,10 +44,10 @@ import { RulesAutomationWorkspace } from "@/components/rules-automation-workspac
 import { CommunicationsWorkspace } from "@/components/communications-workspace";
 import { PlatformIntegrationsAuditWorkspace } from "@/components/platform-integrations-audit-workspace";
 import { CustomerWorkspace } from "@/components/customer-workspace";
-import { DemoControlBridge } from "@/components/demo-control-bridge";
+import { BusinessOverview } from "@/components/business-overview";
 
 const workspaces: readonly { key: Workspace; label: string; icon: typeof LayoutDashboard; active?: boolean }[] = [
-  { key: "control-room", label: "Control Room", icon: LayoutDashboard, active: true },
+  { key: "control-room", label: "Business Overview", icon: LayoutDashboard, active: true },
   { key: "customers", label: "Customers", icon: Users },
   { key: "fleets-vehicles", label: "Fleets & Vehicles", icon: Building2 },
   { key: "pricing-data", label: "Pricing Data", icon: Database },
@@ -304,7 +303,7 @@ export function ControlRoom() {
           <div className="brand-mark"><Image src="/fuelcap-mark.svg" width={26} height={28} alt="FuelCap" priority /></div>
           <div>
             <strong>FuelCap</strong>
-            <span>Control Room</span>
+            <span>Operations</span>
           </div>
           <button className="icon-button sidebar-close" onClick={closeMobileNavigation} aria-label="Close navigation"><X size={18} /></button>
         </div>
@@ -312,7 +311,7 @@ export function ControlRoom() {
         <div className="environment-card">
           <div className="environment-card__top">
             <span className="pulse-dot" />
-            <strong>Investor demonstrator</strong>
+            <strong>Sandbox environment</strong>
           </div>
           <span>Simulated operations · v1.0</span>
         </div>
@@ -344,7 +343,6 @@ export function ControlRoom() {
           <button ref={mobileMenuTriggerRef} className="icon-button mobile-menu" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation" aria-expanded={mobileNavOpen} aria-controls="admin-navigation"><Menu size={20} /></button>
           <div className="breadcrumb"><span>FuelCap Operations</span><span>/</span><strong>{workspaces.find(({ key }) => key === activeWorkspace)?.label}</strong></div>
           <div className="topbar-actions">
-            <button className="demo-launch-button" type="button" onClick={() => openDemoStep(0)}><Flag size={15} />{demoStepIndex === null ? "Start investor demo" : "Restart demo"}</button>
             <button className="search-button" type="button"><Search size={17} /><span>Search operations</span><kbd>⌘ K</kbd></button>
             <div className="context-switcher"><Users size={15} /><select aria-label="Demo principal" value={principal.principalId} onChange={(event) => changePrincipal(event.target.value)}>{demoPrincipals.map((candidate) => <option value={candidate.principalId} key={candidate.principalId}>{candidate.name} · {candidate.roles.join("/")}</option>)}</select></div>
             <div className="context-switcher"><Building2 size={15} /><select aria-label="Active organisation" value={activeOrganisationId} onChange={(event) => setActiveOrganisationId(event.target.value)}>{memberOrganisations.map((organisation) => <option value={organisation.organisationId} key={organisation.organisationId}>{organisation.name}</option>)}</select></div>
@@ -374,7 +372,8 @@ export function ControlRoom() {
         </div>
 
         {activeWorkspace === "customers" ? <CustomerWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "fleets-vehicles" ? <FleetWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "pricing-data" ? <PricingDataWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "spread-fx" ? <SpreadFxWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "risk-hedging" ? <RiskHedgingWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "transactions-ledger" ? <TransactionsLedgerWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "billing-reconciliation" ? <BillingReconciliationWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "fraud-cases" ? <FraudCasesWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "rules-automation" ? <RulesAutomationWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "communications" ? <CommunicationsWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "platform-integrations-audit" ? <PlatformIntegrationsAuditWorkspace key={`${activeOrganisationId}-${platformInitialSelection}`} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} initialSelection={platformInitialSelection} /> : <>
-        <DemoControlBridge actorId={principal.principalId} role={principal.roles[0]} />
+        <BusinessOverview actorId={principal.principalId} role={principal.roles[0]} />
+        <details className="advanced-operations"><summary>Advanced operations and technical controls</summary>
         <section className="operating-strip" aria-label="Operating status" tabIndex={0}>
           <div className="operating-strip__intro"><Activity size={15} /><strong>Operating state</strong><span className={`state-pill state-pill--${scenario.status.toLowerCase().replaceAll(" ", "-")}`}>{scenario.status}</span></div>
           <div className="strip-item"><StatusDot state="healthy" /><span>Pricing</span><strong>Eligible</strong></div>
@@ -561,8 +560,9 @@ export function ControlRoom() {
             </aside>
           </div>
 
-          <footer className="demo-footer"><span><PanelLeftClose size={14} /> Investor demonstration platform</span><span>No live partner dependency · No live money movement</span><span>{scenarioReady.evidenceId} · {scenarioReady.scenarioId} v{scenarioReady.scenarioVersion}</span></footer>
+          <footer className="demo-footer"><span><PanelLeftClose size={14} /> Advanced operations</span><span>Sandbox · no live partner dependency or money movement</span><span>{scenarioReady.evidenceId} · {scenarioReady.scenarioId} v{scenarioReady.scenarioVersion}</span></footer>
         </div>
+        </details>
         </>}
       </main>
     </div>
