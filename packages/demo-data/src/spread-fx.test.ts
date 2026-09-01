@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   activeSpreadDecision,
+  completeSpreadDraftLifecycle,
   directCanonicalFxRate,
   fxObservationValidity,
   fxReferenceObservations,
@@ -50,6 +51,21 @@ describe("governed spread decisions", () => {
   it("blocks lifecycle progression when the draft exceeds governed change limits", () => {
     const draft = proposeSpreadComponents(activeSpreadDecision, { protectionCostBps: 190, fuelCapMarginBps: 70, reserveBufferBps: 30 }, "Unsafe jump.", "principal-rt-maker");
     expect(simulateSpreadDraftLifecycle(draft)).toMatchObject({ state: "BLOCKED", blockers: ["MAXIMUM_CHANGE_EXCEEDED"] });
+  });
+
+  it("completes approval, scheduling, publication and supersession with immutable lineage", () => {
+    const draft = proposeSpreadComponents(activeSpreadDecision, { protectionCostBps: 140, fuelCapMarginBps: 70, reserveBufferBps: 30 }, "Reprice for volatility.", "principal-rt-maker");
+    const result = completeSpreadDraftLifecycle(draft);
+    expect(result.approval).toMatchObject({ checkerId: "principal-rt-checker", assurance: "STEP_UP" });
+    expect(result.schedule).toMatchObject({ state: "SCHEDULED", effectiveFrom: "2026-08-23T00:00:00.000Z" });
+    expect(result.published).toMatchObject({ state: "PUBLISHED", chargeDecisionId: "SPREAD-GLOBAL-0240", totalChargeBps: 240 });
+    expect(result.supersession).toMatchObject({ state: "SUPERSEDED", previousDecisionId: activeSpreadDecision.decisionId, replacementDecisionId: "SPREAD-GLOBAL-0240", preservesAcceptedQuotes: true });
+    expect(result.acceptedQuoteSnapshotPreserved).toBe(true);
+  });
+
+  it("withdraws the replacement for new quotes only", () => {
+    const draft = proposeSpreadComponents(activeSpreadDecision, { protectionCostBps: 140, fuelCapMarginBps: 70, reserveBufferBps: 30 }, "Reprice for volatility.", "principal-rt-maker");
+    expect(completeSpreadDraftLifecycle(draft).withdrawal).toMatchObject({ state: "WITHDRAWN", chargeDecisionId: "SPREAD-GLOBAL-0240", stopsNewQuotesOnly: true });
   });
 });
 

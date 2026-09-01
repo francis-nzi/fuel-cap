@@ -1,4 +1,4 @@
-import { createSpreadProposal, simulateSpreadProposal, type PublishedSpreadDecision, type SpreadPolicy, type SpreadSimulation } from "@fuelcap/spread-engine";
+import { approveSpreadProposal, createSpreadProposal, publishScheduledSpreadDecision, scheduleSpreadDecision, simulateSpreadProposal, supersedeSpreadDecision, toQuoteChargeSnapshot, withdrawSpreadDecision, type PublishedSpreadDecision, type ScheduledSpreadDecision, type SpreadApproval, type SpreadPolicy, type SpreadSimulation, type SpreadSupersession, type SpreadWithdrawal } from "@fuelcap/spread-engine";
 
 export type SpreadLifecycle = "PUBLISHED" | "DRAFT" | "PENDING_APPROVAL" | "SUPERSEDED" | "WITHDRAWN";
 export type SpreadComponentKey = "protectionCostBps" | "fuelCapMarginBps" | "reserveBufferBps";
@@ -121,6 +121,41 @@ export function simulateSpreadDraftLifecycle(draft: SpreadDecision): SpreadSimul
     components: { modelledProtectionCostBps: draft.components.protectionCostBps, fuelCapMarginBps: draft.components.fuelCapMarginBps, reserveBufferBps: draft.components.reserveBufferBps },
   }, spreadLifecyclePolicy);
   return simulateSpreadProposal({ simulationId: `SIM-${draft.decisionId}`, proposal, currentDecision: publishedLifecycleDecision, cohorts: spreadImpactCohorts, simulatedAt: "2026-08-22T14:06:00.000Z" }, spreadLifecyclePolicy);
+}
+
+export type CompletedSpreadLifecycle = Readonly<{
+  simulation: SpreadSimulation;
+  approval: SpreadApproval;
+  schedule: ScheduledSpreadDecision;
+  published: PublishedSpreadDecision;
+  supersession: SpreadSupersession;
+  withdrawal: SpreadWithdrawal;
+  acceptedQuoteSnapshotPreserved: boolean;
+}>;
+
+function engineProposal(draft: SpreadDecision) {
+  return createSpreadProposal({
+    proposalId: draft.decisionId,
+    makerId: draft.initiatedBy ?? "unknown-maker",
+    reason: draft.reason,
+    createdAt: "2026-08-22T14:05:00.000Z",
+    components: { modelledProtectionCostBps: draft.components.protectionCostBps, fuelCapMarginBps: draft.components.fuelCapMarginBps, reserveBufferBps: draft.components.reserveBufferBps },
+  }, spreadLifecyclePolicy);
+}
+
+export function completeSpreadDraftLifecycle(draft: SpreadDecision): CompletedSpreadLifecycle {
+  const proposal = engineProposal(draft);
+  const simulation = simulateSpreadDraftLifecycle(draft);
+  if (simulation.state !== "SIMULATED") throw new Error(`Blocked spread simulation cannot progress: ${simulation.blockers.join(", ")}`);
+  const checkerId = proposal.makerId === "principal-rt-checker" ? "principal-rt-checker-alternate" : "principal-rt-checker";
+  const approval = approveSpreadProposal(proposal, { approvalId: `APPROVAL-${proposal.proposalId}`, checkerId, assurance: "STEP_UP", approvedAt: "2026-08-22T14:07:00.000Z" });
+  const replacementDecisionId = `SPREAD-GLOBAL-${String(proposal.totalChargeBps).padStart(4, "0")}`;
+  const schedule = scheduleSpreadDecision({ scheduleId: `SCHEDULE-${proposal.proposalId}`, chargeDecisionId: replacementDecisionId, proposal, approval, simulation, scheduledBy: "spread-scheduler", scheduledAt: "2026-08-22T14:08:00.000Z", effectiveFrom: "2026-08-23T00:00:00.000Z" });
+  const published = publishScheduledSpreadDecision(schedule, "2026-08-23T00:00:00.000Z", spreadLifecyclePolicy);
+  const acceptedSnapshot = toQuoteChargeSnapshot(publishedLifecycleDecision);
+  const supersession = supersedeSpreadDecision(publishedLifecycleDecision, published, { supersessionId: `SUPERSESSION-${activeSpreadDecision.decisionId}-${replacementDecisionId}`, supersededAt: "2026-08-23T00:00:01.000Z" });
+  const withdrawal = withdrawSpreadDecision(published, { withdrawalId: `WITHDRAWAL-${replacementDecisionId}`, withdrawnBy: "principal-rt-checker", reason: "Demonstrate emergency new-quote stop without historical mutation.", withdrawnAt: "2026-08-23T00:02:00.000Z" });
+  return { simulation, approval, schedule, published, supersession, withdrawal, acceptedQuoteSnapshotPreserved: JSON.stringify(toQuoteChargeSnapshot(publishedLifecycleDecision)) === JSON.stringify(acceptedSnapshot) };
 }
 
 export type Currency = "USD" | "CAD" | "GBP" | "EUR";
