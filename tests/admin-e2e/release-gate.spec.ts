@@ -51,7 +51,9 @@ test("spread decisions expose impact and fail closed beyond change limits", asyn
 
 test("risk trader completes a governed spread lifecycle rehearsal", async ({ page }) => {
   await page.goto("/");
-  await page.getByLabel("Demo principal").selectOption("principal-risk");
+  const desktopPrincipal = page.getByLabel("Demo principal");
+  if (await desktopPrincipal.isVisible()) await desktopPrincipal.selectOption("principal-risk");
+  else await page.getByLabel("Principal", { exact: true }).selectOption("principal-risk");
   if (await page.getByRole("button", { name: "Open navigation" }).isVisible()) await page.getByRole("button", { name: "Open navigation" }).click();
   await page.getByRole("button", { name: "Spread & FX" }).click();
   await page.getByLabel("Modelled protection cost percent").fill("1.40");
