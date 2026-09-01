@@ -23,6 +23,19 @@ The in-product guide supplies the current cue and evidence target. Use **Next ac
 5. **Risk without autonomous execution — 2 minutes.** Show stress evidence and the paper hedge while pointing out the explicit zero-execution boundary.
 6. **Release confidence and honest boundaries — 2 minutes.** Close on automated quality, cross-browser and rollback evidence. State that live providers, independent assurance and financial activation remain gated.
 
+## Show the admin controlling the customer app
+
+Use two browser windows side by side: the admin **Control Room** on the left and the customer demonstrator on the right. The control channel is deliberately limited to synthetic demo state; it cannot activate a live provider or move money.
+
+1. In the admin Control Room, find **Customer app demo control** and select **Reset baseline**. Confirm both screens show the baseline market price of `$3.42` and that new quotes are available.
+2. On the customer screen, point out the existing accepted quote at `$3.42`. This is the control observation for the rest of the sequence.
+3. In admin, select **Publish price rise**. Within about two seconds, the customer screen changes its displayed market price to `$3.67` and identifies the admin control update.
+4. In admin, select **Stop new quotes**. The customer screen disables **Confirm lock** and explains that new quotes have been withdrawn, while the accepted `$3.42` quote remains preserved.
+5. Point to the admin audit line: it records the sequence, correlation ID, acting role and command. Explain that only the allowlisted demo commands can cross this bridge.
+6. Select **Reset baseline** before moving to the next act or ending the presentation.
+
+If the customer banner says **Safe baseline**, check that the admin demonstrator is reachable, then reset the baseline. The bridge state is intentionally held in memory and resets when the admin service redeploys or restarts.
+
 ## Recovery during a presentation
 
 - If the story loses context, select **Restart demo**; it returns to the deterministic first act.

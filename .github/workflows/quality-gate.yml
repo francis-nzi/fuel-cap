@@ -59,6 +59,8 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium firefox webkit
       - name: Cross-browser golden, adverse, isolation and accessibility journeys
         run: pnpm test:e2e:admin
+      - name: Cross-application admin-to-customer control journey
+        run: pnpm test:e2e:bridge
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

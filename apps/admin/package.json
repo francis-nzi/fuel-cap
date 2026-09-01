@@ -17,6 +17,7 @@
     "@fuelcap/authz": "workspace:*",
     "@fuelcap/basis-model": "workspace:*",
     "@fuelcap/demo-data": "workspace:*",
+    "@fuelcap/demo-control": "workspace:*",
     "@fuelcap/eu-pricing-source": "workspace:*",
     "@fuelcap/enterprise-platform": "workspace:*",
     "@fuelcap/hedge-optimizer": "workspace:*",

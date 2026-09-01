@@ -1,0 +1,25 @@
+import { expect, test } from "@playwright/test";
+
+test("admin governs the separate customer demonstrator without mutating an accepted quote", async ({ page, context }) => {
+  const admin = await context.newPage();
+  await admin.goto("http://127.0.0.1:3001/");
+  await page.goto("/");
+
+  await admin.getByRole("button", { name: /Reset baseline/ }).click();
+  await expect(page.getByRole("status").filter({ hasText: "baseline pricing available" })).toBeVisible({ timeout: 10_000 });
+
+  await admin.getByRole("button", { name: /Publish price rise/ }).click();
+  await expect(admin.getByRole("status").filter({ hasText: "simulated price rise" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "simulated price rise" })).toBeVisible({ timeout: 10_000 });
+  await page.getByRole("button", { name: "Lock price" }).first().click();
+  await expect(page.getByText("$3.67/gal", { exact: false }).first()).toBeVisible();
+
+  await admin.getByRole("button", { name: /Stop new quotes/ }).click();
+  const customerControl = page.getByRole("status").filter({ hasText: "accepted quote remains protected" });
+  await expect(customerControl).toBeVisible({ timeout: 10_000 });
+  await expect(customerControl).toContainText("$3.42 preserved");
+  await expect(page.getByRole("button", { name: "Confirm price lock" })).toBeDisabled();
+
+  await admin.getByRole("button", { name: /Reset baseline/ }).click();
+  await expect(page.getByRole("status").filter({ hasText: "baseline pricing available" })).toBeVisible({ timeout: 10_000 });
+});

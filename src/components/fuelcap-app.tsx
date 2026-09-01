@@ -10,6 +10,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { demoLockedPrice, MarketCode, markets, money } from "@/lib/markets";
 import { createClient } from "@/lib/supabase/client";
+import { initialDemoControlSnapshot, type DemoControlSnapshot } from "@fuelcap/demo-control";
 
 type View = "home" | "tank" | "lock" | "activity" | "settings";
 type LockScope = "station" | "provider" | "country";
@@ -142,6 +143,8 @@ export function FuelCapApp() {
   const [syncing, setSyncing] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [demoControl, setDemoControl] = useState<DemoControlSnapshot>(initialDemoControlSnapshot);
+  const [bridgeReachable, setBridgeReachable] = useState(false);
   const baseMarket = markets[marketCode];
   const livePrice = livePrices[marketCode] ?? baseMarket.livePrice;
   const market = { ...baseMarket, livePrice, lockedPrice: demoLockedPrice(baseMarket, livePrice) };
@@ -226,6 +229,21 @@ export function FuelCapApp() {
   }, [marketCode]);
 
   useEffect(() => {
+    let cancelled = false;
+    async function refreshDemoControl() {
+      try {
+        const response = await fetch("/api/demo-control", { cache: "no-store" });
+        if (!response.ok || cancelled) return;
+        const next = await response.json() as DemoControlSnapshot & { bridgeReachable: boolean };
+        if (!cancelled) { setDemoControl(next); setBridgeReachable(next.bridgeReachable); }
+      } catch { if (!cancelled) setBridgeReachable(false); }
+    }
+    void refreshDemoControl();
+    const interval = window.setInterval(refreshDemoControl, 1500);
+    return () => { cancelled = true; window.clearInterval(interval); };
+  }, []);
+
+  useEffect(() => {
     const stored = localStorage.getItem("fuelcap-demo");
     if (!stored) return;
     window.setTimeout(() => {
@@ -280,6 +298,8 @@ export function FuelCapApp() {
   const selectedPriceOption = priceOptions.find((option) =>
     option.scopeType === scopeType && (scopeType === "country" || option.scopeId === scopeId));
   const currentOpenOption = priceOptions.find((option) => option.scopeType === "country");
+  const controlledPriceOption = selectedPriceOption && marketCode === "US" ? { ...selectedPriceOption, unitPrice: demoControl.displayUnitPrice, observedAt: demoControl.updatedAt } : selectedPriceOption;
+  const controlledReferencePrice = marketCode === "US" ? demoControl.displayUnitPrice : currentOpenOption?.unitPrice ?? market.livePrice;
   const activeLock = locks.find((lock) => ["active", "partially_redeemed"].includes(lock.status));
 
   function changeMarket(code: MarketCode) {
@@ -298,6 +318,11 @@ export function FuelCapApp() {
   }
 
   async function confirmLock() {
+    if (marketCode === "US" && demoControl.quoteAvailability === "PAUSED") {
+      setNotice("New quotes are paused by the governed demo decision. Your accepted quote remains protected.");
+      window.setTimeout(() => setNotice(null), 4200);
+      return;
+    }
     const selectedOption = priceOptions.find((option) =>
       option.scopeType === scopeType && (scopeType === "country" || option.scopeId === scopeId));
     if (!selectedOption) {
@@ -406,9 +431,10 @@ export function FuelCapApp() {
         </header>
 
         <main className="mx-auto max-w-6xl px-4 pb-28 pt-6 md:px-8 md:pb-10 md:pt-8">
-          {view === "home" && <HomeView market={market} tankVolume={tankVolume} saved={saved} activeLock={activeLock} referencePrice={currentOpenOption?.unitPrice ?? market.livePrice} setView={setView} redeem={() => setShowRedeem(true)} />}
+          {marketCode === "US" && <section className={`mb-5 rounded-md border p-4 ${demoControl.quoteAvailability === "PAUSED" ? "border-[#efb0a8] bg-[#fff0ed]" : "border-[#9bc7ad] bg-[#edf8f1]"}`} aria-label="Admin demo control status" role="status"><div className="flex items-start gap-3"><ShieldCheck className={demoControl.quoteAvailability === "PAUSED" ? "text-[#a83c30]" : "text-[#0b7a4b]"} size={20} /><div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase tracking-wide text-[#61716b]">Admin-controlled demonstration · {bridgeReachable ? "connected" : "safe baseline"}</p><p className="mt-1 font-semibold">{demoControl.customerMessage}</p><p className="mt-1 text-xs text-[#61716b]">{demoControl.correlationId} · {demoControl.decisionId} · accepted {demoControl.acceptedQuote.quoteId} at {money(demoControl.acceptedQuote.unitPrice, market)} preserved</p></div><span className="rounded-md bg-white px-2 py-1 text-xs font-bold">{demoControl.quoteAvailability}</span></div></section>}
+          {view === "home" && <HomeView market={market} tankVolume={tankVolume} saved={saved} activeLock={activeLock} referencePrice={controlledReferencePrice} setView={setView} redeem={() => setShowRedeem(true)} />}
           {view === "tank" && <TankView market={market} tankVolume={tankVolume} locks={locks} setView={setView} redeem={() => setShowRedeem(true)} />}
-          {view === "lock" && <LockView market={market} volume={volume} setVolume={setVolume} confirm={confirmLock} busy={actionBusy} options={priceOptions} selected={selectedPriceOption} scopeType={scopeType} scopeId={scopeId} changeScope={changeScope} setScopeId={setScopeId} loading={optionsLoading} />}
+          {view === "lock" && <LockView market={market} volume={volume} setVolume={setVolume} confirm={confirmLock} busy={actionBusy} options={priceOptions} selected={controlledPriceOption} scopeType={scopeType} scopeId={scopeId} changeScope={changeScope} setScopeId={setScopeId} loading={optionsLoading} quotesPaused={marketCode === "US" && demoControl.quoteAvailability === "PAUSED"} />}
           {view === "activity" && <ActivityView market={market} locks={locks} transactions={transactions} cloud={Boolean(userId)} />}
           {view === "settings" && <SettingsView marketCode={marketCode} changeMarket={changeMarket} />}
         </main>
@@ -509,7 +535,7 @@ function TankView({ market, tankVolume, locks, setView, redeem }: MarketProps & 
 
 function LockView({
   market, volume, setVolume, confirm, busy, options, selected, scopeType,
-  scopeId, changeScope, setScopeId, loading,
+  scopeId, changeScope, setScopeId, loading, quotesPaused,
 }: MarketProps & {
   volume: number;
   setVolume: (n: number) => void;
@@ -522,6 +548,7 @@ function LockView({
   changeScope: (scope: LockScope) => void;
   setScopeId: (id: string | null) => void;
   loading: boolean;
+  quotesPaused: boolean;
 }) {
   const scopedOptions = options.filter((option) => option.scopeType === scopeType);
   const quotePrice = selected?.unitPrice ?? 0;
@@ -569,7 +596,7 @@ function LockView({
         <div className="mt-2 flex justify-between text-xs text-[#61716b]"><span>{market.unit === "gal" ? 10 : 40} {market.unit}</span><span>{market.maxVolume} {market.unit}</span></div>
       </div>
       <div className="rounded-md bg-[#dff5e9] p-4"><div className="flex gap-3"><ShieldCheck className="shrink-0 text-[#0b7a4b]" size={21} /><div><p className="font-semibold text-[#0b7a4b]">FuelCap protection</p><p className="mt-1 text-sm leading-6 text-[#285e46]">If the reference price rises, this price stays capped. If it falls below your lock, the demo balance adjusts automatically.</p></div></div></div>
-      <div className="mt-6 flex items-center justify-between gap-4 border-t border-[#e5ebe7] pt-5"><div><p className="text-xs text-[#61716b]">Simulated total</p><p className="text-2xl font-bold">{money(total, market)}</p></div><button aria-label="Confirm price lock" disabled={busy || loading || !selected} onClick={confirm} className={`${buttonBase} h-12 bg-[#0ba75e] px-6 text-white hover:bg-[#0b7a4b]`}><LockKeyhole size={18} />{busy ? "Saving..." : "Confirm lock"}</button></div>
+      <div className="mt-6 flex items-center justify-between gap-4 border-t border-[#e5ebe7] pt-5"><div><p className="text-xs text-[#61716b]">Simulated total</p><p className="text-2xl font-bold">{money(total, market)}</p></div><button aria-label="Confirm price lock" disabled={busy || loading || !selected || quotesPaused} onClick={confirm} className={`${buttonBase} h-12 bg-[#0ba75e] px-6 text-white hover:bg-[#0b7a4b]`}><LockKeyhole size={18} />{busy ? "Saving..." : quotesPaused ? "New quotes paused" : "Confirm lock"}</button></div>
     </section>
     <p className="mt-4 text-center text-xs leading-5 text-[#61716b]">Prototype only. No payment is taken and no fuel is purchased.</p>
   </div>;

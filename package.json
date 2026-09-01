@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:admin": "playwright test --config playwright.admin.config.ts",
+    "test:e2e:bridge": "playwright test --config playwright.bridge.config.ts",
     "quality:performance": "node scripts/check-performance-budget.mjs",
     "quality:manifest": "node scripts/create-release-manifest.mjs",
     "quality:manifest:verify": "node scripts/verify-release-manifest.mjs",
@@ -32,6 +33,7 @@
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",
+    "@fuelcap/demo-control": "workspace:*",
     "@supabase/supabase-js": "^2.110.8",
     "lucide-react": "^1.26.0",
     "next": "16.3.3",
