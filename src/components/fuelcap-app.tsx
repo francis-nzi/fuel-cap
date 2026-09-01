@@ -432,7 +432,7 @@ export function FuelCapApp() {
 
         <main className="mx-auto max-w-6xl px-4 pb-28 pt-6 md:px-8 md:pb-10 md:pt-8">
           {marketCode === "US" && <section className={`mb-5 rounded-md border p-4 ${demoControl.quoteAvailability === "PAUSED" ? "border-[#efb0a8] bg-[#fff0ed]" : "border-[#9bc7ad] bg-[#edf8f1]"}`} aria-label="Admin demo control status" role="status"><div className="flex items-start gap-3"><ShieldCheck className={demoControl.quoteAvailability === "PAUSED" ? "text-[#a83c30]" : "text-[#0b7a4b]"} size={20} /><div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase tracking-wide text-[#61716b]">Admin-controlled demonstration · {bridgeReachable ? "connected" : "safe baseline"}</p><p className="mt-1 font-semibold">{demoControl.customerMessage}</p><p className="mt-1 text-xs text-[#61716b]">{demoControl.correlationId} · {demoControl.decisionId} · accepted {demoControl.acceptedQuote.quoteId} at {money(demoControl.acceptedQuote.unitPrice, market)} preserved</p></div><span className="rounded-md bg-white px-2 py-1 text-xs font-bold">{demoControl.quoteAvailability}</span></div></section>}
-          {view === "home" && <HomeView market={market} tankVolume={tankVolume} saved={saved} activeLock={activeLock} referencePrice={controlledReferencePrice} setView={setView} redeem={() => setShowRedeem(true)} />}
+          {view === "home" && <HomeView market={market} tankVolume={tankVolume} saved={saved} activeLock={activeLock} referencePrice={controlledReferencePrice} demoPrice={marketCode === "US" ? demoControl.displayUnitPrice : undefined} setView={setView} redeem={() => setShowRedeem(true)} />}
           {view === "tank" && <TankView market={market} tankVolume={tankVolume} locks={locks} setView={setView} redeem={() => setShowRedeem(true)} />}
           {view === "lock" && <LockView market={market} volume={volume} setVolume={setVolume} confirm={confirmLock} busy={actionBusy} options={priceOptions} selected={controlledPriceOption} scopeType={scopeType} scopeId={scopeId} changeScope={changeScope} setScopeId={setScopeId} loading={optionsLoading} quotesPaused={marketCode === "US" && demoControl.quoteAvailability === "PAUSED"} />}
           {view === "activity" && <ActivityView market={market} locks={locks} transactions={transactions} cloud={Boolean(userId)} />}
@@ -476,8 +476,8 @@ function NavButton({ item, active, onClick }: { item: (typeof nav)[number]; acti
 
 type MarketProps = { market: (typeof markets)[MarketCode] };
 
-function HomeView({ market, tankVolume, saved, activeLock, referencePrice, setView, redeem }: MarketProps & { tankVolume: number; saved: number; activeLock?: LockRecord; referencePrice: number; setView: (view: View) => void; redeem: () => void }) {
-  const capPrice = activeLock?.unitPrice ?? referencePrice;
+function HomeView({ market, tankVolume, saved, activeLock, referencePrice, demoPrice, setView, redeem }: MarketProps & { tankVolume: number; saved: number; activeLock?: LockRecord; referencePrice: number; demoPrice?: number; setView: (view: View) => void; redeem: () => void }) {
+  const capPrice = demoPrice ?? activeLock?.unitPrice ?? referencePrice;
   const advantage = Math.max(referencePrice - capPrice, 0);
   return (
     <div className="view-enter">
@@ -488,7 +488,7 @@ function HomeView({ market, tankVolume, saved, activeLock, referencePrice, setVi
       <div className="grid gap-4 lg:grid-cols-[1.3fr_.7fr]">
         <section className="rounded-md bg-[#0b1b2b] p-5 text-white md:p-7">
           <div className="flex items-start justify-between gap-4">
-            <div><p className="text-xs font-bold uppercase text-[#8fb8a6]">{activeLock ? "Your FuelCap price" : "Current open price"}</p><p className="mt-2 font-[family-name:var(--font-space-grotesk)] text-4xl font-bold md:text-5xl">{money(capPrice, market)}<span className="ml-1 text-base font-medium text-[#8fb8a6]">/{market.unit}</span></p><p className="mt-2 max-w-md text-xs text-[#8fb8a6]">{activeLock?.scopeLabel ?? `Any eligible ${market.name} station`}</p></div>
+            <div><p className="text-xs font-bold uppercase text-[#8fb8a6]">{demoPrice !== undefined ? "Admin-controlled demo price" : activeLock ? "Your FuelCap price" : "Current open price"}</p><p className="mt-2 font-[family-name:var(--font-space-grotesk)] text-4xl font-bold md:text-5xl" data-testid="headline-unit-price">{money(capPrice, market)}<span className="ml-1 text-base font-medium text-[#8fb8a6]">/{market.unit}</span></p><p className="mt-2 max-w-md text-xs text-[#8fb8a6]">{demoPrice !== undefined ? "Synthetic US customer projection" : activeLock?.scopeLabel ?? `Any eligible ${market.name} station`}</p></div>
             <span className="rounded-md bg-[#17364a] px-2 py-1 text-xs font-semibold text-[#dff5e9]">Regular</span>
           </div>
           <div className="mt-7 grid grid-cols-2 gap-4 border-t border-[#284052] pt-5">

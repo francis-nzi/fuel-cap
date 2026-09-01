@@ -1,16 +1,19 @@
 import { expect, test } from "@playwright/test";
 
 test("admin governs the separate customer demonstrator without mutating an accepted quote", async ({ page, context }) => {
+  await context.route("http://127.0.0.1:54321/**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
   const admin = await context.newPage();
   await admin.goto("http://127.0.0.1:3001/");
   await page.goto("/");
 
   await admin.getByRole("button", { name: /Reset baseline/ }).click();
   await expect(page.getByRole("status").filter({ hasText: "baseline pricing available" })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("headline-unit-price")).toContainText("$3.42/gal");
 
   await admin.getByRole("button", { name: /Publish price rise/ }).click();
   await expect(admin.getByRole("status").filter({ hasText: "simulated price rise" })).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: "simulated price rise" })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("headline-unit-price")).toContainText("$3.67/gal");
   await page.getByRole("button", { name: "Lock price" }).first().click();
   await expect(page.getByText("$3.67/gal", { exact: false }).first()).toBeVisible();
 
