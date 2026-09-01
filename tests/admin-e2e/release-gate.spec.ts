@@ -35,6 +35,20 @@ test("risk and treasury evidence preserves simulation boundaries", async ({ page
   await expectNoSeriousAccessibilityViolations(page);
 });
 
+test("spread decisions expose impact and fail closed beyond change limits", async ({ page }) => {
+  await page.goto("/");
+  if (await page.getByRole("button", { name: "Open navigation" }).isVisible()) await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("button", { name: "Spread & FX" }).click();
+  await expect(page.getByRole("heading", { name: "Draft → simulate → approve → schedule → publish" })).toBeVisible();
+  await expect(page.getByText("27", { exact: true })).toBeVisible();
+  await expect(page.getByText("SIMULATED", { exact: true })).toBeVisible();
+  await page.getByLabel("Modelled protection cost percent").fill("1.90");
+  await expect(page.getByText("BLOCKED", { exact: true })).toBeVisible();
+  await expect(page.getByText("Withdrawal stops new quotes only", { exact: false })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expectNoSeriousAccessibilityViolations(page);
+});
+
 test("tenant switching fails closed for platform risk records", async ({ page }) => {
   await page.goto("/");
   const desktopOrganisation = page.getByLabel("Active organisation");

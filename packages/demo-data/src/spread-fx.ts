@@ -1,3 +1,5 @@
+import { createSpreadProposal, simulateSpreadProposal, type PublishedSpreadDecision, type SpreadPolicy, type SpreadSimulation } from "@fuelcap/spread-engine";
+
 export type SpreadLifecycle = "PUBLISHED" | "DRAFT" | "PENDING_APPROVAL" | "SUPERSEDED" | "WITHDRAWN";
 export type SpreadComponentKey = "protectionCostBps" | "fuelCapMarginBps" | "reserveBufferBps";
 
@@ -79,6 +81,46 @@ export function proposeSpreadComponents(
     initiatedBy,
     approvedBy: null,
   };
+}
+
+export const spreadLifecyclePolicy: SpreadPolicy = {
+  policyId: "spread-policy@1.1",
+  maximumTotalChargeBps: 500,
+  maximumChangeBps: 50,
+  minimumCostRecoveryBps: 120,
+  maximumExposureQuantity4dp: 2_000_000,
+  defaultComponents: { modelledProtectionCostBps: 130, fuelCapMarginBps: 70, reserveBufferBps: 30 },
+  fuelCapPlusRemovesMargin: true,
+};
+
+const publishedLifecycleDecision: PublishedSpreadDecision = {
+  chargeDecisionId: activeSpreadDecision.decisionId,
+  chargeDecisionVersion: "spread-engine@1.1.0",
+  policyId: spreadLifecyclePolicy.policyId,
+  state: "PUBLISHED",
+  components: spreadLifecyclePolicy.defaultComponents,
+  totalChargeBps: 230,
+  proposalId: "PROPOSAL-CALM-1",
+  approvalId: "APPROVAL-CALM-1",
+  makerId: "principal-rt-maker",
+  checkerId: "principal-rt-checker",
+  publishedAt: activeSpreadDecision.effectiveFrom,
+};
+
+export const spreadImpactCohorts = [
+  { cohortId: "US-FLEET", customerCount: 18, protectedQuantity4dp: 1_100_000, referencePriceMinorPerUnit: 400, expectedClaimMinor: 520 },
+  { cohortId: "CANADA-FLEET", customerCount: 9, protectedQuantity4dp: 600_000, referencePriceMinorPerUnit: 146, expectedClaimMinor: 190 },
+] as const;
+
+export function simulateSpreadDraftLifecycle(draft: SpreadDecision): SpreadSimulation {
+  const proposal = createSpreadProposal({
+    proposalId: draft.decisionId,
+    makerId: draft.initiatedBy ?? "unknown-maker",
+    reason: draft.reason,
+    createdAt: "2026-08-22T14:05:00.000Z",
+    components: { modelledProtectionCostBps: draft.components.protectionCostBps, fuelCapMarginBps: draft.components.fuelCapMarginBps, reserveBufferBps: draft.components.reserveBufferBps },
+  }, spreadLifecyclePolicy);
+  return simulateSpreadProposal({ simulationId: `SIM-${draft.decisionId}`, proposal, currentDecision: publishedLifecycleDecision, cohorts: spreadImpactCohorts, simulatedAt: "2026-08-22T14:06:00.000Z" }, spreadLifecyclePolicy);
 }
 
 export type Currency = "USD" | "CAD" | "GBP" | "EUR";

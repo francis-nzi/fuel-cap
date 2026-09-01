@@ -32,6 +32,9 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@fuelcap/spread-engine": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "^20",
     "typescript": "^5",

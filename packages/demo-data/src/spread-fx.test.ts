@@ -6,6 +6,7 @@ import {
   fxReferenceObservations,
   pinnedMultiMarketQuote,
   proposeSpreadComponents,
+  simulateSpreadDraftLifecycle,
   spreadComponentTotal,
   triangulatedCanonicalFxRate,
   validateSpreadDraft,
@@ -39,6 +40,16 @@ describe("governed spread decisions", () => {
     const result = validateSpreadDraft(activeSpreadDecision);
     expect(result.valid).toBe(false);
     expect(result.errors).toContain("Only a draft decision may be edited.");
+  });
+
+  it("produces governed portfolio impact for the draft lifecycle", () => {
+    const draft = proposeSpreadComponents(activeSpreadDecision, { protectionCostBps: 140, fuelCapMarginBps: 70, reserveBufferBps: 30 }, "Reprice for volatility.", "principal-rt-maker");
+    expect(simulateSpreadDraftLifecycle(draft)).toMatchObject({ state: "SIMULATED", affectedCustomers: 27, protectedQuantity4dp: 1_700_000, expectedClaimsMinor: 710, blockers: [] });
+  });
+
+  it("blocks lifecycle progression when the draft exceeds governed change limits", () => {
+    const draft = proposeSpreadComponents(activeSpreadDecision, { protectionCostBps: 190, fuelCapMarginBps: 70, reserveBufferBps: 30 }, "Unsafe jump.", "principal-rt-maker");
+    expect(simulateSpreadDraftLifecycle(draft)).toMatchObject({ state: "BLOCKED", blockers: ["MAXIMUM_CHANGE_EXCEEDED"] });
   });
 });
 
