@@ -25,6 +25,7 @@
     "./ai-control-centre": "./src/ai-control-centre.ts",
     "./growth-dashboard": "./src/growth-dashboard.ts",
     "./release-rehearsal": "./src/release-rehearsal.ts",
+    "./investor-demo": "./src/investor-demo.ts",
     "./ports": "./src/ports.ts",
     "./reset": "./src/reset.ts"
   },

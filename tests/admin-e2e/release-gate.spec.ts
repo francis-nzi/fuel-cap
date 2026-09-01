@@ -35,6 +35,30 @@ test("risk and treasury evidence preserves simulation boundaries", async ({ page
   await expectNoSeriousAccessibilityViolations(page);
 });
 
+test("investor guide prepares and advances the governed presentation story", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Start investor demo" }).click();
+  await expect(page.getByRole("region", { name: "Investor demo guide" })).toContainText("Act 1 of 6");
+  await expect(page.getByRole("heading", { name: "FuelCap Operating System" })).toBeVisible();
+  await page.getByRole("button", { name: "Next act" }).click();
+  await expect(page.getByRole("region", { name: "Investor demo guide" })).toContainText("Trusted pricing inputs");
+  await expect(page.getByRole("heading", { name: "Pricing Data" })).toBeVisible();
+  await page.getByRole("button", { name: "Next act" }).click();
+  await expect(page.getByRole("region", { name: "Investor demo guide" })).toContainText("Governed spread decision");
+  await expect(page.getByRole("heading", { name: "Spread & FX" })).toBeVisible();
+  await page.getByRole("button", { name: "Next act" }).click();
+  await expect(page.getByRole("heading", { name: "Transactions & Ledger" })).toBeVisible();
+  await page.getByRole("button", { name: "Next act" }).click();
+  await expect(page.getByRole("heading", { name: "Risk & Hedging" })).toBeVisible();
+  await page.getByRole("button", { name: "Next act" }).click();
+  await expect(page.getByRole("heading", { name: "Platform, Integrations & Audit" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Investor demo guide" })).toContainText("live partners and financial activation remain gated");
+  await page.getByRole("button", { name: "Finish demo" }).click();
+  await expect(page.getByRole("region", { name: "Investor demo guide" })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expectNoSeriousAccessibilityViolations(page);
+});
+
 test("spread decisions expose impact and fail closed beyond change limits", async ({ page }) => {
   await page.goto("/");
   if (await page.getByRole("button", { name: "Open navigation" }).isVisible()) await page.getByRole("button", { name: "Open navigation" }).click();

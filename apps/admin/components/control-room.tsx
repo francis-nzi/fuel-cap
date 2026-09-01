@@ -9,6 +9,7 @@ import {
   CircleDollarSign,
   Database,
   FileCheck2,
+  Flag,
   Gauge,
   Globe2,
   LayoutDashboard,
@@ -31,6 +32,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AUTHZ_POLICY_VERSION, authorize, demoOrganisations, demoPrincipals, evaluateBreakGlass, evaluateGovernedAction, visibleWorkspaces, type Environment as AuthzEnvironment, type Workspace } from "@fuelcap/authz";
 import { createScenarioRuntime, type DemoEnvironment, type ScenarioReady } from "@fuelcap/demo-data";
+import { INVESTOR_DEMO_VERSION, investorDemoSteps } from "@fuelcap/demo-data/investor-demo";
 import { pricingObservationSets, scenarioOrder, scenarios, type MarketFilter, type ScenarioId } from "@/lib/demo-data";
 import { FleetWorkspace } from "@/components/fleet-workspace";
 import { PricingDataWorkspace } from "@/components/pricing-data-workspace";
@@ -104,6 +106,7 @@ export function ControlRoom() {
   const [traceActive, setTraceActive] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobileViewport, setMobileViewport] = useState(false);
+  const [demoStepIndex, setDemoStepIndex] = useState<number | null>(null);
   const sidebarRef = useRef<HTMLElement | null>(null);
   const mobileMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const drawerRef = useRef<HTMLElement | null>(null);
@@ -263,6 +266,27 @@ export function ControlRoom() {
     }
   }
 
+  function openDemoStep(index: number) {
+    const step = investorDemoSteps[index];
+    const nextScenarioId = step.scenarioKey as ScenarioId;
+    setDemoStepIndex(index);
+    setPrincipalId(step.principalId);
+    setActiveOrganisationId(step.organisationId);
+    setScenarioId(nextScenarioId);
+    setMarketFilter(scenarios[nextScenarioId].market);
+    setScenarioReady(runtime.reset(scenarios[nextScenarioId].manifestId));
+    setResetState("idle");
+    setApprovalState("idle");
+    setSecurityState("none");
+    setSelectedFlowKey(null);
+    setDrawerDetailOpen(false);
+    setTraceActive(false);
+    if ("initialSelection" in step) setPlatformInitialSelection(step.initialSelection);
+    setActiveWorkspace(step.workspace as Workspace);
+    closeMobileNavigation();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   return (
     <div className="admin-shell">
       <aside
@@ -319,12 +343,23 @@ export function ControlRoom() {
           <button ref={mobileMenuTriggerRef} className="icon-button mobile-menu" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation" aria-expanded={mobileNavOpen} aria-controls="admin-navigation"><Menu size={20} /></button>
           <div className="breadcrumb"><span>FuelCap Operations</span><span>/</span><strong>{workspaces.find(({ key }) => key === activeWorkspace)?.label}</strong></div>
           <div className="topbar-actions">
+            <button className="demo-launch-button" type="button" onClick={() => openDemoStep(0)}><Flag size={15} />{demoStepIndex === null ? "Start investor demo" : "Restart demo"}</button>
             <button className="search-button" type="button"><Search size={17} /><span>Search operations</span><kbd>⌘ K</kbd></button>
             <div className="context-switcher"><Users size={15} /><select aria-label="Demo principal" value={principal.principalId} onChange={(event) => changePrincipal(event.target.value)}>{demoPrincipals.map((candidate) => <option value={candidate.principalId} key={candidate.principalId}>{candidate.name} · {candidate.roles.join("/")}</option>)}</select></div>
             <div className="context-switcher"><Building2 size={15} /><select aria-label="Active organisation" value={activeOrganisationId} onChange={(event) => setActiveOrganisationId(event.target.value)}>{memberOrganisations.map((organisation) => <option value={organisation.organisationId} key={organisation.organisationId}>{organisation.name}</option>)}</select></div>
             <div className="top-avatar">{principal.name.split(" ").map((part) => part[0]).join("")}</div>
           </div>
         </header>
+
+        {demoStepIndex !== null && <section className="demo-guide" aria-label="Investor demo guide">
+          <div className="demo-guide__progress"><span>{INVESTOR_DEMO_VERSION}</span><strong>Act {demoStepIndex + 1} of {investorDemoSteps.length} · {investorDemoSteps[demoStepIndex].title}</strong><progress aria-label="Investor demo progress" max={investorDemoSteps.length} value={demoStepIndex + 1}>{demoStepIndex + 1} of {investorDemoSteps.length}</progress></div>
+          <div className="demo-guide__cue"><span>Presenter cue · {investorDemoSteps[demoStepIndex].durationMinutes} min</span><p>{investorDemoSteps[demoStepIndex].cue}</p><small>{investorDemoSteps[demoStepIndex].evidence}</small></div>
+          <div className="demo-guide__actions">
+            <button type="button" onClick={() => openDemoStep(demoStepIndex - 1)} disabled={demoStepIndex === 0}>Previous</button>
+            {demoStepIndex < investorDemoSteps.length - 1 ? <button type="button" onClick={() => openDemoStep(demoStepIndex + 1)}>Next act</button> : <button type="button" onClick={() => setDemoStepIndex(null)}>Finish demo</button>}
+            <button type="button" className="demo-guide__exit" onClick={() => setDemoStepIndex(null)}>Exit guide</button>
+          </div>
+        </section>}
 
         <div className="mobile-organisation-switcher">
           <Building2 size={15} aria-hidden="true" />
