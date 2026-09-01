@@ -3,7 +3,8 @@
   "compilerOptions": { "types": ["node"], "baseUrl": ".", "paths": {
     "@fuelcap/domain": ["../domain/src/index.ts"],
     "@fuelcap/pricing-ingestion": ["../pricing-ingestion/src/index.ts"],
-    "@fuelcap/benchmark-engine": ["../benchmark-engine/src/index.ts"]
+    "@fuelcap/benchmark-engine": ["../benchmark-engine/src/index.ts"],
+    "@fuelcap/spread-engine": ["../spread-engine/src/index.ts"]
   } },
   "include": ["src/**/*.ts"]
 }

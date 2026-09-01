@@ -463,6 +463,9 @@ importers:
       '@fuelcap/domain':
         specifier: workspace:*
         version: link:../domain
+      '@fuelcap/spread-engine':
+        specifier: workspace:*
+        version: link:../spread-engine
     devDependencies:
       '@types/node':
         specifier: ^20

@@ -5,6 +5,6 @@
   "type": "module",
   "exports": { ".": "./src/index.ts" },
   "scripts": { "test": "vitest run", "typecheck": "tsc --noEmit" },
-  "dependencies": { "@fuelcap/benchmark-engine": "workspace:*", "@fuelcap/domain": "workspace:*" },
+  "dependencies": { "@fuelcap/benchmark-engine": "workspace:*", "@fuelcap/domain": "workspace:*", "@fuelcap/spread-engine": "workspace:*" },
   "devDependencies": { "@types/node": "^20", "typescript": "^5", "vitest": "^4.1.10" }
 }

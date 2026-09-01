@@ -1,5 +1,6 @@
 import type { BenchmarkDecision } from "@fuelcap/benchmark-engine";
 import type { CurrencyCode, FuelProductId, FuelUnit, MarketCode } from "@fuelcap/domain";
+import { toQuoteChargeSnapshot, type PublishedSpreadDecision, type ScheduledSpreadDecision, type SpreadWithdrawal } from "@fuelcap/spread-engine";
 
 export const QUOTE_ENGINE_VERSION = "quote-engine@1.0.0" as const;
 export type CustomerSegment = "PERSONAL" | "DRIVER_PRO" | "FLEET";
@@ -7,7 +8,8 @@ export type CommercialProduct = Readonly<{ catalogueProductId: string; version: 
 export type ProductCatalogue = Readonly<{ catalogueVersion: string; products: readonly CommercialProduct[] }>;
 export type ChargeSnapshot = Readonly<{ chargeDecisionId: string; chargeDecisionVersion: string; modelledProtectionCostBps: number; fuelCapMarginBps: number; reserveBufferBps: number; totalChargeBps: number }>;
 export type QuoteRequest = Readonly<{ requestId: string; customerId: string; segment: CustomerSegment; fuelProductId: FuelProductId; volumeMinor4dp: number; requestedAt: string }>;
-export type QuoteDecision = Readonly<{ quoteId: string; quoteVersion: typeof QUOTE_ENGINE_VERSION; requestId: string; status: "QUOTED" | "UNAVAILABLE" | "INELIGIBLE"; reasonCode: "QUOTE_CREATED" | "BENCHMARK_UNAVAILABLE" | "PRODUCT_UNAVAILABLE" | "VOLUME_LIMIT_EXCEEDED" | "INVALID_CHARGE"; issuedAt: string; expiresAt: string | null; protectionExpiresAt: string | null; catalogueProductId: string | null; catalogueProductVersion: number | null; benchmarkDecisionId: string | null; chargeDecisionId: string | null; referencePriceMinor4dp: number | null; protectedStrikeMinor4dp: number | null; maximumBoundaryMinor4dp: number | null; protectionChargeMinor4dp: number | null; protectedUnitCostMinor4dp: number | null; volumeMinor4dp: number; reservationAmountMinor4dp: number | null; currency: CurrencyCode | null; unit: FuelUnit | null }>;
+export type QuoteDecision = Readonly<{ quoteId: string; quoteVersion: typeof QUOTE_ENGINE_VERSION; requestId: string; status: "QUOTED" | "UNAVAILABLE" | "INELIGIBLE"; reasonCode: "QUOTE_CREATED" | "BENCHMARK_UNAVAILABLE" | "PRODUCT_UNAVAILABLE" | "VOLUME_LIMIT_EXCEEDED" | "INVALID_CHARGE" | "SPREAD_DECISION_UNAVAILABLE"; issuedAt: string; expiresAt: string | null; protectionExpiresAt: string | null; catalogueProductId: string | null; catalogueProductVersion: number | null; benchmarkDecisionId: string | null; chargeDecisionId: string | null; referencePriceMinor4dp: number | null; protectedStrikeMinor4dp: number | null; maximumBoundaryMinor4dp: number | null; protectionChargeMinor4dp: number | null; protectedUnitCostMinor4dp: number | null; volumeMinor4dp: number; reservationAmountMinor4dp: number | null; currency: CurrencyCode | null; unit: FuelUnit | null }>;
+export type GovernedSpreadAvailability = Readonly<{ decision: PublishedSpreadDecision | ScheduledSpreadDecision; withdrawal?: SpreadWithdrawal | null }>;
 
 const instantInRange = (at: string, from: string, to: string | null) => Date.parse(at) >= Date.parse(from) && (to === null || Date.parse(at) < Date.parse(to));
 const applyBps = (amountMinor4dp: number, bps: number) => Math.ceil(amountMinor4dp * bps / 10_000);
@@ -28,4 +30,10 @@ export function createQuote(quoteId: string, request: QuoteRequest, catalogue: P
   const protectedUnitCost = strike + protectionCharge;
   const issued = Date.parse(request.requestedAt);
   return { quoteId, quoteVersion: QUOTE_ENGINE_VERSION, requestId: request.requestId, status: "QUOTED", reasonCode: "QUOTE_CREATED", issuedAt: request.requestedAt, expiresAt: new Date(issued + quoteValiditySeconds * 1000).toISOString(), protectionExpiresAt: new Date(issued + product.durationSeconds * 1000).toISOString(), catalogueProductId: product.catalogueProductId, catalogueProductVersion: product.version, benchmarkDecisionId: benchmark.decisionId, chargeDecisionId: charge.chargeDecisionId, referencePriceMinor4dp: reference, protectedStrikeMinor4dp: strike, maximumBoundaryMinor4dp: boundary, protectionChargeMinor4dp: protectionCharge, protectedUnitCostMinor4dp: protectedUnitCost, volumeMinor4dp: request.volumeMinor4dp, reservationAmountMinor4dp: Math.ceil(protectedUnitCost * request.volumeMinor4dp / 10_000), currency: product.currency, unit: product.unit };
+}
+
+export function createGovernedQuote(quoteId: string, request: QuoteRequest, catalogue: ProductCatalogue, benchmark: BenchmarkDecision, spread: GovernedSpreadAvailability, quoteValiditySeconds = 60): QuoteDecision {
+  if (spread.decision.state !== "PUBLISHED" || Date.parse(request.requestedAt) < Date.parse(spread.decision.publishedAt)) return unavailable(quoteId, request, "SPREAD_DECISION_UNAVAILABLE");
+  if (spread.withdrawal && (spread.withdrawal.chargeDecisionId !== spread.decision.chargeDecisionId || Date.parse(spread.withdrawal.withdrawnAt) <= Date.parse(request.requestedAt))) return unavailable(quoteId, request, "SPREAD_DECISION_UNAVAILABLE");
+  return createQuote(quoteId, request, catalogue, benchmark, toQuoteChargeSnapshot(spread.decision), quoteValiditySeconds);
 }
