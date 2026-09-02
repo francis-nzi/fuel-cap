@@ -488,7 +488,7 @@ export function FuelCapApp() {
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <div className="flex items-center gap-2">
-      <Image src="/fuelcap-mark.svg" alt="" width={compact ? 27 : 32} height={compact ? 27 : 32} />
+      <Image src="/fuelcap-mark.svg" alt="" width={compact ? 27 : 32} height={compact ? 27 : 32} style={{ height: "auto" }} />
       <span className="font-[family-name:var(--font-space-grotesk)] text-xl font-bold">FuelCap</span>
     </div>
   );
