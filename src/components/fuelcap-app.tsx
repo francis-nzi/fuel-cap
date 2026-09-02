@@ -140,6 +140,7 @@ export function FuelCapApp() {
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [livePrices, setLivePrices] = useState<Partial<Record<MarketCode, number>>>({});
   const [priceOptions, setPriceOptions] = useState<PriceOption[]>([]);
+  const [priceSource, setPriceSource] = useState("Verified FuelCap price feed");
   const [scopeType, setScopeType] = useState<LockScope>("station");
   const [scopeId, setScopeId] = useState<string | null>(null);
   const [optionsLoading, setOptionsLoading] = useState(true);
@@ -207,11 +208,25 @@ export function FuelCapApp() {
 
   useEffect(() => {
     let cancelled = false;
-    const supabase = createClient();
-    void supabase.rpc("get_current_lock_options", {
-      p_market: marketCode,
-      p_fuel_grade: "regular",
-    }).then(({ data }) => {
+    async function loadPriceOptions() {
+      if (marketCode === "GB") {
+        try {
+          const response = await fetch("/api/fuel-finder", { cache: "no-store" });
+          if (response.ok) {
+            const payload = await response.json() as { source: string; live: boolean; options: PriceOption[] };
+            if (!cancelled && payload.options.length) {
+              setPriceOptions(payload.options);
+              setPriceSource(payload.live ? `${payload.source} · live E10` : payload.source);
+              const first = payload.options.find((option) => option.scopeType === "station");
+              setScopeType("station");
+              setScopeId(first?.scopeId ?? null);
+              setOptionsLoading(false);
+              return;
+            }
+          }
+        } catch { /* use the verified database or demonstrator fallback below */ }
+      }
+      const { data } = await createClient().rpc("get_current_lock_options", { p_market: marketCode, p_fuel_grade: "regular" });
       if (cancelled) return;
       const remoteOptions = ((data ?? []) as LockOptionRow[]).map((row: LockOptionRow) => ({
         scopeType: row.scope_type as LockScope,
@@ -225,12 +240,14 @@ export function FuelCapApp() {
         observedAt: row.observed_at,
       }));
       const options = remoteOptions.length > 0 ? remoteOptions : buildFallbackOptions(marketCode);
+      setPriceSource(remoteOptions.length > 0 ? "Verified FuelCap price feed" : marketCode === "GB" ? "Fuel Finder fallback dataset" : "FuelCap fallback dataset");
       setPriceOptions(options);
       const first = options.find((option) => option.scopeType === "station");
       setScopeType("station");
       setScopeId(first?.scopeId ?? null);
       setOptionsLoading(false);
-    });
+    }
+    void loadPriceOptions();
     return () => { cancelled = true; };
   }, [marketCode]);
 
@@ -476,7 +493,7 @@ export function FuelCapApp() {
           {view === "onboarding" && <OnboardingView send={sendLifecycle} complete={(customer) => { setLifecycleCustomer(customer); setCustomerReady(true); changeMarket("GB"); setView("wallet"); }} />}
           {view === "wallet" && <WalletView market={market} balance={walletBalance} customer={lifecycleCustomer} addFunds={(amount) => { setCustomerReady(true); setWalletBalance((balance) => balance + amount); void sendLifecycle({ type: "FUND_WALLET", customerId: DEMO_CUSTOMER_ID, amountMinor: Math.round(amount * 100) }); setNotice(`${money(amount, market)} added to your FuelCap wallet.`); window.setTimeout(() => setNotice(null), 3200); }} changePlan={(planId) => void sendLifecycle({ type: "CHANGE_PLAN", customerId: DEMO_CUSTOMER_ID, planId })} setView={setView} />}
           {view === "tank" && <TankView market={market} tankVolume={tankVolume} locks={locks} setView={setView} redeem={() => setShowRedeem(true)} />}
-          {view === "lock" && <LockView market={market} volume={volume} setVolume={setVolume} confirm={confirmLock} busy={actionBusy} options={priceOptions} selected={controlledPriceOption} scopeType={scopeType} scopeId={scopeId} changeScope={changeScope} setScopeId={setScopeId} loading={optionsLoading} quotesPaused={marketCode === "US" && demoControl.quoteAvailability === "PAUSED"} />}
+          {view === "lock" && <LockView market={market} volume={volume} setVolume={setVolume} confirm={confirmLock} busy={actionBusy} options={priceOptions} selected={controlledPriceOption} scopeType={scopeType} scopeId={scopeId} changeScope={changeScope} setScopeId={setScopeId} loading={optionsLoading} quotesPaused={marketCode === "US" && demoControl.quoteAvailability === "PAUSED"} priceSource={priceSource} />}
           {view === "activity" && <ActivityView market={market} locks={locks} transactions={transactions} cloud={Boolean(userId)} />}
           {view === "settings" && <SettingsView marketCode={marketCode} changeMarket={changeMarket} />}
         </main>
@@ -609,7 +626,7 @@ function TankView({ market, tankVolume, locks, setView, redeem }: MarketProps & 
 
 function LockView({
   market, volume, setVolume, confirm, busy, options, selected, scopeType,
-  scopeId, changeScope, setScopeId, loading, quotesPaused,
+  scopeId, changeScope, setScopeId, loading, quotesPaused, priceSource,
 }: MarketProps & {
   volume: number;
   setVolume: (n: number) => void;
@@ -623,6 +640,7 @@ function LockView({
   setScopeId: (id: string | null) => void;
   loading: boolean;
   quotesPaused: boolean;
+  priceSource: string;
 }) {
   const scopedOptions = options.filter((option) => option.scopeType === scopeType);
   const quotePrice = selected?.unitPrice ?? 0;
@@ -663,7 +681,7 @@ function LockView({
         </div>
         <span className="shrink-0 rounded-md bg-[#dff5e9] px-3 py-2 text-xs font-bold text-[#0b7a4b]">{scopeType === "station" ? "1 station" : `${selected?.stationCount ?? 0} stations`}</span>
       </div>
-      <div className="mt-4 flex items-start gap-2 text-xs leading-5 text-[#61716b]"><MapPin size={15} className="mt-0.5 shrink-0 text-[#0b7a4b]" /><p>{scopeCopy} Prices are verified observations for this prototype and may differ from the forecourt display.</p></div>
+      <div className="mt-4 flex items-start gap-2 text-xs leading-5 text-[#61716b]"><MapPin size={15} className="mt-0.5 shrink-0 text-[#0b7a4b]" /><p>{scopeCopy} Source: <strong>{priceSource}</strong>. Published prices may differ from the forecourt display after a recent update.</p></div>
 
       <div className="py-6"><div className="flex items-center justify-between"><label htmlFor="volume" className="font-semibold">How much to lock?</label><output className="text-xl font-bold">{volume} {market.unit}</output></div>
         <input id="volume" className="mt-5 w-full accent-[#0ba75e]" type="range" min={market.unit === "gal" ? 10 : 40} max={market.maxVolume} step={market.unit === "gal" ? 5 : 10} value={volume} onChange={(e) => setVolume(Number(e.target.value))} />

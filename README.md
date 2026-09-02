@@ -36,9 +36,20 @@ Open `http://localhost:3000`.
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Browser-safe Supabase publishable key |
 | `NEXT_PUBLIC_APP_ENV` | Environment label used by health reporting |
+| `FUEL_FINDER_CLIENT_ID` | Server-only Fuel Finder information-recipient OAuth client ID |
+| `FUEL_FINDER_CLIENT_SECRET` | Server-only Fuel Finder OAuth client secret |
+| `FUEL_FINDER_TOKEN_URL` | Token URL supplied in the authenticated Fuel Finder portal |
+| `FUEL_FINDER_API_BASE_URL` | Fuel Finder API origin; defaults to `https://api.fuelfinder.service.gov.uk` |
+| `FUEL_FINDER_PRICES_PATH` | Prices resource path; defaults to `/v1/prices` |
+| `FUEL_FINDER_SCOPE` | OAuth scope; defaults to `fuelfinder.read` |
+| `FUEL_FINDER_FUEL_TYPE` | Fuel grade used by the customer app; defaults to `E10` |
 
-Never expose the Supabase secret key or database password as a `NEXT_PUBLIC_*`
-variable.
+Never expose the Supabase secret key, Fuel Finder credentials or database
+password as a `NEXT_PUBLIC_*` variable. Fuel Finder token exchange and price
+retrieval run only in the server-side `/api/fuel-finder` route. Tokens are
+cached in memory until shortly before expiry. If the upstream service is not
+configured or is unavailable, the customer app labels and uses its verified
+fallback dataset rather than presenting it as live data.
 
 ## Supabase
 
@@ -81,9 +92,11 @@ Render URL and add:
 - Health check: `/api/health`
 - Node.js 22
 
-Create a Render Blueprint from the GitHub repository, then enter the two
-Supabase public environment variables when prompted. The production service
-does not need a persistent disk because application data belongs in Supabase.
+Create a Render Blueprint from the GitHub repository, then enter the Supabase
+variables and the three private Fuel Finder values when prompted. The token URL
+is supplied in the authenticated information-recipient portal alongside the
+client credentials. The production service does not need a persistent disk
+because application data belongs in Supabase and OAuth tokens are short-lived.
 
 ## Validation
 
