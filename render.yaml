@@ -31,8 +31,6 @@ services:
         value: /api/v1/pfs
       - key: FUEL_FINDER_MAX_BATCHES
         value: 40
-      - key: FUEL_FINDER_DISPLAY_LIMIT
-        value: 500
       - key: SUPABASE_SECRET_KEY
         sync: false
       - key: PRICING_INGESTION_SECRET

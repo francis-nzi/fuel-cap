@@ -8,6 +8,9 @@ export type FuelFinderPriceOption = {
   unit: "L";
   stationCount: number;
   observedAt: string;
+  latitude?: number;
+  longitude?: number;
+  referenceStationLabel?: string;
 };
 
 export type FuelFinderSnapshot = {
@@ -68,9 +71,10 @@ export function buildFuelFinderOptions(payload: unknown, fuelType = "E10"): Fuel
     const name = text(row.trading_name ?? row.tradingName ?? row.name) ?? "Fuel Finder forecourt";
     const provider = text(row.brand_name ?? row.brand ?? row.operator_name ?? row.operatorName) ?? "Independent";
     const address = addressOf(row);
-    return [{ id, name, provider, address, unitPrice: pence / 100, observedAt: text(selected.price_last_updated ?? selected.priceLastUpdated ?? selected.price_change_effective_timestamp) ?? new Date().toISOString() }];
+    const location = record(row.location) ?? record(row.address);
+    return [{ id, name, provider, address, unitPrice: pence / 100, observedAt: text(selected.price_last_updated ?? selected.priceLastUpdated ?? selected.price_change_effective_timestamp) ?? new Date().toISOString(), latitude: number(location?.latitude ?? row.latitude) ?? undefined, longitude: number(location?.longitude ?? row.longitude) ?? undefined }];
   });
-  const stationOptions: FuelFinderPriceOption[] = stations.map((station) => ({ scopeType: "station", scopeId: station.id, label: `${station.name}${station.address ? ` - ${station.address}` : ""}`, providerName: station.provider, unitPrice: station.unitPrice, currency: "GBP", unit: "L", stationCount: 1, observedAt: station.observedAt }));
+  const stationOptions: FuelFinderPriceOption[] = stations.map((station) => ({ scopeType: "station", scopeId: station.id, label: `${station.name}${station.address ? ` - ${station.address}` : ""}`, providerName: station.provider, unitPrice: station.unitPrice, currency: "GBP", unit: "L", stationCount: 1, observedAt: station.observedAt, latitude: station.latitude, longitude: station.longitude }));
   const providers = new Map<string, FuelFinderPriceOption>();
   for (const station of stations) {
     const id = station.provider.toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -79,7 +83,8 @@ export function buildFuelFinderOptions(payload: unknown, fuelType = "E10"): Fuel
     providers.set(id, { scopeType: "provider", scopeId: `fuel-finder-brand-${id}`, label: station.provider, providerName: station.provider, unitPrice: Math.max(current?.unitPrice ?? 0, station.unitPrice), currency: "GBP", unit: "L", stationCount: count, observedAt: current && current.observedAt > station.observedAt ? current.observedAt : station.observedAt });
   }
   if (!stations.length) return [];
-  const country: FuelFinderPriceOption = { scopeType: "country", scopeId: null, label: "Any eligible United Kingdom station", providerName: null, unitPrice: Math.max(...stations.map(({ unitPrice }) => unitPrice)), currency: "GBP", unit: "L", stationCount: stations.length, observedAt: stations.map(({ observedAt }) => observedAt).sort().at(-1)! };
+  const maximumStation = [...stations].sort((a, b) => b.unitPrice - a.unitPrice)[0];
+  const country: FuelFinderPriceOption = { scopeType: "country", scopeId: null, label: "Any eligible United Kingdom station", providerName: null, unitPrice: maximumStation.unitPrice, currency: "GBP", unit: "L", stationCount: stations.length, observedAt: maximumStation.observedAt, referenceStationLabel: `${maximumStation.name}${maximumStation.address ? ` - ${maximumStation.address}` : ""}` };
   return [...stationOptions, ...providers.values(), country];
 }
 

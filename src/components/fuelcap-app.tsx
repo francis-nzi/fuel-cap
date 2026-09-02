@@ -3,8 +3,8 @@
 import Image from "next/image";
 import {
   Activity, BadgeCheck, Bell, ChevronRight, CircleDollarSign, CircleUserRound, Fuel,
-  Gift, Home, LockKeyhole, LogOut, MapPin, Menu, QrCode, ReceiptText,
-  Settings, ShieldCheck, SlidersHorizontal, WalletCards, X,
+  ExternalLink, Gift, Home, LocateFixed, LockKeyhole, LogOut, MapPin, Menu, QrCode, ReceiptText,
+  Search, Settings, ShieldCheck, SlidersHorizontal, WalletCards, X,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -25,6 +25,9 @@ type PriceOption = {
   unit: string;
   stationCount: number;
   observedAt: string;
+  latitude?: number;
+  longitude?: number;
+  referenceStationLabel?: string;
 };
 type LockOptionRow = {
   scope_type: LockScope;
@@ -643,6 +646,23 @@ function LockView({
   priceSource: string;
 }) {
   const scopedOptions = options.filter((option) => option.scopeType === scopeType);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationState, setLocationState] = useState<"idle" | "locating" | "denied">("idle");
+  const distance = (option: PriceOption) => {
+    if (!location || option.latitude == null || option.longitude == null) return null;
+    const radians = (value: number) => value * Math.PI / 180;
+    const dLat = radians(option.latitude - location.latitude);
+    const dLon = radians(option.longitude - location.longitude);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(radians(location.latitude)) * Math.cos(radians(option.latitude)) * Math.sin(dLon / 2) ** 2;
+    return 3958.8 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+  const query = searchQuery.trim().toLocaleLowerCase();
+  const searchResults = scopedOptions.filter((option) => !query || `${option.label} ${option.providerName ?? ""}`.toLocaleLowerCase().includes(query)).map((option) => ({ option, distance: distance(option) })).sort((a, b) => location ? (a.distance ?? Number.MAX_VALUE) - (b.distance ?? Number.MAX_VALUE) : a.option.label.localeCompare(b.option.label)).slice(0, 12);
+  const locate = () => {
+    setLocationState("locating");
+    navigator.geolocation.getCurrentPosition(({ coords }) => { setLocation({ latitude: coords.latitude, longitude: coords.longitude }); setLocationState("idle"); }, () => setLocationState("denied"), { timeout: 10_000, maximumAge: 300_000 });
+  };
   const quotePrice = selected?.unitPrice ?? 0;
   const total = volume * quotePrice;
   const priceLabel = scopeType === "station" ? "Current station price" : scopeType === "provider" ? "Current provider maximum" : "Current open maximum";
@@ -666,18 +686,29 @@ function LockView({
         </div>
       </fieldset>
 
-      {scopeType !== "country" && <div className="mt-5">
+      {scopeType !== "country" && <><div className="mt-5">
+        <label htmlFor="scope-search" className="text-sm font-semibold">{scopeType === "station" ? "Find a filling station" : "Find a fuel brand"}</label>
+        <div className="mt-2 flex gap-2"><div className="relative min-w-0 flex-1"><Search aria-hidden="true" size={18} className="absolute left-3 top-3.5 text-[#61716b]"/><input id="scope-search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} disabled={loading} placeholder={scopeType === "station" ? "Station, postcode, town or city" : "Search brands or operators"} className="h-12 w-full rounded-md border border-[#cdd9d1] bg-white pl-10 pr-3 text-sm" /></div>{scopeType === "station" && <button type="button" onClick={locate} disabled={locationState === "locating"} className="inline-flex h-12 items-center gap-2 rounded-md border border-[#cdd9d1] px-3 text-sm font-semibold"><LocateFixed size={17}/><span className="hidden sm:inline">{locationState === "locating" ? "Locating…" : location ? "Nearest" : "Near me"}</span></button>}</div>
+        {locationState === "denied" && <p className="mt-2 text-xs text-[#9a4b32]">Location was unavailable. Search by postcode, town, city or station name instead.</p>}
+        <div className="mt-2 max-h-80 overflow-y-auto rounded-md border border-[#dce5df]" role="listbox" aria-label={scopeType === "station" ? "Matching filling stations" : "Matching fuel brands"}>
+          {searchResults.map(({ option, distance: miles }) => <button type="button" role="option" aria-selected={scopeId === option.scopeId} key={option.scopeId} onClick={() => setScopeId(option.scopeId)} className={`grid w-full grid-cols-[1fr_auto] gap-3 border-b border-[#edf1ee] p-3 text-left last:border-0 ${scopeId === option.scopeId ? "bg-[#e7f7ee]" : "bg-white hover:bg-[#f6faf7]"}`}><span className="min-w-0"><strong className="block truncate text-sm">{option.label.split(" - ")[0]}</strong><small className="mt-1 block truncate text-[#61716b]">{scopeType === "station" ? option.label.split(" - ").slice(1).join(" - ") || option.providerName : `${option.stationCount} covered stations`}</small></span><span className="text-right"><strong className="block text-sm">{money(option.unitPrice, market)}/{market.unit}</strong>{miles != null && <small className="mt-1 block text-[#0b7a4b]">{miles < 10 ? miles.toFixed(1) : Math.round(miles)} miles</small>}</span></button>)}
+          {!loading && searchResults.length === 0 && <p className="p-4 text-sm text-[#61716b]">No matches. Try a shorter station, postcode, town, city or brand name.</p>}
+        </div>
+        <p className="mt-2 text-xs text-[#61716b]">Showing {searchResults.length} of {scopedOptions.length.toLocaleString()} matches{location ? " · nearest first" : ""}.</p>
+      </div><div className="hidden">
         <label htmlFor="scope-option" className="text-sm font-semibold">{scopeType === "station" ? "Choose a filling station" : "Choose a fuel brand"}</label>
         <select id="scope-option" value={scopeId ?? ""} onChange={(event) => setScopeId(event.target.value)} disabled={loading} className="mt-2 h-12 w-full rounded-md border border-[#cdd9d1] bg-white px-3 text-sm">
           {scopedOptions.map((option) => <option key={option.scopeId} value={option.scopeId ?? ""}>{option.label} · {money(option.unitPrice, market)}/{market.unit}</option>)}
         </select>
-      </div>}
+      </div></>}
 
       <div className="mt-5 flex items-start justify-between gap-4 border-y border-[#e5ebe7] py-5">
         <div>
           <p className="text-sm text-[#61716b]">{priceLabel}</p>
           <p className="mt-1 font-[family-name:var(--font-space-grotesk)] text-3xl font-bold">{loading || !selected ? "Loading..." : money(quotePrice, market)}{selected && <span className="text-sm font-medium text-[#61716b]">/{market.unit}</span>}</p>
           <p className="mt-2 max-w-md text-xs leading-5 text-[#61716b]">{selected?.label ?? "Retrieving verified station prices"}</p>
+          {scopeType === "station" && selected?.latitude != null && selected.longitude != null && <a className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#0b7a4b]" href={`https://www.openstreetmap.org/?mlat=${selected.latitude}&mlon=${selected.longitude}#map=16/${selected.latitude}/${selected.longitude}`} target="_blank" rel="noreferrer">View on map <ExternalLink size={13}/></a>}
+          {scopeType === "country" && selected?.referenceStationLabel && <p className="mt-2 max-w-md text-xs leading-5 text-[#61716b]">Maximum published price from {selected.referenceStationLabel} · observed {new Date(selected.observedAt).toLocaleString(market.locale)}.</p>}
         </div>
         <span className="shrink-0 rounded-md bg-[#dff5e9] px-3 py-2 text-xs font-bold text-[#0b7a4b]">{scopeType === "station" ? "1 station" : `${selected?.stationCount ?? 0} stations`}</span>
       </div>
