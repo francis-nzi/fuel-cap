@@ -25,7 +25,7 @@ describe("Fuel Finder price projection", () => {
     const calls: Array<{ url: string; authorization?: string; body?: string }> = [];
     const fetcher = (async (input: string | URL | Request, init?: RequestInit) => {
       calls.push({ url: input.toString(), authorization: new Headers(init?.headers).get("Authorization") ?? undefined, body: init?.body?.toString() });
-      if (calls.length === 1) return Response.json({ access_token: "short-lived-token", expires_in: 3600 });
+      if (calls.length === 1) return Response.json({ success: true, data: { access_token: "short-lived-token", expires_in: 3600 } });
       return Response.json({ data: [{ node_id: "live", trading_name: "Live Forecourt", fuel_prices: [{ fuel_type: "E10", price: 139.9 }] }] });
     }) as typeof fetch;
     try {
