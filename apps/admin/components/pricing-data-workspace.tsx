@@ -18,10 +18,16 @@ const copilotRecommendation = governPricingRecommendation({ recommendationId: "P
 export function PricingDataWorkspace({ organisationId, principal, environment }: { organisationId: string; principal: Principal; environment: Environment }) {
   const [selectedObservation, setSelectedObservation] = useState<PricingObservation | null>(null);
   const [proposalState, setProposalState] = useState<"idle" | "denied" | "submitted">("idle");
+  const [liveFeed, setLiveFeed] = useState<{ live: boolean; stationCount: number; providerCount: number; freshestObservedAt?: string; freshestAgeMinutes?: number | null; batches?: { prices: number; forecourts: number }; minimumPrice?: { unitPrice: number; label: string }; maximumPrice?: { unitPrice: number; label: string }; leadingProviders?: Array<{ label: string; stationCount: number; unitPrice: number }> } | null>(null);
   const drawerRef = useRef<HTMLElement | null>(null);
-  const selected = decision.observations.find(({ decision }) => decision === "SELECTED")!;
   const conflicts = decision.observations.filter(({ decision }) => decision === "REJECTED").length;
   const quoteEligible = pricingDecisionIsInternallyValid(decision);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/live-pricing", { cache: "no-store" }).then(async (response) => response.ok ? response.json() : null).then((feed) => { if (!cancelled && feed) setLiveFeed(feed); }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (!selectedObservation) return;
@@ -43,11 +49,17 @@ export function PricingDataWorkspace({ organisationId, principal, environment }:
   return <div className="workspace-wrap pricing-workspace">
     <section className="workspace-heading"><div><span className="demo-badge"><ShieldCheck size={13} /> Demonstrator data</span><h1>Pricing Data</h1><p>Immutable observations become one licence-compliant canonical decision through deterministic validation.</p></div><div className="workspace-version">Scenario {decision.scenarioId} · v{decision.scenarioVersion}</div></section>
     <section className="pricing-summary">
-      <article><RadioTower size={17} /><span>Feed health</span><strong>3 / 3</strong><small>1 illustrative source excluded</small></article>
-      <article><Gauge size={17} /><span>Freshest observation</span><strong>{selected.freshnessSeconds} sec</strong><small>{selected.source}</small></article>
+      <article><RadioTower size={17} /><span>UK live feed</span><strong>{liveFeed?.live ? "CONNECTED" : "CHECKING"}</strong><small>{liveFeed ? `${liveFeed.stationCount.toLocaleString()} E10 stations` : "Retrieving governed status"}</small></article>
+      <article><Gauge size={17} /><span>Freshest UK observation</span><strong>{liveFeed?.freshestAgeMinutes != null ? `${liveFeed.freshestAgeMinutes} min` : "—"}</strong><small>{liveFeed?.batches ? `${liveFeed.batches.prices} price · ${liveFeed.batches.forecourts} forecourt batches` : "UK Fuel Finder"}</small></article>
       <article><CheckCircle2 size={17} /><span>Quote-eligible coverage</span><strong>{decision.coveragePercent}%</strong><small>Exact grade · tax included</small></article>
       <article><AlertTriangle size={17} /><span>Preserved conflicts</span><strong>{conflicts}</strong><small>Rejected, never overwritten</small></article>
     </section>
+
+    {liveFeed?.live && <section className="canonical-decision-panel" aria-label="Live UK Fuel Finder operating picture">
+      <div><span className="section-kicker">Live business pricing · United Kingdom</span><h2>{liveFeed.stationCount.toLocaleString()} reporting forecourts · {liveFeed.providerCount} brands</h2><p>Customer station, brand and nationwide protection now use the same official E10 operating picture exposed to business operations.</p></div>
+      <div className="canonical-price"><span>Observed market range</span><strong>£{liveFeed.minimumPrice?.unitPrice.toFixed(3)}–£{liveFeed.maximumPrice?.unitPrice.toFixed(3)}/L</strong><small>{liveFeed.minimumPrice?.label.split(" - ")[0]} to {liveFeed.maximumPrice?.label.split(" - ")[0]}</small></div>
+      <div className="eligibility-stack"><span className="pricing-eligible">LIVE SOURCE</span><small>Display · pricing input</small></div>
+    </section>}
 
     <section className="canonical-decision-panel">
       <div><span className="section-kicker">Canonical decision</span><h2>{decision.market} · {decision.grade}</h2><p>Selected from actual pump evidence; benchmark and simulation inputs remain visibly constrained by licence class.</p></div>

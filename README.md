@@ -42,8 +42,13 @@ Open `http://localhost:3000`.
 | `FUEL_FINDER_API_BASE_URL` | Fuel Finder API origin; defaults to `https://www.fuel-finder.service.gov.uk` |
 | `FUEL_FINDER_PRICES_PATH` | Prices resource path; defaults to `/api/v1/pfs/fuel-prices` |
 | `FUEL_FINDER_FORECOURTS_PATH` | Forecourt details resource path; defaults to `/api/v1/pfs` |
+| `FUEL_FINDER_MAX_BATCHES` | Safety ceiling for a complete feed retrieval; defaults to `40` |
+| `FUEL_FINDER_DISPLAY_LIMIT` | Maximum station choices returned to one customer request; defaults to `500` |
 | `FUEL_FINDER_SCOPE` | OAuth scope; defaults to `fuelfinder.read` |
 | `FUEL_FINDER_FUEL_TYPE` | Fuel grade used by the customer app; defaults to `E10` |
+| `CUSTOMER_APP_ORIGIN` | Customer application origin used by the admin live-pricing bridge; defaults to the production customer service |
+| `SUPABASE_SECRET_KEY` | Server-only Supabase secret key used solely by governed ingestion |
+| `PRICING_INGESTION_SECRET` | Bearer secret protecting `POST /api/fuel-finder/refresh` |
 
 Never expose the Supabase secret key, Fuel Finder credentials or database
 password as a `NEXT_PUBLIC_*` variable. Fuel Finder token exchange and price
@@ -51,6 +56,13 @@ retrieval run only in the server-side `/api/fuel-finder` route. Tokens are
 cached in memory until shortly before expiry. If the upstream service is not
 configured or is unavailable, the customer app labels and uses its verified
 fallback dataset rather than presenting it as live data.
+
+The `Fuel Finder ingestion` workflow refreshes the governed UK dataset every ten
+minutes. Apply the Supabase migrations, set `SUPABASE_SECRET_KEY` and
+`PRICING_INGESTION_SECRET` on the customer Render service, and add the same
+`PRICING_INGESTION_SECRET` value as a GitHub Actions repository secret. The
+refresh endpoint rejects unauthenticated requests and records every completed or
+failed run without exposing provider credentials.
 
 ## Supabase
 

@@ -29,6 +29,14 @@ services:
         value: /api/v1/pfs/fuel-prices
       - key: FUEL_FINDER_FORECOURTS_PATH
         value: /api/v1/pfs
+      - key: FUEL_FINDER_MAX_BATCHES
+        value: 40
+      - key: FUEL_FINDER_DISPLAY_LIMIT
+        value: 500
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: PRICING_INGESTION_SECRET
+        sync: false
       - key: FUEL_FINDER_SCOPE
         value: fuelfinder.read
       - key: FUEL_FINDER_FUEL_TYPE

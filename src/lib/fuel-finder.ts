@@ -10,6 +10,16 @@ export type FuelFinderPriceOption = {
   observedAt: string;
 };
 
+export type FuelFinderSnapshot = {
+  options: FuelFinderPriceOption[];
+  stationCount: number;
+  providerCount: number;
+  freshestObservedAt: string;
+  oldestObservedAt: string;
+  batches: { prices: number; forecourts: number };
+  fetchedAt: string;
+};
+
 type JsonRecord = Record<string, unknown>;
 type Token = { value: string; expiresAt: number };
 let cachedToken: Token | null = null;
@@ -88,17 +98,42 @@ async function accessToken(fetcher: typeof fetch) {
   return cachedToken.value;
 }
 
-export async function fetchFuelFinderOptions(fetcher: typeof fetch = fetch) {
+async function fetchBatches(fetcher: typeof fetch, base: string, path: string, token: string) {
+  const maximumBatches = Math.max(1, Math.min(Number(process.env.FUEL_FINDER_MAX_BATCHES ?? 40), 100));
+  const all: unknown[] = [];
+  for (let batch = 1; batch <= maximumBatches; batch += 1) {
+    const url = new URL(path, base);
+    url.searchParams.set("batch-number", String(batch));
+    const response = await fetcher(url, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error(`FUEL_FINDER_DATA_${response.status}`);
+    const current = rows(await response.json());
+    all.push(...current);
+    if (current.length < 500) return { rows: all, batches: batch };
+  }
+  throw new Error("FUEL_FINDER_BATCH_LIMIT");
+}
+
+export async function fetchFuelFinderSnapshot(fetcher: typeof fetch = fetch): Promise<FuelFinderSnapshot> {
   const token = await accessToken(fetcher);
   const base = process.env.FUEL_FINDER_API_BASE_URL ?? "https://www.fuel-finder.service.gov.uk";
-  const pricesUrl = new URL(process.env.FUEL_FINDER_PRICES_PATH ?? "/api/v1/pfs/fuel-prices", base);
-  const forecourtsUrl = new URL(process.env.FUEL_FINDER_FORECOURTS_PATH ?? "/api/v1/pfs", base);
-  pricesUrl.searchParams.set("batch-number", "1");
-  forecourtsUrl.searchParams.set("batch-number", "1");
-  const init: RequestInit = { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(15000) };
-  const [pricesResponse, forecourtsResponse] = await Promise.all([fetcher(pricesUrl, init), fetcher(forecourtsUrl, init)]);
-  if (!pricesResponse.ok) throw new Error(`FUEL_FINDER_PRICES_${pricesResponse.status}`);
-  const prices = await pricesResponse.json();
-  const payload = forecourtsResponse.ok ? mergeForecourtDetails(prices, await forecourtsResponse.json()) : prices;
-  return buildFuelFinderOptions(payload, process.env.FUEL_FINDER_FUEL_TYPE ?? "E10");
+  const [prices, forecourts] = await Promise.all([
+    fetchBatches(fetcher, base, process.env.FUEL_FINDER_PRICES_PATH ?? "/api/v1/pfs/fuel-prices", token),
+    fetchBatches(fetcher, base, process.env.FUEL_FINDER_FORECOURTS_PATH ?? "/api/v1/pfs", token),
+  ]);
+  const options = buildFuelFinderOptions(mergeForecourtDetails({ data: prices.rows }, { data: forecourts.rows }), process.env.FUEL_FINDER_FUEL_TYPE ?? "E10");
+  const stations = options.filter(({ scopeType }) => scopeType === "station");
+  const observed = stations.map(({ observedAt }) => observedAt).sort();
+  return {
+    options,
+    stationCount: stations.length,
+    providerCount: options.filter(({ scopeType }) => scopeType === "provider").length,
+    freshestObservedAt: observed.at(-1) ?? new Date(0).toISOString(),
+    oldestObservedAt: observed[0] ?? new Date(0).toISOString(),
+    batches: { prices: prices.batches, forecourts: forecourts.batches },
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
+export async function fetchFuelFinderOptions(fetcher: typeof fetch = fetch) {
+  return (await fetchFuelFinderSnapshot(fetcher)).options;
 }

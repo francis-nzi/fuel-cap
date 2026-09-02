@@ -1,0 +1,25 @@
+name: Fuel Finder ingestion
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: fuel-finder-ingestion
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Refresh governed UK pricing dataset
+        env:
+          PRICING_INGESTION_SECRET: ${{ secrets.PRICING_INGESTION_SECRET }}
+        run: |
+          test -n "$PRICING_INGESTION_SECRET"
+          curl --fail-with-body --retry 2 --max-time 360 \
+            -X POST \
+            -H "Authorization: Bearer $PRICING_INGESTION_SECRET" \
+            https://fuel-cap-1.onrender.com/api/fuel-finder/refresh
