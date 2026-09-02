@@ -1,7 +1,10 @@
 import { expect, test } from "@playwright/test";
 
 test("core prototype flow works without horizontal overflow", async ({ page }) => {
-  await page.route("http://127.0.0.1:54321/**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
+  await page.route("http://127.0.0.1:54321/**", (route) => {
+    const isUserLookup = new URL(route.request().url()).pathname.endsWith("/auth/v1/user");
+    return route.fulfill({ status: isUserLookup ? 401 : 200, contentType: "application/json", body: isUserLookup ? JSON.stringify({ message: "Not authenticated" }) : "[]" });
+  });
   await page.goto("/");
   await page.getByRole("button", { name: "Create your profile" }).click();
   await expect(page.getByRole("heading", { name: "FuelCap wallet" })).toBeVisible();
@@ -35,7 +38,10 @@ test("core prototype flow works without horizontal overflow", async ({ page }) =
 });
 
 test("account authentication dialog is reachable", async ({ page }) => {
-  await page.route("http://127.0.0.1:54321/**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: "[]" }));
+  await page.route("http://127.0.0.1:54321/**", (route) => {
+    const isUserLookup = new URL(route.request().url()).pathname.endsWith("/auth/v1/user");
+    return route.fulfill({ status: isUserLookup ? 401 : 200, contentType: "application/json", body: isUserLookup ? JSON.stringify({ message: "Not authenticated" }) : "[]" });
+  });
   await page.goto("/");
   await page.getByRole("button", { name: "Open account menu" }).click();
   await page.getByRole("button", { name: "Create account or sign in" }).click();
