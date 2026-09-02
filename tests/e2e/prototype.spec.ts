@@ -12,8 +12,17 @@ test("core prototype flow works without horizontal overflow", async ({ page }, t
   });
   await page.goto("/");
   await customerClick(page.getByRole("button", { name: "Create your profile" }));
+  await expect(page.getByRole("heading", { name: "Choose how you use FuelCap" })).toBeVisible();
+  await customerClick(page.getByRole("button", { name: "Standard", exact: false }));
+  await customerClick(page.getByRole("button", { name: "Continue to identity check" }));
+  await page.getByLabel("Driving licence photo").setInputFiles({ name: "licence.jpg", mimeType: "image/jpeg", buffer: Buffer.from("demo-licence") });
+  await customerClick(page.getByRole("button", { name: "Submit for verification" }));
+  await expect(page.getByText("Verification in progress")).toBeVisible();
+  await expect(page.getByText("Identity verified")).toBeVisible({ timeout: 5_000 });
+  await page.getByLabel("Card PIN").fill("2048");
+  await customerClick(page.getByRole("button", { name: "Open my wallet" }));
   await expect(page.getByRole("heading", { name: "FuelCap wallet" })).toBeVisible();
-  await customerClick(page.getByRole("button", { name: "+$500" }));
+  await customerClick(page.getByRole("button", { name: "+£500" }));
   await customerClick(page.getByRole("button", { name: "Home", exact: true }));
   await expect(page.getByRole("heading", { name: "Plan your next fill" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

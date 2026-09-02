@@ -13,9 +13,6 @@ test("admin governs the separate customer demonstrator without mutating an accep
   const admin = await context.newPage();
   await admin.goto("http://127.0.0.1:3001/");
   await page.goto("/");
-  await page.getByRole("button", { name: "Create your profile" }).click();
-  await page.getByRole("button", { name: "+$500" }).click();
-  await customerClick(page.getByRole("button", { name: "Home", exact: true }));
 
   await admin.getByRole("button", { name: /Reset baseline/ }).click();
   await expect(page.getByRole("status").filter({ hasText: "baseline pricing available" })).toBeVisible({ timeout: 10_000 });
@@ -36,4 +33,19 @@ test("admin governs the separate customer demonstrator without mutating an accep
 
   await admin.getByRole("button", { name: /Reset baseline/ }).click();
   await expect(page.getByRole("status").filter({ hasText: "baseline pricing available" })).toBeVisible({ timeout: 10_000 });
+
+  await customerClick(page.getByRole("button", { name: "Home", exact: true }));
+  await customerClick(page.getByRole("button", { name: "Create your profile" }));
+  await customerClick(page.getByRole("button", { name: "Continue to identity check" }));
+  const adminMenu = admin.getByRole("button", { name: "Open navigation" });
+  if (await adminMenu.isVisible()) await adminMenu.click();
+  await admin.getByRole("button", { name: "Customers" }).click();
+  await expect(admin.getByRole("heading", { name: "Customers, plans and cards" })).toBeVisible();
+  await expect(admin.getByText("Francis Doherty", { exact: true })).toBeVisible({ timeout: 10_000 });
+  await page.getByLabel("Driving licence photo").setInputFiles({ name: "licence.jpg", mimeType: "image/jpeg", buffer: Buffer.from("demo-licence") });
+  await customerClick(page.getByRole("button", { name: "Submit for verification" }));
+  const customerRow = admin.getByRole("row").filter({ hasText: "Francis Doherty" });
+  await expect(page.getByText("Verification in progress")).toBeVisible();
+  await expect(page.getByText("Identity verified")).toBeVisible({ timeout: 5_000 });
+  await expect(customerRow.getByText("VERIFIED", { exact: true })).toBeVisible({ timeout: 10_000 });
 });

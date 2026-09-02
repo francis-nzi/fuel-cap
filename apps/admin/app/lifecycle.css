@@ -1,0 +1,47 @@
+.lifecycle-workspace { display: grid; gap: 18px; }
+.lifecycle-tabs { display: flex; gap: 6px; padding: 5px; width: fit-content; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
+.lifecycle-tabs button { border: 0; border-radius: 8px; padding: 9px 14px; background: transparent; color: var(--muted); font-weight: 700; cursor: pointer; }
+.lifecycle-tabs button.is-active { background: #123f34; color: #fff; }
+.lifecycle-panel, .plan-editor, .provider-grid article { border: 1px solid var(--border); border-radius: 16px; background: #fff; }
+.lifecycle-panel { overflow: hidden; }
+.lifecycle-search { display: flex; align-items: center; gap: 9px; margin: 16px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; }
+.lifecycle-search input { width: 100%; border: 0; outline: 0; font: inherit; }
+.lifecycle-table-wrap { overflow-x: auto; }
+.lifecycle-table { width: 100%; border-collapse: collapse; min-width: 980px; }
+.lifecycle-table th, .lifecycle-table td { padding: 13px 16px; border-top: 1px solid var(--border); text-align: left; font-size: 13px; }
+.lifecycle-table th { background: #f6f8f6; color: var(--muted); text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
+.lifecycle-table td:first-child button { border: 0; background: none; padding: 0; text-align: left; cursor: pointer; }
+.lifecycle-table td:first-child strong, .lifecycle-table td:first-child span { display: block; }
+.lifecycle-table td:first-child span { margin-top: 3px; color: var(--muted); font-size: 11px; }
+.table-state { display: inline-flex; border-radius: 999px; padding: 5px 8px; background: #f1f3f1; font-size: 10px; font-weight: 800; }
+.table-state--verified { background: #e1f4e9; color: #176743; }
+.table-state--pending { background: #fff2ce; color: #805b00; }
+.positive-value { color: #13734a; font-weight: 750; }
+.negative-value { color: #a33d32; font-weight: 750; }
+.plan-editor-grid, .provider-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.plan-editor, .provider-grid article { padding: 20px; }
+.plan-editor label { display: grid; gap: 5px; margin-top: 14px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.plan-editor input { border: 1px solid var(--border); border-radius: 8px; padding: 9px; font: inherit; color: var(--ink); }
+.plan-editor dl, .provider-grid dl, .lifecycle-detail dl { display: grid; gap: 8px; margin: 16px 0; }
+.plan-editor dl div, .provider-grid dl div, .lifecycle-detail dl div { display: flex; justify-content: space-between; gap: 12px; }
+.plan-editor dt, .provider-grid dt, .lifecycle-detail dt { color: var(--muted); }
+.plan-editor ul { padding-left: 18px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.provider-grid article { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: start; }
+.provider-grid article dl, .provider-grid article button { grid-column: 1 / -1; }
+.provider-grid article > strong { color: #13734a; font-size: 11px; }
+.provider-grid article button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--border); border-radius: 9px; padding: 9px; background: #fff; font-weight: 700; }
+.lifecycle-drawer { position: fixed; z-index: 80; inset: 0 0 0 auto; width: min(480px, 94vw); overflow-y: auto; background: #f7f9f7; box-shadow: -10px 0 40px #10271f33; }
+.lifecycle-drawer__head { display: flex; justify-content: space-between; padding: 24px; background: #123f34; color: #fff; }
+.lifecycle-drawer__head span { color: #a8cebd; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.lifecycle-drawer__head h2 { margin: 5px 0; }
+.lifecycle-drawer__head p { margin: 0; color: #c8ddd4; }
+.lifecycle-drawer__head button { border: 0; background: transparent; color: #fff; cursor: pointer; }
+.kyc-state { display: flex; gap: 10px; margin: 18px; padding: 14px; border-radius: 11px; background: #edf0ef; }
+.kyc-state--verified { background: #dff3e8; color: #176743; }
+.kyc-state--pending { background: #fff1c9; color: #765600; }
+.kyc-state span, .kyc-state strong { display: block; }
+.lifecycle-detail { display: grid; gap: 12px; padding: 0 18px 24px; }
+.lifecycle-detail section { padding: 18px; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
+.lifecycle-detail h3 { margin: 0 0 14px; font-size: 14px; }
+.lifecycle-detail dl { margin: 0; font-size: 13px; }
+@media (max-width: 1000px) { .plan-editor-grid, .provider-grid { grid-template-columns: 1fr; } }

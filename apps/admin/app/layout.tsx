@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import "./lifecycle.css";
 
 const inter = localFont({
   src: "../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2",

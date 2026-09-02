@@ -35,6 +35,7 @@
   "dependencies": {
     "@supabase/ssr": "^0.12.3",
     "@fuelcap/demo-control": "workspace:*",
+    "@fuelcap/demo-data": "workspace:*",
     "@supabase/supabase-js": "^2.110.8",
     "lucide-react": "^1.26.0",
     "next": "16.3.3",

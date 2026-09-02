@@ -11,8 +11,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { demoLockedPrice, MarketCode, markets, money } from "@/lib/markets";
 import { createClient } from "@/lib/supabase/client";
 import { initialDemoControlSnapshot, type DemoControlSnapshot } from "@fuelcap/demo-control";
+import { servicePlans, type LifecycleCommand, type LifecycleCustomer, type PlanId } from "@fuelcap/demo-data/customer-lifecycle";
 
-type View = "home" | "wallet" | "tank" | "lock" | "activity" | "settings";
+type View = "home" | "onboarding" | "wallet" | "tank" | "lock" | "activity" | "settings";
 type LockScope = "station" | "provider" | "country";
 type PriceOption = {
   scopeType: LockScope;
@@ -124,6 +125,7 @@ const nav: { id: View; label: string; icon: typeof Home }[] = [
 const buttonBase =
   "inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 const DEMO_NOW = Date.UTC(2026, 6, 24, 12);
+const DEMO_CUSTOMER_ID = "FC-DEMO-1042";
 
 export function FuelCapApp() {
   const [view, setView] = useState<View>("home");
@@ -148,6 +150,7 @@ export function FuelCapApp() {
   const [walletBalance, setWalletBalance] = useState(0);
   const [demoControl, setDemoControl] = useState<DemoControlSnapshot>(initialDemoControlSnapshot);
   const [bridgeReachable, setBridgeReachable] = useState(false);
+  const [lifecycleCustomer, setLifecycleCustomer] = useState<LifecycleCustomer | null>(null);
   const baseMarket = markets[marketCode];
   const livePrice = livePrices[marketCode] ?? baseMarket.livePrice;
   const market = { ...baseMarket, livePrice, lockedPrice: demoLockedPrice(baseMarket, livePrice) };
@@ -307,6 +310,10 @@ export function FuelCapApp() {
   const activeLock = locks.find((lock) => ["active", "partially_redeemed"].includes(lock.status));
 
   function changeMarket(code: MarketCode) {
+    if (code === marketCode) {
+      setOptionsLoading(false);
+      return;
+    }
     setOptionsLoading(true);
     setMarketCode(code);
     setVolume(markets[code].defaultVolume);
@@ -319,6 +326,15 @@ export function FuelCapApp() {
     setScopeType(nextScope);
     const first = priceOptions.find((option) => option.scopeType === nextScope);
     setScopeId(first?.scopeId ?? null);
+  }
+
+  async function sendLifecycle(command: LifecycleCommand) {
+    const response = await fetch("/api/customer-lifecycle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(command) });
+    if (!response.ok) throw new Error("Customer record could not be synchronized");
+    const snapshot = await response.json() as { customers: readonly LifecycleCustomer[] };
+    const customer = snapshot.customers.find((entry) => entry.customerId === DEMO_CUSTOMER_ID) ?? null;
+    setLifecycleCustomer(customer);
+    return customer;
   }
 
   async function confirmLock() {
@@ -456,8 +472,9 @@ export function FuelCapApp() {
 
         <main className="mx-auto max-w-6xl px-4 pb-28 pt-6 md:px-8 md:pb-10 md:pt-8">
           {marketCode === "US" && <section className={`mb-5 rounded-md border p-4 ${demoControl.quoteAvailability === "PAUSED" ? "border-[#efb0a8] bg-[#fff0ed]" : "border-[#9bc7ad] bg-[#edf8f1]"}`} aria-label="Price protection status" role="status"><div className="flex items-start gap-3"><ShieldCheck className={demoControl.quoteAvailability === "PAUSED" ? "text-[#a83c30]" : "text-[#0b7a4b]"} size={20} /><div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase tracking-wide text-[#61716b]">Price protection service · {bridgeReachable ? "live status" : "last known safe price"}</p><p className="mt-1 font-semibold">{demoControl.customerMessage.replace("Demo control connected · ", "").replace("Admin published a simulated ", "").replace("Admin withdrew ", "")}</p><p className="mt-1 text-xs text-[#61716b]">Your accepted protection at {money(demoControl.acceptedQuote.unitPrice, market)}/{market.unit} remains unchanged.</p></div><span className="rounded-md bg-white px-2 py-1 text-xs font-bold">{demoControl.quoteAvailability}</span></div></section>}
-          {view === "home" && <HomeView market={market} tankVolume={tankVolume} walletBalance={walletBalance} customerReady={customerReady || Boolean(userId)} startCustomer={() => { setCustomerReady(true); setView("wallet"); }} saved={saved} nearbyPrices={priceOptions.filter((option) => option.scopeType === "station").sort((a,b) => a.unitPrice-b.unitPrice).slice(0,3)} activeLock={activeLock} referencePrice={controlledReferencePrice} demoPrice={marketCode === "US" ? demoControl.displayUnitPrice : undefined} setView={setView} redeem={() => setShowRedeem(true)} />}
-          {view === "wallet" && <WalletView market={market} balance={walletBalance} addFunds={(amount) => { setCustomerReady(true); setWalletBalance((balance) => balance + amount); setNotice(`${money(amount, market)} added to your FuelCap wallet.`); window.setTimeout(() => setNotice(null), 3200); }} setView={setView} />}
+          {view === "home" && <HomeView market={market} tankVolume={tankVolume} walletBalance={walletBalance} customerReady={customerReady || Boolean(userId)} startCustomer={() => setView("onboarding")} saved={saved} nearbyPrices={priceOptions.filter((option) => option.scopeType === "station").sort((a,b) => a.unitPrice-b.unitPrice).slice(0,3)} activeLock={activeLock} referencePrice={controlledReferencePrice} demoPrice={marketCode === "US" ? demoControl.displayUnitPrice : undefined} setView={setView} redeem={() => setShowRedeem(true)} />}
+          {view === "onboarding" && <OnboardingView send={sendLifecycle} complete={(customer) => { setLifecycleCustomer(customer); setCustomerReady(true); changeMarket("GB"); setView("wallet"); }} />}
+          {view === "wallet" && <WalletView market={market} balance={walletBalance} customer={lifecycleCustomer} addFunds={(amount) => { setCustomerReady(true); setWalletBalance((balance) => balance + amount); void sendLifecycle({ type: "FUND_WALLET", customerId: DEMO_CUSTOMER_ID, amountMinor: Math.round(amount * 100) }); setNotice(`${money(amount, market)} added to your FuelCap wallet.`); window.setTimeout(() => setNotice(null), 3200); }} changePlan={(planId) => void sendLifecycle({ type: "CHANGE_PLAN", customerId: DEMO_CUSTOMER_ID, planId })} setView={setView} />}
           {view === "tank" && <TankView market={market} tankVolume={tankVolume} locks={locks} setView={setView} redeem={() => setShowRedeem(true)} />}
           {view === "lock" && <LockView market={market} volume={volume} setVolume={setVolume} confirm={confirmLock} busy={actionBusy} options={priceOptions} selected={controlledPriceOption} scopeType={scopeType} scopeId={scopeId} changeScope={changeScope} setScopeId={setScopeId} loading={optionsLoading} quotesPaused={marketCode === "US" && demoControl.quoteAvailability === "PAUSED"} />}
           {view === "activity" && <ActivityView market={market} locks={locks} transactions={transactions} cloud={Boolean(userId)} />}
@@ -543,11 +560,33 @@ function HomeView({ market, tankVolume, walletBalance, customerReady, startCusto
   );
 }
 
-function WalletView({ market, balance, addFunds, setView }: MarketProps & { balance: number; addFunds: (amount: number) => void; setView: (view: View) => void }) {
+function OnboardingView({ send, complete }: { send: (command: LifecycleCommand) => Promise<LifecycleCustomer | null>; complete: (customer: LifecycleCustomer) => void }) {
+  const [step, setStep] = useState<"profile" | "licence" | "checking" | "pin">("profile");
+  const [planId, setPlanId] = useState<PlanId>("STANDARD");
+  const [name, setName] = useState("Francis Doherty");
+  const [email, setEmail] = useState("francis.doherty@example.test");
+  const [phone, setPhone] = useState("+44 7700 900042");
+  const [licenceName, setLicenceName] = useState("");
+  const [pin, setPin] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [customer, setCustomer] = useState<LifecycleCustomer | null>(null);
+  async function register() { setBusy(true); const record = await send({ type: "REGISTER_CUSTOMER", customer: { customerId: DEMO_CUSTOMER_ID, name, email, phone, planId } }); setCustomer(record); setStep("licence"); setBusy(false); }
+  async function verify() { setBusy(true); await send({ type: "START_KYC", customerId: DEMO_CUSTOMER_ID, licenceLast4: "2048" }); setStep("checking"); setBusy(false); window.setTimeout(async () => { const record = await send({ type: "VERIFY_KYC", customerId: DEMO_CUSTOMER_ID }); setCustomer(record); setStep("pin"); }, process.env.NEXT_PUBLIC_FUELCAP_E2E === "true" ? 150 : 10000); }
+  async function finish() { if (pin.length !== 4) return; setBusy(true); const record = await send({ type: "SET_PIN", customerId: DEMO_CUSTOMER_ID }); if (record) complete(record); setBusy(false); }
+  return <div className="view-enter mx-auto max-w-4xl"><PageTitle eyebrow={`Set up your account · ${step === "profile" ? "1" : step === "licence" ? "2" : step === "checking" ? "3" : "4"} of 4`} title={step === "profile" ? "Choose how you use FuelCap" : step === "licence" ? "Verify your identity" : step === "checking" ? "We are checking your licence" : "Your FuelCap card is ready"} />
+    {step === "profile" && <section className="rounded-lg border border-[#dce5df] bg-white p-5 md:p-7"><div className="grid gap-4 sm:grid-cols-3">{servicePlans.map((plan) => <button type="button" key={plan.id} onClick={() => setPlanId(plan.id)} className={`rounded-lg border p-4 text-left ${planId === plan.id ? "border-[#0ba75e] bg-[#edf8f1] ring-2 ring-[#0ba75e]/20" : "border-[#dce5df]"}`}><span className="text-xs font-bold uppercase text-[#0b7a4b]">{plan.name}</span><strong className="mt-2 block text-xl">{plan.monthlyFeeMinor ? `£${(plan.monthlyFeeMinor / 100).toFixed(2)}` : "Free"}<small className="text-xs font-normal text-[#61716b]"> / month</small></strong><span className="mt-2 block text-xs text-[#61716b]">Up to £{plan.walletLimitMinor / 100} · {plan.stationScope.toLowerCase()} protection</span></button>)}</div><div className="mt-6 grid gap-4 sm:grid-cols-2"><label className="text-sm font-semibold">Full name<input aria-label="Full name" value={name} onChange={(e) => setName(e.target.value)} className="mt-2 h-11 w-full rounded-md border border-[#cdd9d1] px-3 font-normal" /></label><label className="text-sm font-semibold">Mobile number<input aria-label="Mobile number" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-2 h-11 w-full rounded-md border border-[#cdd9d1] px-3 font-normal" /></label><label className="text-sm font-semibold sm:col-span-2">Email address<input aria-label="Email address" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-2 h-11 w-full rounded-md border border-[#cdd9d1] px-3 font-normal" /></label></div><button type="button" disabled={busy || !name || !email || !phone} onClick={() => void register()} className={`${buttonBase} mt-6 w-full bg-[#0ba75e] text-white`}>{busy ? "Creating account..." : "Continue to identity check"}</button></section>}
+    {step === "licence" && <section className="rounded-lg border border-[#dce5df] bg-white p-6 text-center"><div className="mx-auto grid size-14 place-items-center rounded-full bg-[#dff5e9] text-[#0b7a4b]"><BadgeCheck size={28}/></div><h2 className="mt-4 text-xl font-bold">Add your driving licence</h2><p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[#61716b]">Take a clear photo on your phone. We use it to confirm your identity before activating your wallet and card.</p><label className="mx-auto mt-6 block max-w-md rounded-lg border-2 border-dashed border-[#9bc7ad] bg-[#f4fbf7] p-7 font-semibold text-[#0b7a4b]">{licenceName || "Take or choose licence photo"}<input aria-label="Driving licence photo" className="sr-only" type="file" accept="image/*" capture="environment" onChange={(event) => setLicenceName(event.target.files?.[0]?.name ?? "licence.jpg")}/></label><button type="button" disabled={!licenceName || busy} onClick={() => void verify()} className={`${buttonBase} mt-5 w-full max-w-md bg-[#0ba75e] text-white`}>Submit for verification</button></section>}
+    {step === "checking" && <section role="status" className="rounded-lg border border-[#efd695] bg-[#fff8e6] p-8 text-center"><div className="mx-auto size-12 animate-spin rounded-full border-4 border-[#eadba9] border-t-[#0b7a4b]"/><h2 className="mt-5 text-xl font-bold">Verification in progress</h2><p className="mt-2 text-sm text-[#735d2c]">Your customer record is already visible to the operations team. This demonstration completes the identity check in about 10 seconds.</p></section>}
+    {step === "pin" && <section className="rounded-lg border border-[#9bc7ad] bg-white p-6"><div className="flex items-start gap-3 rounded-md bg-[#edf8f1] p-4 text-[#0b7a4b]"><BadgeCheck size={22}/><div><strong className="block">Identity verified</strong><span className="text-sm">Your virtual card was issued automatically.</span></div></div><div className="mt-5 rounded-md bg-[#0b1b2b] p-5 text-white"><span className="text-xs uppercase text-[#8fb8a6]">FuelCap virtual card</span><p className="mt-5 text-xl tracking-[.12em]">{customer?.card.maskedPan}</p><p className="mt-3 text-sm text-[#8fb8a6]">Expires {customer?.card.expiry}</p></div><label className="mt-5 block text-sm font-semibold">Choose a 4-digit PIN<input aria-label="Card PIN" inputMode="numeric" maxLength={4} type="password" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, ""))} className="mt-2 h-12 w-full rounded-md border border-[#cdd9d1] px-3 text-center text-xl tracking-[.5em]" /></label><button type="button" disabled={pin.length !== 4 || busy} onClick={() => void finish()} className={`${buttonBase} mt-5 w-full bg-[#0ba75e] text-white`}>Open my wallet</button></section>}
+  </div>;
+}
+
+function WalletView({ market, balance, customer, addFunds, changePlan, setView }: MarketProps & { balance: number; customer: LifecycleCustomer | null; addFunds: (amount: number) => void; changePlan: (planId: PlanId) => void; setView: (view: View) => void }) {
   return <div className="view-enter"><PageTitle eyebrow="Money" title="FuelCap wallet" />
     <section className="grid gap-5 rounded-lg bg-[#0b1b2b] p-6 text-white md:grid-cols-[1fr_auto] md:items-center"><div><p className="text-sm text-[#8fb8a6]">Available to protect fuel</p><p className="mt-2 text-5xl font-bold">{money(balance, market)}</p><p className="mt-3 text-sm text-[#c7d6ce]">Wallet funds remain visible as cash until you use them to protect a chosen fuel volume.</p></div><WalletCards size={42} className="text-[#65d49a]" /></section>
     <section className="mt-5 rounded-lg border border-[#dce5df] bg-white p-5"><h2 className="font-semibold">Add funds</h2><p className="mt-1 text-sm text-[#61716b]">Choose an amount using your saved payment method ending 4242.</p><div className="mt-4 grid grid-cols-3 gap-2">{[100,250,500].map((amount) => <button type="button" key={amount} onClick={() => addFunds(amount)} className="h-12 rounded-md border border-[#b8d6c3] bg-[#edf8f1] font-semibold text-[#0b7a4b]">+{money(amount, market, 0)}</button>)}</div><button type="button" disabled={balance <= 0} onClick={() => setView("lock")} className={`${buttonBase} mt-5 w-full bg-[#0ba75e] text-white`}><LockKeyhole size={17} />Choose fuel protection</button></section>
     <section className="mt-5 rounded-lg border border-[#dce5df] bg-white p-5"><div className="flex items-center gap-3"><CircleDollarSign className="text-[#0b7a4b]" /><div><h2 className="font-semibold">How your money moves</h2><p className="text-sm text-[#61716b]">Available cash → protected fuel → retailer settlement. Every step remains visible in Activity.</p></div></div></section>
+    {customer && <section className="mt-5 rounded-lg border border-[#dce5df] bg-white p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase text-[#0b7a4b]">Your {customer.planId.toLowerCase()} plan</p><h2 className="mt-1 font-semibold">Need broader price protection?</h2><p className="mt-1 text-sm text-[#61716b]">Change plan at any time. Limits and eligible station coverage update immediately.</p></div><BadgeCheck className="text-[#0b7a4b]"/></div><div className="mt-4 grid grid-cols-3 gap-2">{servicePlans.map((plan) => <button type="button" key={plan.id} disabled={customer.planId === plan.id} onClick={() => changePlan(plan.id)} className={`rounded-md border px-2 py-3 text-sm font-semibold ${customer.planId === plan.id ? "border-[#0ba75e] bg-[#dff5e9] text-[#0b7a4b]" : "border-[#dce5df]"}`}>{plan.name}<span className="block text-[10px] font-normal">{plan.monthlyFeeMinor ? `£${(plan.monthlyFeeMinor / 100).toFixed(2)}/mo` : "Free"}</span></button>)}</div></section>}
   </div>;
 }
 
