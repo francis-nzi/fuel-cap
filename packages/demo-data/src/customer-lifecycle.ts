@@ -8,6 +8,7 @@ export type ServicePlan = Readonly<{
   spreadBps: number;
   walletLimitMinor: number;
   monthlyFuelLimitLitres: number;
+  lockPeriodDays: number;
   stationScope: "STATION" | "BRAND" | "ANYWHERE";
   benefits: readonly string[];
   version: number;
@@ -61,9 +62,9 @@ export type LifecycleCommand =
   | Readonly<{ type: "CHANGE_PLAN"; customerId: string; planId: PlanId }>;
 
 export const servicePlans: readonly ServicePlan[] = [
-  { id: "BASIC", name: "Basic", monthlyFeeMinor: 0, spreadBps: 350, walletLimitMinor: 50000, monthlyFuelLimitLitres: 150, stationScope: "STATION", benefits: ["Protect at one station", "Standard wallet"], version: 1 },
-  { id: "STANDARD", name: "Standard", monthlyFeeMinor: 499, spreadBps: 225, walletLimitMinor: 150000, monthlyFuelLimitLitres: 400, stationScope: "BRAND", benefits: ["Protect across one brand", "Price alerts", "Higher limits"], version: 1 },
-  { id: "PLUS", name: "Plus", monthlyFeeMinor: 999, spreadBps: 125, walletLimitMinor: 300000, monthlyFuelLimitLitres: 800, stationScope: "ANYWHERE", benefits: ["Protect anywhere", "Lowest spread", "Priority support"], version: 1 },
+  { id: "BASIC", name: "Basic", monthlyFeeMinor: 0, spreadBps: 350, walletLimitMinor: 50000, monthlyFuelLimitLitres: 150, lockPeriodDays: 7, stationScope: "STATION", benefits: ["Protect at one station", "Standard wallet"], version: 1 },
+  { id: "STANDARD", name: "Standard", monthlyFeeMinor: 499, spreadBps: 225, walletLimitMinor: 150000, monthlyFuelLimitLitres: 400, lockPeriodDays: 14, stationScope: "BRAND", benefits: ["Protect across one brand", "Price alerts", "Higher limits"], version: 1 },
+  { id: "PLUS", name: "Plus", monthlyFeeMinor: 999, spreadBps: 125, walletLimitMinor: 300000, monthlyFuelLimitLitres: 800, lockPeriodDays: 30, stationScope: "ANYWHERE", benefits: ["Protect anywhere", "Lowest spread", "Priority support"], version: 1 },
 ];
 
 export const cardProviders: readonly CardProvider[] = [
