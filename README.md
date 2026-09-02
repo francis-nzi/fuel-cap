@@ -39,8 +39,9 @@ Open `http://localhost:3000`.
 | `FUEL_FINDER_CLIENT_ID` | Server-only Fuel Finder information-recipient OAuth client ID |
 | `FUEL_FINDER_CLIENT_SECRET` | Server-only Fuel Finder OAuth client secret |
 | `FUEL_FINDER_TOKEN_URL` | Token URL supplied in the authenticated Fuel Finder portal |
-| `FUEL_FINDER_API_BASE_URL` | Fuel Finder API origin; defaults to `https://api.fuelfinder.service.gov.uk` |
-| `FUEL_FINDER_PRICES_PATH` | Prices resource path; defaults to `/v1/prices` |
+| `FUEL_FINDER_API_BASE_URL` | Fuel Finder API origin; defaults to `https://www.fuel-finder.service.gov.uk` |
+| `FUEL_FINDER_PRICES_PATH` | Prices resource path; defaults to `/api/v1/pfs/fuel-prices` |
+| `FUEL_FINDER_FORECOURTS_PATH` | Forecourt details resource path; defaults to `/api/v1/pfs` |
 | `FUEL_FINDER_SCOPE` | OAuth scope; defaults to `fuelfinder.read` |
 | `FUEL_FINDER_FUEL_TYPE` | Fuel grade used by the customer app; defaults to `E10` |
 

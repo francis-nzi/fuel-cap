@@ -22,19 +22,20 @@ describe("Fuel Finder price projection", () => {
     process.env.FUEL_FINDER_CLIENT_ID = "client-id";
     process.env.FUEL_FINDER_CLIENT_SECRET = "client-secret";
     process.env.FUEL_FINDER_TOKEN_URL = "https://identity.example.test/token";
-    const calls: Array<{ url: string; authorization?: string; body?: string }> = [];
+    const calls: Array<{ url: string; authorization?: string; body?: string; contentType?: string }> = [];
     const fetcher = (async (input: string | URL | Request, init?: RequestInit) => {
-      calls.push({ url: input.toString(), authorization: new Headers(init?.headers).get("Authorization") ?? undefined, body: init?.body?.toString() });
+      calls.push({ url: input.toString(), authorization: new Headers(init?.headers).get("Authorization") ?? undefined, body: init?.body?.toString(), contentType: new Headers(init?.headers).get("Content-Type") ?? undefined });
       if (calls.length === 1) return Response.json({ success: true, data: { access_token: "short-lived-token", expires_in: 3600 } });
-      return Response.json({ data: [{ node_id: "live", trading_name: "Live Forecourt", fuel_prices: [{ fuel_type: "E10", price: 139.9 }] }] });
+      if (input.toString().includes("fuel-prices")) return Response.json({ data: [{ node_id: "live", trading_name: "Live Forecourt", fuel_prices: [{ fuel_type: "E10", price: 139.9 }] }] });
+      return Response.json({ data: [{ node_id: "live", brand_name: "Live Brand", location: { city: "Leeds", postcode: "LS1 1AA" } }] });
     }) as typeof fetch;
     try {
       const options = await fetchFuelFinderOptions(fetcher);
       expect(calls[0]).toMatchObject({ url: "https://identity.example.test/token" });
-      expect(calls[0].body).toContain("grant_type=client_credentials");
-      expect(calls[0].body).toContain("client_secret=client-secret");
-      expect(calls[1]).toMatchObject({ url: "https://api.fuelfinder.service.gov.uk/v1/prices?fuel_type=E10", authorization: "Bearer short-lived-token" });
-      expect(options.find((option) => option.scopeId === "live")?.unitPrice).toBe(1.399);
+      expect(calls[0]).toMatchObject({ body: JSON.stringify({ client_id: "client-id", client_secret: "client-secret" }), contentType: "application/json" });
+      expect(calls[1]).toMatchObject({ url: "https://www.fuel-finder.service.gov.uk/api/v1/pfs/fuel-prices?batch-number=1", authorization: "Bearer short-lived-token" });
+      expect(calls[2]).toMatchObject({ url: "https://www.fuel-finder.service.gov.uk/api/v1/pfs?batch-number=1", authorization: "Bearer short-lived-token" });
+      expect(options.find((option) => option.scopeId === "live")).toMatchObject({ unitPrice: 1.399, providerName: "Live Brand", label: "Live Forecourt - Leeds, LS1 1AA" });
     } finally {
       if (previous.id === undefined) delete process.env.FUEL_FINDER_CLIENT_ID; else process.env.FUEL_FINDER_CLIENT_ID = previous.id;
       if (previous.secret === undefined) delete process.env.FUEL_FINDER_CLIENT_SECRET; else process.env.FUEL_FINDER_CLIENT_SECRET = previous.secret;

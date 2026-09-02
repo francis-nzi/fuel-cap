@@ -24,9 +24,11 @@ services:
       - key: FUEL_FINDER_TOKEN_URL
         sync: false
       - key: FUEL_FINDER_API_BASE_URL
-        value: https://api.fuelfinder.service.gov.uk
+        value: https://www.fuel-finder.service.gov.uk
       - key: FUEL_FINDER_PRICES_PATH
-        value: /v1/prices
+        value: /api/v1/pfs/fuel-prices
+      - key: FUEL_FINDER_FORECOURTS_PATH
+        value: /api/v1/pfs
       - key: FUEL_FINDER_SCOPE
         value: fuelfinder.read
       - key: FUEL_FINDER_FUEL_TYPE

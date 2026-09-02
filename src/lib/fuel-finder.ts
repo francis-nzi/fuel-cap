@@ -28,9 +28,22 @@ function rows(payload: unknown): unknown[] {
 }
 
 function addressOf(row: JsonRecord) {
-  const address = record(row.address);
-  const pieces = address ? [address.address_line_1, address.address_line_2, address.town, address.county, address.postcode] : [row.address_line_1, row.address_line_2, row.town, row.county, row.postcode];
+  const address = record(row.location) ?? record(row.address);
+  const pieces = address ? [address.address_line_1, address.address_line_2, address.city, address.town, address.county, address.postcode] : [row.address_line_1, row.address_line_2, row.city, row.town, row.county, row.postcode];
   return pieces.map(text).filter(Boolean).join(", ");
+}
+
+function mergeForecourtDetails(pricesPayload: unknown, forecourtsPayload: unknown) {
+  const details = new Map(rows(forecourtsPayload).flatMap((value) => {
+    const row = record(value);
+    const id = row && text(row.node_id ?? row.nodeId ?? row.id);
+    return row && id ? [[id, row] as const] : [];
+  }));
+  return { data: rows(pricesPayload).map((value) => {
+    const price = record(value);
+    const id = price && text(price.node_id ?? price.nodeId ?? price.id);
+    return price && id ? { ...(details.get(id) ?? {}), ...price } : value;
+  }) };
 }
 
 export function buildFuelFinderOptions(payload: unknown, fuelType = "E10"): FuelFinderPriceOption[] {
@@ -66,8 +79,7 @@ async function accessToken(fetcher: typeof fetch) {
   const clientSecret = process.env.FUEL_FINDER_CLIENT_SECRET;
   const tokenUrl = process.env.FUEL_FINDER_TOKEN_URL;
   if (!clientId || !clientSecret || !tokenUrl) throw new Error("FUEL_FINDER_NOT_CONFIGURED");
-  const body = new URLSearchParams({ grant_type: "client_credentials", client_id: clientId, client_secret: clientSecret, scope: process.env.FUEL_FINDER_SCOPE ?? "fuelfinder.read" });
-  const response = await fetcher(tokenUrl, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body, cache: "no-store", signal: AbortSignal.timeout(8000) });
+  const response = await fetcher(tokenUrl, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }), cache: "no-store", signal: AbortSignal.timeout(8000) });
   if (!response.ok) throw new Error(`FUEL_FINDER_TOKEN_${response.status}`);
   const payload = await response.json() as { access_token?: string; expires_in?: number; data?: { access_token?: string; expires_in?: number } };
   const tokenPayload = payload.data ?? payload;
@@ -78,11 +90,15 @@ async function accessToken(fetcher: typeof fetch) {
 
 export async function fetchFuelFinderOptions(fetcher: typeof fetch = fetch) {
   const token = await accessToken(fetcher);
-  const base = process.env.FUEL_FINDER_API_BASE_URL ?? "https://api.fuelfinder.service.gov.uk";
-  const path = process.env.FUEL_FINDER_PRICES_PATH ?? "/v1/prices";
-  const url = new URL(path, base);
-  url.searchParams.set("fuel_type", process.env.FUEL_FINDER_FUEL_TYPE ?? "E10");
-  const response = await fetcher(url, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(10000) });
-  if (!response.ok) throw new Error(`FUEL_FINDER_PRICES_${response.status}`);
-  return buildFuelFinderOptions(await response.json(), process.env.FUEL_FINDER_FUEL_TYPE ?? "E10");
+  const base = process.env.FUEL_FINDER_API_BASE_URL ?? "https://www.fuel-finder.service.gov.uk";
+  const pricesUrl = new URL(process.env.FUEL_FINDER_PRICES_PATH ?? "/api/v1/pfs/fuel-prices", base);
+  const forecourtsUrl = new URL(process.env.FUEL_FINDER_FORECOURTS_PATH ?? "/api/v1/pfs", base);
+  pricesUrl.searchParams.set("batch-number", "1");
+  forecourtsUrl.searchParams.set("batch-number", "1");
+  const init: RequestInit = { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(15000) };
+  const [pricesResponse, forecourtsResponse] = await Promise.all([fetcher(pricesUrl, init), fetcher(forecourtsUrl, init)]);
+  if (!pricesResponse.ok) throw new Error(`FUEL_FINDER_PRICES_${pricesResponse.status}`);
+  const prices = await pricesResponse.json();
+  const payload = forecourtsResponse.ok ? mergeForecourtDetails(prices, await forecourtsResponse.json()) : prices;
+  return buildFuelFinderOptions(payload, process.env.FUEL_FINDER_FUEL_TYPE ?? "E10");
 }
