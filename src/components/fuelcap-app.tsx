@@ -272,6 +272,7 @@ export function FuelCapApp() {
   }, []);
 
   useEffect(() => {
+    if (process.env.NEXT_PUBLIC_FUELCAP_E2E === "true") return;
     const supabase = createClient();
     void supabase.auth.getUser().then(({ data }) => {
       setUserEmail(data.user?.email ?? null);

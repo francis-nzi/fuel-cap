@@ -26,7 +26,7 @@ test("admin governs the separate customer demonstrator without mutating an accep
   await admin.getByRole("button", { name: /Stop new quotes/ }).click();
   const customerControl = page.getByRole("status").filter({ hasText: "accepted quote remains protected" });
   await expect(customerControl).toBeVisible({ timeout: 10_000 });
-  await expect(customerControl).toContainText("$3.42 preserved");
+  await expect(customerControl).toContainText("$3.42/gal remains unchanged");
   await expect(page.getByRole("button", { name: "Confirm price lock" })).toBeDisabled();
 
   await admin.getByRole("button", { name: /Reset baseline/ }).click();
