@@ -45,7 +45,7 @@ language sql stable security invoker set search_path = '' as $$
     select 'provider'::public.lock_scope,provider_id,provider_name,provider_name,max(unit_price),min(currency),min(unit),count(*)::bigint,max(observed_at),null::uuid from latest group by provider_id,provider_name
   ), country_option as (
     select 'country'::public.lock_scope,null::uuid,case p_market when 'US' then 'Any eligible US station' when 'CA' then 'Any eligible Canadian station' else 'Any eligible UK station' end,null::text,max(unit_price),min(currency),min(unit),count(*)::bigint,max(observed_at),null::uuid from latest having count(*)>0
-  ) select * from station_options union all select * from provider_options union all select * from country_option order by scope_type,label;
+  ) select * from station_options union all select * from provider_options union all select * from country_option order by 1,3;
 $$;
 
 revoke all on function public.get_current_lock_options(public.market_code, public.fuel_grade) from public;

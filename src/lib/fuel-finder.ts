@@ -105,11 +105,18 @@ async function accessToken(fetcher: typeof fetch) {
 
 async function fetchBatches(fetcher: typeof fetch, base: string, path: string, token: string) {
   const maximumBatches = Math.max(1, Math.min(Number(process.env.FUEL_FINDER_MAX_BATCHES ?? 40), 100));
+  const requestTimeoutMs = Math.max(15_000, Math.min(Number(process.env.FUEL_FINDER_REQUEST_TIMEOUT_MS ?? 60_000), 120_000));
   const all: unknown[] = [];
   for (let batch = 1; batch <= maximumBatches; batch += 1) {
     const url = new URL(path, base);
     url.searchParams.set("batch-number", String(batch));
-    const response = await fetcher(url, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(15000) });
+    let response: Response;
+    try {
+      response = await fetcher(url, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(requestTimeoutMs) });
+    } catch (error) {
+      if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) throw new Error(`FUEL_FINDER_TIMEOUT_${path}_BATCH_${batch}`);
+      throw error;
+    }
     if (!response.ok) throw new Error(`FUEL_FINDER_DATA_${response.status}`);
     const current = rows(await response.json());
     all.push(...current);

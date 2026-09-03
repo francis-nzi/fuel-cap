@@ -43,6 +43,7 @@ Open `http://localhost:3000`.
 | `FUEL_FINDER_PRICES_PATH` | Prices resource path; defaults to `/api/v1/pfs/fuel-prices` |
 | `FUEL_FINDER_FORECOURTS_PATH` | Forecourt details resource path; defaults to `/api/v1/pfs` |
 | `FUEL_FINDER_MAX_BATCHES` | Safety ceiling for a complete feed retrieval; defaults to `40` |
+| `FUEL_FINDER_REQUEST_TIMEOUT_MS` | Per-batch Fuel Finder request timeout in milliseconds; defaults to `60000` |
 | `FUEL_FINDER_SCOPE` | OAuth scope; defaults to `fuelfinder.read` |
 | `FUEL_FINDER_FUEL_TYPE` | Fuel grade used by the customer app; defaults to `E10` |
 | `CUSTOMER_APP_ORIGIN` | Customer application origin used by the admin live-pricing bridge; defaults to the production customer service |
