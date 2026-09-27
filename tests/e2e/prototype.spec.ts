@@ -83,6 +83,7 @@ test("onboard, protect with a same-step top-up, pay at the pump and keep it all 
   await expect(page.getByText("You pay $3.49/gal")).toBeVisible();
   await expect(page.getByText("$33.24").first()).toBeVisible();
   await expect(page.getByText("+$0.00")).toHaveCount(0);
+  await expect(page.getByText("Your max price of $3.66/gal at Shell Riverside remains unchanged.")).toBeVisible();
 
   // Fix 9: activity shows only what happened.
   await click(page.getByRole("button", { name: "Activity", exact: true }));
