@@ -13,6 +13,12 @@ describe("market configuration", () => {
     expect(money(1.42, markets.GB)).toContain("£1.42");
   });
 
+  it("rounds half up to cents", () => {
+    expect(money(3.675, markets.US)).toBe("$3.68");
+    expect(money(91.875, markets.US)).toBe("$91.88");
+    expect(money(-5.505, markets.US)).toBe("-$5.51");
+  });
+
   it("derives server-matched demo lock prices from reference prices", () => {
     expect(demoLockedPrice(markets.US, 3.87)).toBeCloseTo(3.42);
     expect(demoLockedPrice(markets.CA, 1.71)).toBeCloseTo(1.63);

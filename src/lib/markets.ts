@@ -32,12 +32,15 @@ export const markets: Record<MarketCode, Market> = {
 };
 
 export function money(value: number, market: Market, digits = 2) {
+  // Round half up before formatting: Intl sees 3.675 as 3.67499… and would show 3.67.
+  const factor = 10 ** digits;
+  const rounded = (Math.sign(value) * Math.round(Math.abs(value) * factor + 1e-7)) / factor;
   return new Intl.NumberFormat(market.locale, {
     style: "currency",
     currency: market.currency,
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
-  }).format(value);
+  }).format(rounded);
 }
 
 export function demoLockedPrice(market: Market, livePrice = market.livePrice) {
