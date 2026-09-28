@@ -38,7 +38,7 @@ Use a **new Supabase project** for staff, not the customer project. Turning off 
    ADMIN_SUPABASE_URL=https://<staff-project>.supabase.co \
    ADMIN_SUPABASE_SERVICE_ROLE_KEY=<secret key> \
    ADMIN_SITE_URL=https://fuelcap-app.onrender.com \
-   node apps/admin/scripts/invite-first-admin.mjs --email francis@netzero.international --name "Francis Doherty" --roles PA,RT
+   node apps/admin/scripts/invite-first-admin.mjs --email you@example.com --name "Your Name" --roles PA,RT
    ```
 
    The script refuses to run once an active PA exists. After that, invite from **Staff & audit** (`/staff`).
