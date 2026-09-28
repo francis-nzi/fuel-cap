@@ -527,21 +527,21 @@ export function FuelCapApp() {
 
       <div className="min-w-0">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#dce5df] bg-white/95 px-4 backdrop-blur md:px-8">
-          <div className="md:hidden"><Brand compact /></div>
+          <div className="md:hidden" data-testid="phone-brand"><Brand compact /></div>
           <div className="hidden md:block">
             <p className="text-xs font-medium text-[#61716b]">{userId ? "Account synced" : "Personal account"}</p>
             <p className="text-sm font-semibold">Good morning{userEmail ? `, ${userEmail.split("@")[0]}` : ", Francis"}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="rounded-full bg-[#fff3d6] px-2 py-1 text-[11px] font-bold tracking-wide text-[#6b5310]" title="Simulated money only">DEMO</span>
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <span className="rounded-full bg-[#fff3d6] px-2 py-1 text-[11px] font-bold tracking-wide text-[#6b5310]" title="Simulated money only" data-testid="demo-pill">DEMO</span>
             <label className="sr-only" htmlFor="market">Market</label>
             <select
               id="market"
               value={marketCode}
               onChange={(event) => changeMarket(event.target.value as MarketCode)}
-              className="h-10 rounded-md border border-[#dce5df] bg-white px-2 text-sm font-semibold"
+              className="h-10 w-[68px] rounded-md border border-[#dce5df] bg-white px-2 text-sm font-semibold"
             >
-              <option value="US">US</option><option value="CA">Canada</option><option value="GB">UK</option>
+              <option value="US">US</option><option value="CA">CA</option><option value="GB">UK</option>
             </select>
             <button onClick={() => setView("settings")} className={`grid size-10 place-items-center rounded-md border md:hidden ${view === "settings" ? "border-[#0ba75e] bg-[#dff5e9] text-[#0b7a4b]" : "border-[#dce5df] bg-white"}`} aria-label="Settings">
               <Settings size={18} />
@@ -588,7 +588,7 @@ function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <div className="flex items-center gap-2">
       <Image src="/fuelcap-mark.svg" alt="" width={compact ? 27 : 32} height={compact ? 27 : 32} style={{ height: "auto" }} />
-      <span className="font-[family-name:var(--font-space-grotesk)] text-xl font-bold">FuelCap</span>
+      <span className={`font-[family-name:var(--font-space-grotesk)] font-bold ${compact ? "text-lg" : "text-xl"}`}>FuelCap</span>
     </div>
   );
 }

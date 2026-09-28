@@ -171,6 +171,13 @@ test("a new customer sees no invented history and no dead buttons", async ({ pag
       expect(box.clipped).toBe(false);
       if (index > 0) expect(box.left).toBeGreaterThanOrEqual(boxes[index - 1].right);
     });
+    // The header wordmark, DEMO pill, market picker, Settings and menu sit side by side without overlapping,
+    // even on a 375 px phone.
+    await page.setViewportSize({ width: 375, height: 812 });
+    const header = [page.getByTestId("phone-brand"), page.getByTestId("demo-pill"), page.getByLabel("Market"), page.getByRole("button", { name: "Settings" }), page.getByRole("button", { name: "Open account menu" })];
+    const edges = await Promise.all(header.map(async (item) => (await item.boundingBox())!));
+    edges.forEach((edge, index) => { if (index > 0) expect(edge.x).toBeGreaterThanOrEqual(edges[index - 1].x + edges[index - 1].width); });
+    expect(edges.at(-1)!.x + edges.at(-1)!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
   }
 
   await click(page.getByRole("button", { name: "Activity", exact: true }));
