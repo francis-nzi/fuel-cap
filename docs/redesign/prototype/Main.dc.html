@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FuelCap demo prototype</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#E7EEEA;font-family:Inter,system-ui,sans-serif;color:#0B1B2B}
+a{color:#0B7A4B}a:hover{color:#0B1B2B}
+button{font-family:inherit;cursor:pointer}
+.fc-scroll::-webkit-scrollbar{width:0}
+</style>
+</helmet>
+<div style="width: 1200px; height: 900px; box-sizing: border-box; padding: 28px 40px 28px 50px; display: flex; gap: 56px; background: #E7EEEA; font-family: Inter, system-ui, sans-serif; color: #0B1B2B">
+
+<!-- PHONE -->
+<div style="width: 390px; height: 844px; flex-shrink: 0; border-radius: 40px; background: #F5F8F6; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 0 0 10px #0B1B2B, 0 30px 60px rgba(11,27,43,0.28)">
+
+  <!-- header -->
+  <div style="height: 64px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 8px 20px 0 20px; background: #FFFFFF; border-bottom: 1px solid #E1E8E4">
+    <div style="display: flex; align-items: center; gap: 8px">
+      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="13" fill="#0B7A4B"></circle><circle cx="14" cy="14" r="8" fill="none" stroke="#FFFFFF" stroke-width="2.5"></circle><rect x="12.5" y="3" width="3" height="5" rx="1.5" fill="#FFFFFF"></rect></svg>
+      <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 19px">FuelCap</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px">
+      <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.04em; padding: 4px 8px; border-radius: 999px; background: #FFF3D6; color: #6B5310">DEMO · US $</span>
+      <button onClick="{{goAccount}}" aria-label="Account and settings" style="width: 40px; height: 40px; border-radius: 999px; border: none; background: #DFF5E9; color: #0B7A4B; font-weight: 700; font-size: 13px">FD</button>
+    </div>
+  </div>
+
+  <!-- content -->
+  <div class="fc-scroll" style="flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px">
+
+    <!-- HOME: first run -->
+    <sc-if value="{{homeEmpty}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 14px; color: #52625C">Hi Francis</span>
+        <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 26px; line-height: 1.15">Cap your fuel price. Never overpay.</h1>
+      </div>
+      <div style="border-radius: 20px; background: #0B1B2B; color: #FFFFFF; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start">
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <span style="font-size: 12px; color: #A9C9BA; font-weight: 600">PUMP PRICE NOW</span>
+            <span style="font-size: 13px; color: #D5E3DC">Shell Downtown · 0.4 mi</span>
+          </div>
+          <span style="font-size: 11px; padding: 3px 8px; border-radius: 999px; background: #17364A; color: #DFF5E9">Regular</span>
+        </div>
+        <div style="font-family: 'Space Grotesk', sans-serif; font-size: 44px; font-weight: 700">{{pumpText}}<span style="font-size: 16px; font-weight: 500; color: #A9C9BA"> /gal</span></div>
+        <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #D5E3DC">Protect today and you'll never pay more than <strong style="color: #FFC24B">{{homeCap}}/gal</strong> for 7 days. If the price falls, you just pay the lower price.</p>
+        <button onClick="{{goProtect}}" style="height: 52px; border: none; border-radius: 14px; background: #0BA75E; color: #06231A; font-size: 16px; font-weight: 700">Protect my fuel</button>
+      </div>
+      <div style="border-radius: 16px; background: #FFFFFF; border: 1px solid #E1E8E4; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+        <span style="font-weight: 700; font-size: 15px">How it works</span>
+        <div style="display: flex; gap: 12px; align-items: flex-start"><span style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 999px; background: #DFF5E9; color: #0B7A4B; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center">1</span><span style="font-size: 14px; line-height: 1.45; color: #33443D">Choose how much fuel to protect. Add funds in the same step.</span></div>
+        <div style="display: flex; gap: 12px; align-items: flex-start"><span style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 999px; background: #DFF5E9; color: #0B7A4B; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center">2</span><span style="font-size: 14px; line-height: 1.45; color: #33443D">Price goes up? We pay the difference above your cap.</span></div>
+        <div style="display: flex; gap: 12px; align-items: flex-start"><span style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 999px; background: #DFF5E9; color: #0B7A4B; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center">3</span><span style="font-size: 14px; line-height: 1.45; color: #33443D">Price goes down? You pay the lower price. Heads you win, tails you win.</span></div>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; border-radius: 16px; background: #FFFFFF; border: 1px solid #E1E8E4; padding: 14px 16px">
+        <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; color: #52625C">Wallet</span><span style="font-weight: 700; font-size: 18px">{{walletText}}</span></div>
+        <span style="font-size: 13px; color: #52625C; text-align: right; max-width: 170px">You can add funds when you protect</span>
+      </div>
+    </sc-if>
+
+    <!-- HOME: protected -->
+    <sc-if value="{{homeActive}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 14px; color: #52625C">Hi Francis</span>
+        <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 26px; line-height: 1.15">Your fuel is capped</h1>
+      </div>
+      <div style="border-radius: 20px; background: #0B1B2B; color: #FFFFFF; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start">
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <span style="font-size: 12px; color: #A9C9BA; font-weight: 600">YOUR MAX PRICE</span>
+            <span style="font-size: 13px; color: #D5E3DC">{{lockLine}}</span>
+          </div>
+          <span style="font-size: 11px; padding: 3px 8px; border-radius: 999px; background: #17364A; color: #DFF5E9">7 days left</span>
+        </div>
+        <div style="font-family: 'Space Grotesk', sans-serif; font-size: 44px; font-weight: 700">{{strikeText}}<span style="font-size: 16px; font-weight: 500; color: #A9C9BA"> /gal</span></div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; border-top: 1px solid #284052; padding-top: 14px">
+          <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #A9C9BA">Pump now</span><span style="font-size: 20px; font-weight: 700">{{pumpText}}</span></div>
+          <div style="display: flex; flex-direction: column; gap: 2px; border-left: 1px solid #284052; padding-left: 12px"><span style="font-size: 12px; color: #A9C9BA">{{statusLabel}}</span><span style="{{statusStyle}}">{{statusValue}}</span></div>
+        </div>
+        <div style="display: flex; gap: 10px">
+          <button onClick="{{goPay}}" style="flex-grow: 1; height: 50px; border: none; border-radius: 14px; background: #0BA75E; color: #06231A; font-size: 16px; font-weight: 700">Pay at pump</button>
+          <button onClick="{{goProtect}}" style="height: 50px; padding: 0 16px; border: 1px solid #476070; border-radius: 14px; background: transparent; color: #FFFFFF; font-size: 15px; font-weight: 600">Protect more</button>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+        <div style="border-radius: 16px; background: #FFFFFF; border: 1px solid #E1E8E4; padding: 14px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 13px; color: #52625C">Protected fuel</span><span style="font-weight: 700; font-size: 20px">{{galText}}</span><span style="font-size: 12px; color: #52625C">{{reservedText}} held for it</span></div>
+        <div style="border-radius: 16px; background: #FFFFFF; border: 1px solid #E1E8E4; padding: 14px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 13px; color: #52625C">Wallet</span><span style="font-weight: 700; font-size: 20px">{{walletText}}</span><span style="font-size: 12px; color: #52625C">Free to use</span></div>
+      </div>
+      <sc-if value="{{hasSaved}}" hint-placeholder-val="{{ false }}">
+        <div style="border-radius: 16px; background: #FFF3D6; padding: 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px">
+          <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; color: #6B5310">Saved with FuelCap so far</span><span style="font-weight: 700; font-size: 22px; font-family: 'Space Grotesk', sans-serif">{{savedText}}</span></div>
+          <button onClick="{{share}}" style="height: 44px; padding: 0 16px; border: none; border-radius: 12px; background: #FFC24B; color: #0B1B2B; font-weight: 700; font-size: 14px">{{shareLabel}}</button>
+        </div>
+      </sc-if>
+    </sc-if>
+
+    <!-- PROTECT -->
+    <sc-if value="{{isProtect}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 26px">Protect your fuel</h1>
+        <span style="font-size: 14px; line-height: 1.45; color: #52625C">Your price can't go above your cap for 7 days. If it falls, you pay less.</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <span style="font-size: 13px; font-weight: 700; color: #33443D">1 · Station</span>
+        <sc-if value="{{canPickStation}}" hint-placeholder-val="{{ true }}">
+          <sc-for list="{{stations}}" as="st" hint-placeholder-count="3">
+            <button onClick="{{st.pick}}" style="{{st.style}}">
+              <div style="display: flex; flex-direction: column; gap: 2px; text-align: left">
+                <span style="font-weight: 700; font-size: 15px; color: #0B1B2B">{{st.name}}</span>
+                <span style="font-size: 12px; color: #52625C">{{st.meta}}</span>
+              </div>
+              <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px">
+                <span style="font-weight: 700; font-size: 16px; color: #0B1B2B">{{st.priceText}}</span>
+                <span style="font-size: 11px; font-weight: 700; color: #0B7A4B">{{st.tag}}</span>
+              </div>
+            </button>
+          </sc-for>
+        </sc-if>
+        <sc-if value="{{lockedStation}}" hint-placeholder-val="{{ false }}">
+          <div style="border-radius: 14px; background: #FFFFFF; border: 1px solid #E1E8E4; padding: 14px; font-size: 14px; color: #33443D">Adding to your <strong>{{lockStationName}}</strong> protection, same cap.</div>
+        </sc-if>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <span style="font-size: 13px; font-weight: 700; color: #33443D">2 · How much fuel?</span>
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+          <sc-for list="{{galOptions}}" as="g" hint-placeholder-count="4">
+            <button onClick="{{g.pick}}" style="{{g.style}}">{{g.label}}</button>
+          </sc-for>
+        </div>
+        <span style="font-size: 12px; color: #52625C">A typical full tank is about 15 gal.</span>
+      </div>
+      <div style="border-radius: 16px; background: #FFFFFF; border: 1px solid #E1E8E4; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end">
+          <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; color: #52625C">Your max price</span><span style="font-size: 12px; color: #52625C">5% above today's {{qRef}}</span></div>
+          <span style="font-family: 'Space Grotesk', sans-serif; font-size: 30px; font-weight: 700; color: #0B7A4B">{{qStrike}}<span style="font-size: 14px; color: #52625C">/gal</span></span>
+        </div>
+        <div style="height: 1px; background: #E1E8E4"></div>
+        <div style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: #33443D">Held for your fuel<br><span style="font-size: 12px; color: #52625C">{{qGal}} gal × {{qStrike}}. Unused money stays yours.</span></span><span style="font-weight: 600">{{qReserve}}</span></div>
+        <div style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: #33443D">Protection charge<br><span style="font-size: 12px; color: #52625C">{{qCpg}}/gal, one-off</span></span><span style="font-weight: 600">{{qCharge}}</span></div>
+        <div style="height: 1px; background: #E1E8E4"></div>
+        <div style="display: flex; justify-content: space-between; font-size: 15px; font-weight: 700"><span>Total from wallet</span><span>{{qTotal}}</span></div>
+        <sc-if value="{{qNeedsTopUp}}" hint-placeholder-val="{{ true }}">
+          <div style="border-radius: 12px; background: #F1F7F3; padding: 10px 12px; font-size: 13px; line-height: 1.45; color: #33443D">Your wallet has {{walletText}}. We'll add <strong>{{qTopUp}}</strong> from your card ending 4242 in the same step.</div>
+        </sc-if>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px; line-height: 1.45; color: #33443D">
+        <div style="display: flex; gap: 10px"><span style="font-weight: 700; color: #0B7A4B; width: 18px">↑</span><span>Price rises: we pay the difference, up to {{qBoundary}}/gal.</span></div>
+        <div style="display: flex; gap: 10px"><span style="font-weight: 700; color: #C2402F; width: 18px">↓</span><span>Price falls: you pay the lower pump price.</span></div>
+        <div style="display: flex; gap: 10px"><span style="font-weight: 700; color: #52625C; width: 18px">∞</span><span>Your money never expires. Only the price cap has a clock.</span></div>
+      </div>
+    </sc-if>
+
+    <!-- DONE -->
+    <sc-if value="{{isDone}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; padding-top: 40px">
+        <div style="width: 88px; height: 88px; border-radius: 999px; background: #DFF5E9; display: flex; align-items: center; justify-content: center">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#0B7A4B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+        </div>
+        <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 28px">{{galText}} protected</h1>
+        <p style="margin: 0; font-size: 15px; line-height: 1.5; color: #33443D">You'll never pay more than <strong>{{strikeText}}/gal</strong> at {{lockStationName}} until Sun 4 Oct.</p>
+        <p style="margin: 0; font-size: 13px; color: #52625C">Wallet remaining: {{walletText}}</p>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 12px">
+        <button onClick="{{goPay}}" style="height: 52px; border: none; border-radius: 14px; background: #0B7A4B; color: #FFFFFF; font-size: 16px; font-weight: 700">Pay at pump now</button>
+        <button onClick="{{goHome}}" style="height: 52px; border: 1px solid #B8D6C3; border-radius: 14px; background: #FFFFFF; color: #0B7A4B; font-size: 16px; font-weight: 700">Back to home</button>
+      </div>
+    </sc-if>
+
+    <!-- PAY -->
+    <sc-if value="{{payEmpty}}" hint-placeholder-val="{{ false }}">
+      <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 26px">Pay at the pump</h1>
+      <div style="border-radius: 16px; background: #FFFFFF; border: 1px solid #E1E8E4; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center">
+        <span style="font-weight: 700; font-size: 17px">Nothing protected yet</span>
+        <span style="font-size: 14px; line-height: 1.45; color: #52625C">Protect some fuel first, then pay here at the pump.</span>
+        <button onClick="{{goProtect}}" style="height: 48px; padding: 0 20px; border: none; border-radius: 14px; background: #0B7A4B; color: #FFFFFF; font-size: 15px; font-weight: 700">Protect my fuel</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{payActive}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 26px">Pay at the pump</h1>
+        <span style="font-size: 14px; color: #52625C">{{lockStationName}} · Pump 4</span>
+      </div>
+      <div style="border-radius: 20px; background: #FFFFFF; border: 1px solid #E1E8E4; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 12px">
+        <div style="display: grid; grid-template-columns: repeat(21, 8px); gap: 0; padding: 10px; background: #FFFFFF">
+          <sc-for list="{{qr}}" as="c" hint-placeholder-count="441"><div style="{{c}}"></div></sc-for>
+        </div>
+        <span style="font-size: 13px; color: #52625C">Scan at the pump, or tell the cashier <strong style="color: #0B1B2B">FC-4821</strong></span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <span style="font-size: 13px; font-weight: 700; color: #33443D">How much are you filling?</span>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+          <sc-for list="{{fillOptions}}" as="f" hint-placeholder-count="3">
+            <button onClick="{{f.pick}}" style="{{f.style}}">{{f.label}}</button>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; border-radius: 14px; background: #F1F7F3; padding: 12px 14px; font-size: 14px">
+        <span style="color: #33443D">Pump price right now</span><span style="font-weight: 700">{{pumpText}}/gal</span>
+      </div>
+    </sc-if>
+
+    <!-- RECEIPT -->
+    <sc-if value="{{isReceipt}}" hint-placeholder-val="{{ false }}">
+      <div style="{{rHeroStyle}}">
+        <span style="font-size: 13px; font-weight: 700; letter-spacing: 0.03em">{{rEyebrow}}</span>
+        <span style="font-family: 'Space Grotesk', sans-serif; font-size: 34px; font-weight: 700; line-height: 1.1">{{rHeadline}}</span>
+        <span style="font-size: 14px; line-height: 1.5">{{rSub}}</span>
+      </div>
+      <div style="border-radius: 16px; background: #FFFFFF; border: 1px solid #E1E8E4; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+        <span style="font-weight: 700; font-size: 15px">{{rTitle}}</span>
+        <sc-for list="{{rRows}}" as="row" hint-placeholder-count="3">
+          <div style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: #33443D">{{row.label}}</span><span style="{{row.style}}">{{row.value}}</span></div>
+        </sc-for>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <button onClick="{{share}}" style="height: 52px; border: none; border-radius: 14px; background: #FFC24B; color: #0B1B2B; font-size: 16px; font-weight: 700">{{shareLabel}}</button>
+        <button onClick="{{goHome}}" style="height: 52px; border: 1px solid #B8D6C3; border-radius: 14px; background: #FFFFFF; color: #0B7A4B; font-size: 16px; font-weight: 700">Done</button>
+      </div>
+    </sc-if>
+
+    <!-- ACTIVITY -->
+    <sc-if value="{{isActivity}}" hint-placeholder-val="{{ false }}">
+      <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 26px">Activity</h1>
+      <sc-if value="{{noTxns}}" hint-placeholder-val="{{ true }}">
+        <div style="border-radius: 16px; background: #FFFFFF; border: 1px solid #E1E8E4; padding: 24px; text-align: center; font-size: 14px; line-height: 1.45; color: #52625C">No activity yet. Your first protection will show here.</div>
+      </sc-if>
+      <div style="border-radius: 16px; background: #FFFFFF; border: 1px solid #E1E8E4; display: flex; flex-direction: column">
+        <sc-for list="{{txns}}" as="t" hint-placeholder-count="0">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #EEF2F0">
+            <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600; font-size: 14px">{{t.title}}</span><span style="font-size: 12px; color: #52625C">{{t.sub}}</span></div>
+            <span style="{{t.style}}">{{t.amount}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- ACCOUNT -->
+    <sc-if value="{{isAccount}}" hint-placeholder-val="{{ false }}">
+      <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 26px">Account</h1>
+      <div style="border-radius: 16px; background: #FFFFFF; border: 1px solid #E1E8E4; display: flex; flex-direction: column">
+        <div style="display: flex; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #EEF2F0; font-size: 14px"><span>Plan</span><span style="font-weight: 600">Standard · 7-day cap · Free</span></div>
+        <div style="display: flex; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #EEF2F0; font-size: 14px"><span>Country</span><span style="font-weight: 600">United States · $ · gallons</span></div>
+        <div style="display: flex; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #EEF2F0; font-size: 14px"><span>Card</span><span style="font-weight: 600">Visa ending 4242</span></div>
+        <div style="display: flex; justify-content: space-between; padding: 14px 16px; font-size: 14px"><span>Auto-rollover</span><span style="font-weight: 600; color: #0B7A4B">On · 48h notice</span></div>
+      </div>
+      <span style="font-size: 12px; line-height: 1.45; color: #52625C">Changing country opens a separate wallet in that currency. Your US balance and protections stay here.</span>
+    </sc-if>
+  </div>
+
+  <!-- sticky action bar (Protect / Pay) -->
+  <sc-if value="{{isProtect}}" hint-placeholder-val="{{ false }}">
+    <div style="flex-shrink: 0; padding: 12px 20px; background: #FFFFFF; border-top: 1px solid #E1E8E4">
+      <button onClick="{{confirmProtect}}" style="width: 100%; height: 54px; border: none; border-radius: 14px; background: #0B7A4B; color: #FFFFFF; font-size: 16px; font-weight: 700">{{qCta}}</button>
+    </div>
+  </sc-if>
+  <sc-if value="{{payActive}}" hint-placeholder-val="{{ false }}">
+    <div style="flex-shrink: 0; padding: 12px 20px; background: #FFFFFF; border-top: 1px solid #E1E8E4">
+      <button onClick="{{doFill}}" style="width: 100%; height: 54px; border: none; border-radius: 14px; background: #0B7A4B; color: #FFFFFF; font-size: 16px; font-weight: 700">{{fillCta}}</button>
+    </div>
+  </sc-if>
+
+  <!-- tab bar: 4 items -->
+  <div style="height: 76px; flex-shrink: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: #FFFFFF; border-top: 1px solid #E1E8E4; padding-bottom: 10px">
+    <button onClick="{{goHome}}" style="{{tabHome}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg><span>Home</span></button>
+    <button onClick="{{goProtect}}" style="{{tabProtect}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"></path><path d="M9 12l2 2 4-4"></path></svg><span>Protect</span></button>
+    <button onClick="{{goPay}}" style="{{tabPay}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><path d="M14 14h3v3h-3zM20 14v.01M20 20h-6"></path></svg><span>Pay</span></button>
+    <button onClick="{{goActivity}}" style="{{tabActivity}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg><span>Activity</span></button>
+  </div>
+</div>
+
+<!-- PRESENTER PANEL -->
+<div style="flex-grow: 1; height: 844px; display: flex; flex-direction: column; gap: 22px; padding-top: 8px">
+  <div style="display: flex; flex-direction: column; gap: 6px">
+    <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: #0B7A4B">PRESENTER CONTROLS · NOT PART OF THE APP</span>
+    <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 30px; line-height: 1.15">Move the market, then pay at the pump</h2>
+    <p style="margin: 0; font-size: 15px; line-height: 1.5; color: #33443D; max-width: 560px">Replaces the separate control-room tab. One tap changes the live pump price the app sees, so you can show a rise, a spike and a fall without leaving the screen.</p>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <span style="font-size: 13px; font-weight: 700; color: #33443D">Pump price at Shell Downtown</span>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+      <sc-for list="{{scenarios}}" as="s" hint-placeholder-count="4">
+        <button onClick="{{s.pick}}" style="{{s.style}}">
+          <span style="font-size: 12px; font-weight: 700; color: #52625C">{{s.label}}</span>
+          <span style="font-family: 'Space Grotesk', sans-serif; font-size: 24px; font-weight: 700; color: #0B1B2B">{{s.price}}</span>
+          <span style="font-size: 12px; color: #52625C">{{s.note}}</span>
+        </button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="border-radius: 18px; background: #FFFFFF; border: 1px solid #D3DED8; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+    <span style="font-size: 13px; font-weight: 700; color: #33443D">Run of show</span>
+    <sc-for list="{{steps}}" as="step" hint-placeholder-count="5">
+      <div style="display: flex; gap: 12px; align-items: center">
+        <span style="{{step.dot}}">{{step.mark}}</span>
+        <span style="{{step.text}}">{{step.label}}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+    <div style="border-radius: 14px; background: #F4F8F6; border: 1px solid #D3DED8; padding: 12px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #52625C">Today's price</span><span style="font-weight: 700; font-size: 17px">$3.50</span></div>
+    <div style="border-radius: 14px; background: #F4F8F6; border: 1px solid #D3DED8; padding: 12px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #52625C">Cap (+5%)</span><span style="font-weight: 700; font-size: 17px">$3.68</span></div>
+    <div style="border-radius: 14px; background: #F4F8F6; border: 1px solid #D3DED8; padding: 12px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #52625C">Limit (+15%)</span><span style="font-weight: 700; font-size: 17px">$4.03</span></div>
+    <div style="border-radius: 14px; background: #F4F8F6; border: 1px solid #D3DED8; padding: 12px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #52625C">Charge (2.3%)</span><span style="font-weight: 700; font-size: 17px">$0.08/gal</span></div>
+  </div>
+
+  <div style="display: flex; gap: 12px; align-items: center">
+    <button onClick="{{reset}}" style="height: 46px; padding: 0 20px; border: 1px solid #0B1B2B; border-radius: 12px; background: #FFFFFF; color: #0B1B2B; font-size: 15px; font-weight: 700">Reset demo</button>
+    <span style="font-size: 13px; color: #52625C">Numbers match Cost of Protection §5.3, cases A, B and C. Simulated money only.</span>
+  </div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = this.fresh();
+  }
+  fresh() {
+    return { screen: 'home', wallet: 0, reserved: 0, gal: 0, lock: null, pickGal: 25, pickStation: 0, pump: 3.5, fill: 20, txns: [], receipt: null, shared: false, saved: 0, hadFall: false, paid: 0, everProtected: false };
+  }
+  renderVals() {
+    var s = this.state;
+    var self = this;
+    var r2 = function (x) { return Math.round(x * 100 + 1e-7) / 100; };
+    var fmt = function (x) { var v = r2(Math.abs(x)); return (x < -0.004 ? '−$' : '$') + v.toFixed(2); };
+    var STATIONS = [
+      { name: 'Shell Downtown', addr: '101 Main St', dist: '0.4 mi', price: 3.5, tag: 'Nearest' },
+      { name: 'BP Central', addr: '220 Congress Ave', dist: '0.9 mi', price: 3.39, tag: 'Cheapest' },
+      { name: 'Chevron Airport', addr: '2901 Airport Blvd', dist: '2.3 mi', price: 3.47, tag: '' }
+    ];
+    var go = function (screen) { return function () { self.setState({ screen: screen }); }; };
+
+    // quote
+    var qSt = s.lock ? s.lock.station : STATIONS[s.pickStation];
+    var qStrike = s.lock ? s.lock.strike : qSt.price * 1.05;
+    var qBoundary = s.lock ? s.lock.boundary : qSt.price * 1.15;
+    var qCpg = qSt.price * 0.023;
+    var qReserve = s.pickGal * qStrike;
+    var qCharge = s.pickGal * qCpg;
+    var qTotal = qReserve + qCharge;
+    var need = qTotal - s.wallet;
+    var topUp = need > 0.004 ? Math.max(100, Math.ceil(need / 50) * 50) : 0;
+
+    var confirmProtect = function () {
+      var st = self.state;
+      var tx = st.txns.slice();
+      var wallet = st.wallet;
+      if (topUp > 0) { wallet += topUp; tx.unshift({ title: 'Added funds', sub: 'Visa ending 4242', amt: topUp }); }
+      wallet -= qTotal;
+      var lock = st.lock || { station: qSt, strike: qStrike, boundary: qBoundary };
+      tx.unshift({ title: 'Protected ' + st.pickGal + ' gal · ' + lock.station.name, sub: 'Max ' + fmt(lock.strike) + '/gal · charge ' + fmt(qCharge), amt: -qTotal });
+      self.setState({ wallet: wallet, reserved: st.reserved + qReserve, gal: st.gal + st.pickGal, lock: lock, txns: tx, screen: 'done', everProtected: true, fill: Math.min(20, st.gal + st.pickGal) });
+    };
+
+    var doFill = function () {
+      var st = self.state;
+      if (!st.lock || st.gal <= 0) return;
+      var g = Math.min(st.fill, st.gal);
+      var P = st.pump, S = st.lock.strike, B = st.lock.boundary;
+      var covered = 0, released = 0, extra = 0, kind;
+      if (P < S - 1e-9) { released = (S - P) * g; kind = 'fall'; }
+      else if (P <= S + 1e-9) { kind = 'flat'; }
+      else if (P <= B + 1e-9) { covered = (P - S) * g; kind = 'rise'; }
+      else { covered = (B - S) * g; extra = (P - B) * g; kind = 'breach'; }
+      var fromTank = kind === 'fall' ? P * g : S * g;
+      var tx = st.txns.slice();
+      tx.unshift({ title: 'Filled ' + g + ' gal at ' + fmt(P), sub: covered > 0 ? 'FuelCap covered ' + fmt(covered) : (kind === 'fall' ? 'Paid the lower pump price' : 'Paid your cap price'), amt: -(fromTank + extra) });
+      if (released > 0) tx.unshift({ title: 'Price fell · returned to wallet', sub: g + ' gal × ' + fmt(S - P), amt: released });
+      var gal = st.gal - g;
+      self.setState({
+        wallet: st.wallet + released - extra,
+        reserved: gal > 0 ? st.reserved - S * g : 0,
+        gal: gal,
+        lock: gal > 0 ? st.lock : null,
+        txns: tx,
+        screen: 'receipt',
+        shared: false,
+        paid: st.paid + 1,
+        hadFall: st.hadFall || kind === 'fall',
+        saved: st.saved + covered + released,
+        fill: Math.min(20, gal) || 20,
+        receipt: { kind: kind, g: g, P: P, S: S, B: B, covered: covered, released: released, extra: extra, fromTank: fromTank, station: st.lock.station.name }
+      });
+    };
+
+    // home status
+    var statusLabel = 'Status', statusValue = '', statusColor = '#FFFFFF';
+    if (s.lock) {
+      var S0 = s.lock.strike, B0 = s.lock.boundary, P0 = s.pump;
+      if (P0 < S0 - 1e-9) { statusLabel = 'Pump is below your cap'; statusValue = 'You pay ' + fmt(P0); statusColor = '#FF9A8C'; }
+      else if (P0 <= S0 + 1e-9) { statusLabel = 'Right at your cap'; statusValue = 'You pay ' + fmt(S0); }
+      else if (P0 <= B0 + 1e-9) { statusLabel = 'FuelCap covers'; statusValue = fmt(P0 - S0) + '/gal'; statusColor = '#FFC24B'; }
+      else { statusLabel = 'Above your limit'; statusValue = 'Covered to ' + fmt(B0); statusColor = '#FFC24B'; }
+    }
+    if (!s.lock && s.pump < 3.5 * 1.05) { /* pre-protection home */ }
+
+    var chip = function (on) { return 'height: 48px; border-radius: 12px; font-size: 15px; font-weight: 700; ' + (on ? 'border: 2px solid #0B7A4B; background: #DFF5E9; color: #0B7A4B' : 'border: 1px solid #D3DED8; background: #FFFFFF; color: #33443D'); };
+    var tab = function (on) { return 'border: none; background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 600; ' + (on ? 'color: #0B7A4B' : 'color: #5E6E68'); };
+
+    var stations = STATIONS.map(function (st, i) {
+      var on = i === s.pickStation;
+      return { name: st.name, meta: st.addr + ' · ' + st.dist, priceText: fmt(st.price), tag: st.tag,
+        style: 'width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-radius: 14px; ' + (on ? 'border: 2px solid #0B7A4B; background: #F1FAF5' : 'border: 1px solid #D3DED8; background: #FFFFFF'),
+        pick: function () { self.setState({ pickStation: i }); } };
+    });
+    var galOptions = [10, 15, 25, 40].map(function (g) { return { label: g + ' gal', style: chip(g === s.pickGal), pick: function () { self.setState({ pickGal: g }); } }; });
+    var fillVals = s.gal > 0 ? [Math.min(10, s.gal), Math.min(20, s.gal), s.gal] : [10, 20, 25];
+    var fillOptions = [
+      { label: fillVals[0] + ' gal', v: fillVals[0] },
+      { label: fillVals[1] + ' gal', v: fillVals[1] },
+      { label: 'All ' + fillVals[2], v: fillVals[2] }
+    ].map(function (f) { return { label: f.label, style: chip(f.v === Math.min(s.fill, s.gal)), pick: function () { self.setState({ fill: f.v }); } }; });
+
+    // QR
+    var qr = [];
+    for (var r = 0; r < 21; r++) for (var c = 0; c < 21; c++) {
+      var dark;
+      var inF = function (r0, c0) { var y = r - r0, x = c - c0; if (y < 0 || x < 0 || y > 6 || x > 6) return null; return (y === 0 || y === 6 || x === 0 || x === 6 || (y >= 2 && y <= 4 && x >= 2 && x <= 4)); };
+      var f = inF(0, 0); if (f === null) f = inF(0, 14); if (f === null) f = inF(14, 0);
+      if (f !== null) dark = f; else if (r === 7 || c === 7 || r === 13 && c < 8 || c === 13 && r < 8) dark = false; else dark = ((r * 7 + c * 13 + r * c) % 5) < 2;
+      qr.push('width: 8px; height: 8px; background: ' + (dark ? '#0B1B2B' : '#FFFFFF'));
+    }
+
+    // receipt
+    var rc = s.receipt;
+    var rHeroStyle = '', rEyebrow = '', rHeadline = '', rSub = '', rRows = [], rTitle = '';
+    if (rc) {
+      var base = 'border-radius: 20px; padding: 22px; display: flex; flex-direction: column; gap: 8px; ';
+      rTitle = rc.g + ' gal at ' + rc.station;
+      if (rc.kind === 'fall') {
+        rHeroStyle = base + 'background: #FF5C48; color: #0B1B2B';
+        rEyebrow = 'PRICE DROPPED · TAILS YOU WIN';
+        rHeadline = fmt(rc.released) + ' back in your wallet';
+        rSub = 'The pump fell to ' + fmt(rc.P) + '. You paid the lower price, not your ' + fmt(rc.S) + ' cap.';
+      } else if (rc.kind === 'rise') {
+        rHeroStyle = base + 'background: #0B1B2B; color: #FFFFFF';
+        rEyebrow = 'PRICE ROSE · HEADS YOU WIN';
+        rHeadline = 'FuelCap covered ' + fmt(rc.covered);
+        rSub = 'The pump hit ' + fmt(rc.P) + '. You paid your cap of ' + fmt(rc.S) + '/gal.';
+      } else if (rc.kind === 'breach') {
+        rHeroStyle = base + 'background: #0B1B2B; color: #FFFFFF';
+        rEyebrow = 'PRICE SPIKED PAST YOUR LIMIT';
+        rHeadline = 'FuelCap covered ' + fmt(rc.covered);
+        rSub = 'The pump hit ' + fmt(rc.P) + '. We covered everything up to ' + fmt(rc.B) + '/gal; the ' + fmt(rc.P - rc.B) + '/gal above that came from your wallet.';
+      } else {
+        rHeroStyle = base + 'background: #DFF5E9; color: #0B1B2B';
+        rEyebrow = 'PAID AT YOUR CAP';
+        rHeadline = 'You paid ' + fmt(rc.S) + '/gal';
+        rSub = 'The pump matched your cap exactly.';
+      }
+      var norm = 'font-weight: 600; color: #0B1B2B';
+      rRows.push({ label: 'Pump total (' + rc.g + ' × ' + fmt(rc.P) + ')', value: fmt(rc.P * rc.g), style: norm });
+      rRows.push({ label: 'Paid from protected fuel', value: fmt(rc.fromTank), style: norm });
+      if (rc.covered > 0) rRows.push({ label: 'Paid by FuelCap', value: fmt(rc.covered), style: 'font-weight: 700; color: #0B7A4B' });
+      if (rc.extra > 0) rRows.push({ label: 'Above your limit, from wallet', value: fmt(rc.extra), style: norm });
+      if (rc.released > 0) rRows.push({ label: 'Returned to your wallet', value: '+' + fmt(rc.released), style: 'font-weight: 700; color: #B03222' });
+    }
+
+    var scenarios = [
+      { p: 3.40, label: 'Price falls', note: 'Case C' },
+      { p: 3.50, label: 'Same as today', note: 'No change' },
+      { p: 3.90, label: 'Price rises', note: 'Case A' },
+      { p: 4.20, label: 'Spike past limit', note: 'Case B' }
+    ].map(function (sc) {
+      var on = Math.abs(sc.p - s.pump) < 1e-9;
+      return { label: sc.label, note: sc.note, price: fmt(sc.p),
+        style: 'min-height: 96px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px; border-radius: 16px; text-align: left; ' + (on ? 'border: 2px solid #0B7A4B; background: #DFF5E9' : 'border: 1px solid #D3DED8; background: #FFFFFF'),
+        pick: function () { self.setState({ pump: sc.p }); } };
+    });
+
+    var stepDefs = [
+      ['Protect 25 gal. Funds are added in the same step.', s.everProtected],
+      ['Move the pump price (right).', Math.abs(s.pump - 3.5) > 1e-9],
+      ['Pay at the pump.', s.paid > 0],
+      ['Show a price fall, the "tails you win" moment.', s.hadFall],
+      ['Share the win.', s.shared]
+    ];
+    var steps = stepDefs.map(function (d, i) {
+      return { label: d[0], mark: d[1] ? '✓' : String(i + 1),
+        dot: 'width: 28px; height: 28px; flex-shrink: 0; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; ' + (d[1] ? 'background: #0B7A4B; color: #FFFFFF' : 'background: #EEF2F0; color: #33443D'),
+        text: 'font-size: 15px; ' + (d[1] ? 'color: #52625C; text-decoration: line-through' : 'color: #0B1B2B') };
+    });
+
+    var txns = s.txns.map(function (t) {
+      return { title: t.title, sub: t.sub, amount: (t.amt > 0 ? '+' : '') + fmt(t.amt), style: 'font-weight: 700; font-size: 14px; white-space: nowrap; ' + (t.amt > 0 ? 'color: #0B7A4B' : 'color: #0B1B2B') };
+    });
+
+    var scr = s.screen;
+    return {
+      goHome: go('home'), goProtect: go('protect'), goPay: go('pay'), goActivity: go('activity'), goAccount: go('account'),
+      reset: function () { self.setState(self.fresh()); },
+      share: function () { self.setState({ shared: true }); },
+      shareLabel: s.shared ? 'Link copied · share it anywhere' : 'Share my win',
+      confirmProtect: confirmProtect, doFill: doFill,
+      homeEmpty: scr === 'home' && !s.lock, homeActive: scr === 'home' && !!s.lock,
+      isProtect: scr === 'protect', isDone: scr === 'done',
+      payEmpty: scr === 'pay' && !s.lock, payActive: scr === 'pay' && !!s.lock,
+      isReceipt: scr === 'receipt' && !!rc, isActivity: scr === 'activity', isAccount: scr === 'account',
+      tabHome: tab(scr === 'home'), tabProtect: tab(scr === 'protect' || scr === 'done'), tabPay: tab(scr === 'pay' || scr === 'receipt'), tabActivity: tab(scr === 'activity'),
+      pumpText: fmt(s.pump), homeCap: fmt(3.5 * 1.05), walletText: fmt(s.wallet),
+      lockLine: s.lock ? s.gal + ' gal at ' + s.lock.station.name : '',
+      lockStationName: s.lock ? s.lock.station.name : '',
+      strikeText: s.lock ? fmt(s.lock.strike) : '', galText: s.gal + ' gal', reservedText: fmt(s.reserved),
+      statusLabel: statusLabel, statusValue: statusValue, statusStyle: 'font-size: 20px; font-weight: 700; color: ' + statusColor,
+      hasSaved: s.saved > 0.004, savedText: fmt(s.saved),
+      canPickStation: !s.lock, lockedStation: !!s.lock, stations: stations, galOptions: galOptions,
+      qRef: fmt(qSt.price), qStrike: fmt(qStrike), qBoundary: fmt(qBoundary), qGal: s.pickGal, qCpg: fmt(qCpg),
+      qReserve: fmt(qReserve), qCharge: fmt(qCharge), qTotal: fmt(qTotal), qNeedsTopUp: topUp > 0, qTopUp: fmt(topUp),
+      qCta: topUp > 0 ? 'Add ' + fmt(topUp) + ' & protect ' + s.pickGal + ' gal' : 'Protect ' + s.pickGal + ' gal · ' + fmt(qTotal),
+      qr: qr, fillOptions: fillOptions, fillCta: 'Start fill · ' + Math.min(s.fill, s.gal) + ' gal (simulated)',
+      rHeroStyle: rHeroStyle, rEyebrow: rEyebrow, rHeadline: rHeadline, rSub: rSub, rRows: rRows, rTitle: rTitle,
+      noTxns: s.txns.length === 0, txns: txns,
+      scenarios: scenarios, steps: steps
+    };
+  }
+}
+</script>
+</body>
+</html>
