@@ -46,15 +46,15 @@ export function StaffAdmin({ canInvite, currentUserId, initialStaff, events }: {
       setEmail(""); setDisplayName(""); setRoles([]);
       return;
     }
-    setMessage({ tone: "error", text: body.error === "ROLE_ASSIGNMENT_CONFLICT" ? "Those roles can't be combined (auditors and demo presenters must hold a single role)." : body.error === "ALREADY_REGISTERED" ? "That email already has an account." : "The invite couldn't be sent. Check the details and try again." });
+    setMessage({ tone: "error", text: body.error === "ROLE_ASSIGNMENT_CONFLICT" ? "Those roles can't be combined (auditors and demo presenters must hold a single role)." : body.error === "ALREADY_REGISTERED" ? "That email already has an account, possibly a customer account in the shared sign-in project. Invite staff on a separate work address." : "The invite couldn't be sent. Check the details and try again." });
   }
 
   /** Platform-admin actions on someone else's account; the server insists on a fresh step-up. */
-  async function manage(member: StaffRecord, kind: "toggle" | "reset") {
+  async function manage(member: StaffRecord, kind: "toggle" | "reset" | "password") {
     setStaffMessage(null);
     const send = () => kind === "toggle"
       ? fetch(`/api/admin/staff/${member.userId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ active: !member.active }) })
-      : fetch(`/api/admin/staff/${member.userId}/reset-mfa`, { method: "POST" });
+      : fetch(`/api/admin/staff/${member.userId}/${kind === "reset" ? "reset-mfa" : "password-reset"}`, { method: "POST" });
     let response = await send();
     if (response.status === 428) {
       if (!(await requestStepUp("manage-staff"))) return;
@@ -64,6 +64,8 @@ export function StaffAdmin({ canInvite, currentUserId, initialStaff, events }: {
     if (kind === "toggle") {
       setStaff((current) => current.map((entry) => entry.userId === member.userId ? { ...entry, active: !entry.active } : entry));
       setStaffMessage({ tone: "ok", text: `${member.displayName}'s access is ${member.active ? "disabled" : "enabled"}.` });
+    } else if (kind === "password") {
+      setStaffMessage({ tone: "ok", text: `Password reset email sent to ${member.email}. The link opens the control room; they'll still need their authenticator code.` });
     } else {
       setStaffMessage({ tone: "ok", text: `${member.displayName}'s authenticators were removed. They'll set up a new one at their next sign-in.` });
     }
@@ -80,6 +82,7 @@ export function StaffAdmin({ canInvite, currentUserId, initialStaff, events }: {
           {canInvite && <td>{member.userId === currentUserId ? <small>You</small> : <div className="staff-actions">
             <button type="button" onClick={() => void manage(member, "toggle")} aria-label={`${member.active ? "Disable" : "Enable"} access for ${member.email}`}>{member.active ? "Disable access" : "Enable access"}</button>
             <button type="button" onClick={() => void manage(member, "reset")} aria-label={`Reset authenticator for ${member.email}`}>Reset authenticator</button>
+            <button type="button" onClick={() => void manage(member, "password")} aria-label={`Send password reset to ${member.email}`}>Send password reset</button>
           </div>}</td>}
         </tr>)}</tbody>
       </table>

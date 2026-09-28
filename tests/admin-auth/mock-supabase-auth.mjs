@@ -12,6 +12,8 @@ const JWT_SECRET = process.env.MOCK_JWT_SECRET ?? "mock-jwt-secret-for-admin-e2e
 const SERVICE_KEY = process.env.MOCK_SERVICE_KEY ?? "mock-service-role-key";
 const SEED = process.env.ADMIN_E2E_SEED ?? fileURLToPath(new URL("./seed.json", import.meta.url));
 const TOKEN_TTL = 3600;
+// The shared project's Site URL is the customer app; links without an allowed redirect address fall back to it.
+const SITE_URL = process.env.MOCK_SITE_URL ?? "http://127.0.0.1:3000";
 
 /* ---------- TOTP (RFC 6238, SHA-1, 30 s, 6 digits) ---------- */
 const BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -103,9 +105,11 @@ createServer(async (req, res) => {
   try {
     // Test-only helpers.
     if (path === "/__test/reset" && req.method === "POST") { reset(); return send(res, 200, { ok: true }); }
-    if (path === "/__test/invite-link" && req.method === "GET") {
-      const entry = [...invites.entries()].find(([, invite]) => invite.email === url.searchParams.get("email"));
-      return entry ? send(res, 200, { token_hash: entry[0], type: "invite" }) : fail(res, 404, "not_found", "No invite for that email");
+    // The most recent email link of a type for an address, with the redirect address the app asked for. The real
+    // email templates build links as {{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=... (see ADMIN_AUTH.md).
+    if (path === "/__test/email-link" && req.method === "GET") {
+      const entry = [...invites.entries()].reverse().find(([, link]) => link.email === url.searchParams.get("email") && link.type === url.searchParams.get("type"));
+      return entry ? send(res, 200, { token_hash: entry[0], type: entry[1].type, redirect_to: entry[1].redirectTo }) : fail(res, 404, "not_found", "No email link for that address");
     }
     if (path === "/health") return send(res, 200, { ok: true });
 
@@ -125,7 +129,7 @@ createServer(async (req, res) => {
 
     if (path === "/verify" && req.method === "POST") {
       const invite = invites.get(body.token_hash);
-      if (!invite || invite.used || !["invite", "recovery"].includes(body.type)) return fail(res, 403, "otp_expired", "Email link is invalid or has expired");
+      if (!invite || invite.used || invite.type !== body.type) return fail(res, 403, "otp_expired", "Email link is invalid or has expired");
       invite.used = true;
       return send(res, 200, issue(openSession(users.get(invite.userId), "otp")));
     }
@@ -136,8 +140,24 @@ createServer(async (req, res) => {
       if ([...users.values()].some((user) => user.email === email)) return fail(res, 422, "email_exists", "A user with this email address has already been registered");
       const user = { id: randomUUID(), email, password: null, factors: [], metadata: body.data ?? {}, created_at: new Date().toISOString() };
       users.set(user.id, user);
-      invites.set(randomBytes(16).toString("hex"), { email, userId: user.id, used: false });
+      invites.set(randomBytes(16).toString("hex"), { email, userId: user.id, used: false, type: "invite", redirectTo: url.searchParams.get("redirect_to") ?? SITE_URL });
       return send(res, 200, userJson(user));
+    }
+
+    // Public sign-up (on in the shared customer project, DEC-064): anyone with the public key can create an account.
+    if (path === "/signup" && req.method === "POST") {
+      const email = String(body.email ?? "").toLowerCase();
+      if ([...users.values()].some((user) => user.email === email)) return fail(res, 422, "user_already_exists", "User already registered");
+      const user = { id: randomUUID(), email, password: String(body.password ?? ""), factors: [], metadata: body.data ?? {}, created_at: new Date().toISOString() };
+      users.set(user.id, user);
+      return send(res, 200, issue(openSession(user, "password")));
+    }
+
+    // Password-reset email. Always 200, like Supabase (no account enumeration).
+    if (path === "/recover" && req.method === "POST") {
+      const user = [...users.values()].find((candidate) => candidate.email === String(body.email ?? "").toLowerCase());
+      if (user) invites.set(randomBytes(16).toString("hex"), { email: user.email, userId: user.id, used: false, type: "recovery", redirectTo: url.searchParams.get("redirect_to") ?? SITE_URL });
+      return send(res, 200, {});
     }
 
     const adminFactors = path.match(/^\/admin\/users\/([^/]+)\/factors(?:\/([^/]+))?$/);

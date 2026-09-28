@@ -1,40 +1,20 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { PGlite } from "@electric-sql/pglite";
+import type { PGlite } from "@electric-sql/pglite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { adminMigration, as as asUser, supabaseLikeDatabase } from "./test-support";
 
-// Runs the real migration in an in-process Postgres (PGlite) with a stand-in for Supabase's auth schema,
-// then checks the row-level-security rules as the `authenticated` role with aal1 and aal2 JWT claims.
+// Runs the admin migration in an in-process Postgres (PGlite) set up like a Supabase project (roles, auth schema,
+// default grants), then checks the row-level-security rules as `authenticated` with aal1 and aal2 JWT claims.
 
 const PA = "00000000-0000-0000-0000-00000000000a";
 const RT = "00000000-0000-0000-0000-00000000000b";
 const AU = "00000000-0000-0000-0000-00000000000c";
 let db: PGlite;
-
-async function as<T>(claims: Record<string, unknown> | null, run: () => Promise<T>) {
-  await db.exec("begin");
-  try {
-    await db.query("select set_config('request.jwt.claims', $1, true)", [claims ? JSON.stringify(claims) : ""]);
-    await db.exec(`set local role ${claims ? "authenticated" : "anon"}`);
-    return await run();
-  } finally {
-    await db.exec("rollback");
-  }
-}
+const as = <T>(claims: Record<string, unknown> | null, run: () => Promise<T>) => asUser(db, claims, run);
 const staffRows = async () => (await db.query<{ user_id: string }>("select user_id from public.admin_staff order by user_id")).rows.map((row) => row.user_id);
 
 beforeAll(async () => {
-  db = new PGlite();
-  await db.exec(`
-    create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
-    create schema auth;
-    grant usage on schema auth, public to anon, authenticated, service_role;
-    create table auth.users (id uuid primary key);
-    create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
-    create function auth.uid() returns uuid language sql stable as $$ select nullif(auth.jwt() ->> 'sub', '')::uuid $$;
-    grant execute on all functions in schema auth to anon, authenticated, service_role;
-  `);
-  await db.exec(readFileSync(path.join(__dirname, "migrations", "202609280001_admin_auth.sql"), "utf8"));
+  db = await supabaseLikeDatabase();
+  await db.exec(adminMigration());
   await db.exec(`
     insert into auth.users values ('${PA}'), ('${RT}'), ('${AU}');
     insert into public.admin_staff (user_id, email, display_name, roles) values

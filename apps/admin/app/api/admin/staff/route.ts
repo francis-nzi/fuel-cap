@@ -18,7 +18,11 @@ export async function GET() {
   return NextResponse.json({ staff: await listStaff(context.config) }, { headers: noStore });
 }
 
-/** Invite a member of staff (platform admins only, with a fresh step-up). Public sign-up stays off. */
+/**
+ * Invite a member of staff (platform admins only, with a fresh step-up). The Supabase project is shared with the
+ * customer app (DEC-064): the invite email's link follows redirectTo to the control room (see docs/ADMIN_AUTH.md), and
+ * signing up through the customer app never makes anyone staff; only this admin_staff row does.
+ */
 export async function POST(request: NextRequest) {
   const context = await requireStaffApi();
   if (context instanceof NextResponse) return context;

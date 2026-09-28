@@ -1,5 +1,6 @@
 -- FuelCap Control Room: staff roles and the security audit log.
--- Runs in the STAFF Supabase project (separate from the customer project; see apps/admin/docs/ADMIN_AUTH.md).
+-- Runs in the Supabase project the control room signs in with: for now the customer project (DEC-064), later a
+-- separate staff project (see apps/admin/docs/ADMIN_AUTH.md). It only adds admin_* objects and changes nothing else.
 --
 -- Rules:
 --   * Every rule for signed-in users also requires an MFA-verified session (JWT aal = 'aal2'). These are

@@ -9,7 +9,7 @@ export type AuditEvent =
   | "STEP_UP_SUCCEEDED" | "STEP_UP_FAILED"
   | "GOVERNED_ACTION_ALLOWED" | "GOVERNED_ACTION_DENIED"
   | "STAFF_INVITED" | "STAFF_INVITE_FAILED" | "STAFF_DISABLED" | "STAFF_ENABLED"
-  | "MFA_RESET_BY_ADMIN" | "MFA_FACTOR_REMOVED"
+  | "MFA_RESET_BY_ADMIN" | "MFA_FACTOR_REMOVED" | "PASSWORD_RESET_SENT"
   | "SIGN_OUT" | "SESSION_TIMEOUT";
 
 export type RequestMeta = { ip: string | null; userAgent: string | null };

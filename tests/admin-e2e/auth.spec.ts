@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page, type TestInfo } from "@playwright/test";
-import { enterStepUpCode, freshCode, inviteLink, passwordStep, rewindIdleClock, signIn, staff, wrongCode } from "../admin-auth/helpers";
+import { emailLink, enterStepUpCode, freshCode, inviteLink, passMfaDirectly, passwordStep, plantSession, rewindIdleClock, signIn, signUpAsCustomer, staff, wrongCode } from "../admin-auth/helpers";
 
 // Control-room sign-in: Supabase Auth (mock server in tests), invite-only, authenticator-app MFA (aal2)
 // on every page and API route, step-up for sensitive actions, 30-minute idle sign-out, audit trail.
@@ -119,7 +119,10 @@ async function inviteAndEnrol(page: Page, browser: Browser, testInfo: TestInfo, 
   await expect(page.getByRole("status").getByText(`Invite sent to ${email}`)).toBeVisible();
 
   const invitee = await (await browser.newContext({ baseURL: testInfo.project.use.baseURL })).newPage();
-  await invitee.goto(await inviteLink(email));
+  // The shared project's Site URL is the customer app; the invite link must still open the control room (DEC-064).
+  const link = await inviteLink(email);
+  expect(link.startsWith(`${testInfo.project.use.baseURL}/auth/confirm?`), link).toBe(true);
+  await invitee.goto(link);
   await expect(invitee).toHaveURL(/\/auth\/set-password$/);
   await invitee.waitForLoadState("networkidle");
   await invitee.getByLabel("New password").fill(password);
@@ -201,8 +204,78 @@ test("wrong passwords and non-staff accounts are refused, and the attempts are a
   await expect(log.getByRole("row").filter({ hasText: "SIGN_IN_DENIED_NOT_STAFF" }).filter({ hasText: staff.outsider.email }).first()).toBeVisible();
 });
 
+test("a customer account from the shared sign-in project is refused, even with MFA passed (DEC-064)", async ({ page }, testInfo) => {
+  test.slow();
+  const email = `customer-${Date.now()}-${testInfo.project.name}@example.test`;
+  const password = "customer-password-2026";
+  // Public sign-up is on in the shared Supabase project, so anyone can create an account the customer app's way.
+  const customer = await signUpAsCustomer(email, password);
+
+  // Password sign-in to the control room is refused like any account without an active admin_staff record.
+  await passwordStep(page, { email, password });
+  await expect(page.getByRole("alert").filter({ hasText: "didn't match a staff account" })).toBeVisible();
+  await expect(page).toHaveURL(/\/login$/);
+
+  // Worst case: the customer turns on an authenticator themselves (aal2) and plants that session and a live idle
+  // clock in the browser. The proxy's checks pass, but the staff-record check still refuses every API and page.
+  await plantSession(page, await passMfaDirectly(customer), testInfo.project.use.baseURL!);
+  for (const [method, path] of [["GET", "/api/demo/control"], ["POST", "/api/demo/control"], ["GET", "/api/customer-lifecycle"], ["GET", "/api/live-pricing"], ["GET", "/api/admin/staff"], ["POST", "/api/admin/governed-actions"], ["POST", "/api/auth/step-up"]]) {
+    const response = await page.request.fetch(path, { method, data: method === "POST" ? { command: "PUBLISH_PRICE_RISE", action: "initiate-hedge", code: "123456" } : undefined });
+    expect(response.status(), `${method} ${path}`).toBe(403);
+    expect((await response.json()).error, `${method} ${path}`).toBe("NOT_STAFF");
+  }
+  for (const path of ["/", "/staff", "/account"]) {
+    await page.goto(path);
+    await expect(page, path).toHaveURL(/\/login\?error=NOT_STAFF$/);
+  }
+  await expect(controlRoomHeading(page)).toHaveCount(0);
+
+  await page.context().clearCookies();
+  await signIn(page, staff.admin);
+  await page.goto("/staff");
+  const log = page.getByRole("region", { name: "Recent security events" });
+  await expect(log.getByRole("row").filter({ hasText: "SIGN_IN_DENIED_NOT_STAFF" }).filter({ hasText: email }).first()).toBeVisible();
+  await expect(page.getByRole("region", { name: "Staff" }).getByText(email)).toHaveCount(0);
+});
+
+test("a staff password reset emails a link that opens the control room, not the customer app (DEC-064)", async ({ page, browser }, testInfo) => {
+  test.slow(); // two people, several screens and a step-up
+  await signIn(page, staff.admin);
+  const { email, secret, invitee } = await inviteAndEnrol(page, browser, testInfo, "reset");
+  await invitee.context().clearCookies();
+
+  await page.goto("/staff", { waitUntil: "networkidle" });
+  // The step-up from sending the invite is still inside its 5-minute window, so no new code is asked for.
+  await page.getByRole("button", { name: `Send password reset to ${email}` }).click();
+  await expect(page.getByRole("status").getByText(`Password reset email sent to ${email}`)).toBeVisible();
+
+  const link = await emailLink(email, "recovery");
+  expect(link.startsWith(`${testInfo.project.use.baseURL}/auth/confirm?`), link).toBe(true);
+  await invitee.goto(link);
+  await expect(invitee).toHaveURL(/\/auth\/set-password$/);
+  await invitee.waitForLoadState("networkidle");
+  const password = "reset-password-2026";
+  await invitee.getByLabel("New password").fill(password);
+  await invitee.getByLabel("Confirm password").fill(password);
+  await invitee.getByRole("button", { name: "Save and continue" }).click();
+  // A new password alone doesn't get in: the authenticator code is still required.
+  await expect(invitee.getByRole("heading", { name: "Enter your authenticator code" })).toBeVisible();
+  await invitee.goto("/");
+  await expect(invitee).toHaveURL(/\/mfa$/);
+  await invitee.waitForLoadState("networkidle");
+  await invitee.getByLabel("6-digit code").fill(await freshCode(secret));
+  await invitee.getByRole("button", { name: "Verify" }).click();
+  await expect(controlRoomHeading(invitee)).toBeVisible();
+  await invitee.context().close();
+
+  await page.reload();
+  await expect(page.getByRole("region", { name: "Recent security events" }).getByText("PASSWORD_RESET_SENT", { exact: true }).first()).toBeVisible();
+});
+
 test("30 minutes without activity signs you out on the server", async ({ page }) => {
   await signIn(page, staff.risk);
+  // Leave the control room first, so no background request meets the rewound clock before the page load does.
+  await page.goto("about:blank");
   await rewindIdleClock(page, 31);
   await page.goto("/");
   await expect(page).toHaveURL(/\/login\?reason=timeout$/);
