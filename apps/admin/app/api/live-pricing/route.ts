@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireStaffApi } from "@/lib/auth/guard";
 
 export const dynamic = "force-dynamic";
 
@@ -6,6 +7,8 @@ type Option = { scopeType: "station" | "provider" | "country"; label: string; pr
 type Feed = { source: string; live: boolean; options: Option[]; minimumPrice?: Option; maximumPrice?: Option; stationCount?: number; providerCount?: number; freshestObservedAt?: string; oldestObservedAt?: string; fetchedAt?: string; batches?: { prices: number; forecourts: number } };
 
 export async function GET() {
+  const context = await requireStaffApi();
+  if (context instanceof NextResponse) return context;
   const customerOrigin = process.env.CUSTOMER_APP_ORIGIN ?? "https://fuel-cap-1.onrender.com";
   try {
     const response = await fetch(new URL("/api/fuel-finder", customerOrigin), { cache: "no-store", signal: AbortSignal.timeout(45_000) });
@@ -28,7 +31,7 @@ export async function GET() {
       minimumPrice: feed.minimumPrice ?? sorted[0] ?? null,
       maximumPrice: feed.maximumPrice ?? sorted.at(-1) ?? null,
       leadingProviders: providers.slice(0, 6),
-    }, { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" } });
+    }, { headers: { "Cache-Control": "private, max-age=60" } });
   } catch (error) {
     return NextResponse.json({ live: false, error: error instanceof Error ? error.message : "LIVE_PRICING_UNAVAILABLE" }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }

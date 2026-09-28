@@ -1,0 +1,9 @@
+{
+  "_note": "Test-only fixtures for the mock Supabase Auth server and the in-memory staff store. Not real accounts.",
+  "users": [
+    { "id": "e2e00000-0000-4000-8000-000000000001", "email": "presenter@fuelcap.test", "password": "presenter-e2e-password", "name": "Pat Presenter", "roles": ["DP"], "totpSecret": "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP" },
+    { "id": "e2e00000-0000-4000-8000-000000000002", "email": "risk@fuelcap.test", "password": "risk-e2e-password-2026", "name": "Riley Risk", "roles": ["RT"], "totpSecret": "KRSXG5CTMVRXEZLUKRSXG5CTMVRXEZLU" },
+    { "id": "e2e00000-0000-4000-8000-000000000003", "email": "admin@fuelcap.test", "password": "platform-admin-e2e-pass", "name": "Pia Platform", "roles": ["PA"], "totpSecret": "MFRGGZDFMZTWQ2LKMFRGGZDFMZTWQ2LK" },
+    { "id": "e2e00000-0000-4000-8000-000000000005", "email": "outsider@fuelcap.test", "password": "outsider-e2e-password", "name": "Olly Outsider", "roles": ["OP"], "totpSecret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", "staff": false }
+  ]
+}

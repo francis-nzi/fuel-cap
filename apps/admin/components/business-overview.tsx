@@ -14,7 +14,7 @@ const economics = {
   operatingCostsMinor: 231_600,
 };
 
-export function BusinessOverview({ actorId, role }: { actorId: string; role: string }) {
+export function BusinessOverview() {
   const grossContribution = economics.feesCollectedMinor + economics.insuranceRecoveryMinor - economics.protectionCostMinor - economics.claimsPaidMinor - economics.operatingCostsMinor;
   return <div className="business-overview">
     <section className="business-hero"><div><span>Business overview · United States</span><h1>Customer funds, fuel exposure and operating performance</h1><p>A commercial view of how customer money becomes protected fuel, retailer settlement and FuelCap margin.</p></div><div className="business-hero__state"><ShieldCheck size={18}/><span>Customer funds</span><strong>Fully accounted for</strong></div></section>
@@ -38,6 +38,6 @@ export function BusinessOverview({ actorId, role }: { actorId: string; role: str
 
     <section className="business-card" tabIndex={0} aria-label="Scrollable price risk scenarios"><div className="business-card__heading"><div><span>Estimated spread risk</span><h2>What happens if fuel prices move?</h2></div><strong>Accepted positions only</strong></div><div className="scenario-table" role="table" aria-label="Price risk scenarios"><div role="row"><b role="columnheader">Scenario</b><b role="columnheader">Expected claims</b><b role="columnheader">Insurance / hedge</b><b role="columnheader">Reserve use</b><b role="columnheader">Position</b></div>{stressProjections.slice(0,5).map((stress)=><div role="row" key={stress.stressId}><span role="cell">{stress.label}</span><strong role="cell">{dollars(stress.expectedClaimsMinor)}</strong><span role="cell">{dollars(stress.simulatedPayoffMinor)}</span><span role="cell">{dollars(stress.reserveUseMinor)}</span><em role="cell" className={`scenario-outcome scenario-outcome--${stress.outcome.toLowerCase()}`}>{stress.outcome}</em></div>)}</div></section>
 
-    <DemoControlBridge actorId={actorId} role={role}/>
+    <DemoControlBridge/>
   </div>;
 }

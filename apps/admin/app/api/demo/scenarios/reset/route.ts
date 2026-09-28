@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
 import { isScenarioId, resetDemonstratorScenario } from "@fuelcap/demo-data/reset";
 import type { DemoEnvironment } from "@fuelcap/demo-data";
+import { authzEnvironment } from "@/lib/auth/config";
+import { requireStaffApi } from "@/lib/auth/guard";
 
 export const dynamic = "force-dynamic";
 
-function environment(): DemoEnvironment {
-  const value = process.env.NEXT_PUBLIC_APP_ENV;
-  if (value === "production" || value === "staging") return value;
-  return "demo";
-}
-
+/** Scenario reset: presenter scope comes from the signed-in person's DP role, not from request headers. */
 export async function POST(request: Request) {
+  const context = await requireStaffApi();
+  if (context instanceof NextResponse) return context;
   let body: { scenarioId?: unknown };
   try {
     body = await request.json();
@@ -25,9 +24,9 @@ export async function POST(request: Request) {
   try {
     const result = resetDemonstratorScenario({
       scenarioId: body.scenarioId,
-      environment: environment(),
-      role: request.headers.get("x-fuelcap-demo-role") ?? "",
-      requestedBy: request.headers.get("x-fuelcap-demo-principal") ?? "",
+      environment: authzEnvironment() as DemoEnvironment,
+      role: context.principal.roles.includes("DP") ? "demonstrator-presenter" : context.principal.roles[0],
+      requestedBy: context.principal.email,
       idempotencyKey: request.headers.get("idempotency-key") ?? "",
     });
     return NextResponse.json(result, {

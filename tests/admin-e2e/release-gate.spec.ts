@@ -1,5 +1,10 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { enterStepUpCode, staff } from "../admin-auth/helpers";
+import { presenterState, riskState } from "./global-setup";
+
+// Every journey runs as a real signed-in member of staff (password + authenticator app, aal2).
+test.use({ storageState: presenterState });
 
 async function expectNoSeriousAccessibilityViolations(page: import("@playwright/test").Page) {
   const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
@@ -22,7 +27,9 @@ test("presenter is denied a governed risk action", async ({ page }) => {
   await page.getByText("Advanced operations and technical controls").click();
   await page.getByRole("button", { name: /Test denied action/ }).click();
   await expect(page.getByRole("status").getByText("Permission denied")).toBeVisible();
+  // Break-glass needs a fresh authenticator code before the server even evaluates it (and then refuses).
   await page.getByRole("button", { name: /Test break-glass boundary/ }).click();
+  await enterStepUpCode(page, staff.presenter.totpSecret!);
   await expect(page.getByRole("status").getByText("Break-glass boundary enforced")).toBeVisible();
 });
 
@@ -63,11 +70,10 @@ test("spread decisions expose impact and fail closed beyond change limits", asyn
   await expectNoSeriousAccessibilityViolations(page);
 });
 
+test.describe("as the risk trader", () => {
+test.use({ storageState: riskState });
 test("risk trader completes a governed spread lifecycle rehearsal", async ({ page }) => {
   await page.goto("/");
-  const desktopPrincipal = page.getByLabel("Demo principal");
-  if (await desktopPrincipal.isVisible()) await desktopPrincipal.selectOption("principal-risk");
-  else await page.getByLabel("Principal", { exact: true }).selectOption("principal-risk");
   if (await page.getByRole("button", { name: "Open navigation" }).isVisible()) await page.getByRole("button", { name: "Open navigation" }).click();
   await page.getByRole("button", { name: "Spread & FX" }).click();
   await page.getByLabel("Modelled protection cost percent").fill("1.40");
@@ -79,6 +85,7 @@ test("risk trader completes a governed spread lifecycle rehearsal", async ({ pag
   await expect(page.getByText("Stops new quotes only", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectNoSeriousAccessibilityViolations(page);
+});
 });
 
 test("tenant switching fails closed for platform risk records", async ({ page }) => {

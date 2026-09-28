@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { adminE2eEnv, mockAuthServer } from "./tests/admin-auth/env";
 
 export default defineConfig({
   testDir: "./tests/bridge-e2e",
@@ -8,8 +9,9 @@ export default defineConfig({
   timeout: 75_000,
   reporter: process.env.CI ? [["line"], ["html", { outputFolder: "playwright-report/bridge", open: "never" }]] : "line",
   webServer: [
+    mockAuthServer,
     { command: "corepack pnpm dev --port 3000", url: "http://127.0.0.1:3000/api/health", reuseExistingServer: !process.env.CI, timeout: 120_000, env: { DEMO_CONTROL_ORIGIN: "http://127.0.0.1:3001", NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "demo-publishable-key-not-live", NEXT_PUBLIC_FUELCAP_E2E: "true" } },
-    { command: "corepack pnpm --filter @fuelcap/admin dev --port 3001", url: "http://127.0.0.1:3001/api/health", reuseExistingServer: !process.env.CI, timeout: 120_000 },
+    { command: "corepack pnpm --filter @fuelcap/admin dev --port 3001", url: "http://127.0.0.1:3001/api/health", reuseExistingServer: !process.env.CI, timeout: 120_000, env: adminE2eEnv },
   ],
   use: { baseURL: "http://127.0.0.1:3000", screenshot: "only-on-failure", trace: "retain-on-failure" },
   projects: [
