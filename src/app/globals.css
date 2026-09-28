@@ -17,20 +17,23 @@
   --font-display: var(--font-space-grotesk);
 }
 
-* { box-sizing: border-box; }
-html { background: var(--canvas); }
-body {
-  margin: 0;
-  background: var(--canvas);
-  color: var(--midnight);
-  font-family: var(--font-inter), Arial, sans-serif;
-  letter-spacing: 0;
-}
-button, input, select { font: inherit; }
-button, a { -webkit-tap-highlight-color: transparent; }
-button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
-  outline: 3px solid rgba(11, 167, 94, 0.28);
-  outline-offset: 2px;
+/* Base rules live in the base layer so Tailwind utilities (e.g. font-bold on a button) can override them. */
+@layer base {
+  * { box-sizing: border-box; }
+  html { background: var(--canvas); }
+  body {
+    margin: 0;
+    background: var(--canvas);
+    color: var(--midnight);
+    font-family: var(--font-inter), Arial, sans-serif;
+    letter-spacing: 0;
+  }
+  button, input, select { font: inherit; }
+  button, a { -webkit-tap-highlight-color: transparent; }
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 3px solid rgba(11, 167, 94, 0.28);
+    outline-offset: 2px;
+  }
 }
 @keyframes enter {
   from { opacity: 0; transform: translateY(5px); }

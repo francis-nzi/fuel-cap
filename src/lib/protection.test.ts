@@ -18,6 +18,13 @@ describe("protection pricing (Cost of Protection §5.3)", () => {
     expect(cents(quote.chargePerUnit)).toBe(0.08);
   });
 
+  it("keeps the existing cap when adding fuel, charging at today's rate", () => {
+    const first = quoteProtection(3.5, 25);
+    const more = quoteProtection(3.9, 10, first);
+    expect(more).toMatchObject({ strike: 3.675, boundary: 4.025, chargePerUnit: 0.0897, held: 36.75 });
+    expect(more.total).toBe(cents(36.75 + cents(0.897)));
+  });
+
   it("tops up by at least 100, else the shortfall rounded up to the next 50", () => {
     expect(topUpFor(93.89, 0)).toBe(100);
     expect(topUpFor(93.89, 93.89)).toBe(0);

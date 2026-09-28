@@ -17,22 +17,23 @@ test("admin governs the separate customer demonstrator without mutating an accep
   // The customer app shows no operator banner; the control room's moves show up as the customer's prices.
   // US demo station: $3.50 at the control baseline ($3.42); the published rise (+$0.25) takes it to $3.75.
   await admin.getByRole("button", { name: /Reset baseline/ }).click();
-  await expect(page.getByTestId("headline-unit-price")).toContainText("$3.50/gal", { timeout: 10_000 });
+  await expect(page.getByTestId("headline-unit-price")).toContainText("$3.50", { timeout: 10_000 });
   await expect(page.getByText("Price protection service", { exact: false })).toHaveCount(0);
 
   await admin.getByRole("button", { name: /Publish price rise/ }).click();
   await expect(admin.getByRole("status").filter({ hasText: "simulated price rise" })).toBeVisible();
-  await expect(page.getByTestId("headline-unit-price")).toContainText("$3.75/gal", { timeout: 10_000 });
-  await customerClick(page.getByRole("button", { name: "Lock price" }).first());
-  await expect(page.getByText("$3.75/gal", { exact: false }).first()).toBeVisible();
+  await expect(page.getByTestId("headline-unit-price")).toContainText("$3.75", { timeout: 10_000 });
+  await customerClick(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button", { name: "Protect", exact: true }));
+  await expect(page.getByRole("radio", { name: /Shell Downtown/ })).toContainText("$3.75");
+  await expect(page.getByLabel("Protection summary")).toContainText("5% above today's $3.75");
 
   await admin.getByRole("button", { name: /Stop new quotes/ }).click();
   await expect(page.getByRole("status").filter({ hasText: "New protections are paused" })).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByRole("button", { name: "Confirm price lock" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "New protections paused" })).toBeDisabled();
 
   await admin.getByRole("button", { name: /Reset baseline/ }).click();
   await expect(page.getByRole("status").filter({ hasText: "New protections are paused" })).toHaveCount(0, { timeout: 10_000 });
-  await expect(page.getByRole("button", { name: "Confirm price lock" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Add $100.00 & protect 25 gal" })).toBeEnabled();
 
   await customerClick(page.getByRole("button", { name: "Home", exact: true }));
   await customerClick(page.getByRole("button", { name: "Create your profile" }));

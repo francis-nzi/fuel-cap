@@ -25,9 +25,13 @@ export type Quote = {
   total: number;
 };
 
-export function quoteProtection(reference: number, volume: number): Quote {
-  const strike = round4(reference * (1 + STRIKE_MARKUP));
-  const boundary = round4(reference * (1 + BOUNDARY_MARKUP));
+/**
+ * Quote `volume` at today's `reference` price. Adding fuel to an existing protection keeps its
+ * cap (`existing` strike and boundary) and charges at today's rate.
+ */
+export function quoteProtection(reference: number, volume: number, existing?: { strike: number; boundary: number }): Quote {
+  const strike = existing?.strike ?? round4(reference * (1 + STRIKE_MARKUP));
+  const boundary = existing?.boundary ?? round4(reference * (1 + BOUNDARY_MARKUP));
   const chargePerUnit = round4(reference * CHARGE_RATE);
   const held = round4(volume * strike);
   const charge = round4(volume * chargePerUnit);
