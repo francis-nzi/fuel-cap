@@ -60,6 +60,16 @@ export type Settlement = {
   heldReleased: number;
 };
 
+/** How much less the member paid than today's reference price, when the pump fell below it. */
+export function savedVsReference(fill: Settlement, reference: number) {
+  return cents(Math.max(reference - fill.pumpPrice, 0) * fill.volume);
+}
+
+/** "Saved with FuelCap" for one fill: FuelCap's payout plus any saving against today's reference price. */
+export function savingOnFill(fill: Settlement, reference: number) {
+  return cents(fill.coveredByFuelCap + savedVsReference(fill, reference));
+}
+
 export function settleFill(volume: number, pumpPrice: number, strike: number, boundary: number): Settlement {
   const stationTotal = cents(volume * pumpPrice);
   const heldReleased = round4(volume * strike);

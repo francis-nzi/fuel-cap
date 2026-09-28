@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cents, quoteProtection, round4, settleFill, topUpFor } from "./protection";
+import { cents, quoteProtection, round4, savedVsReference, savingOnFill, settleFill, topUpFor } from "./protection";
 
 describe("protection pricing (Cost of Protection §5.3)", () => {
   it("rounds half up without floating-point drift", () => {
@@ -48,6 +48,17 @@ describe("pump settlement acceptance cases (20 gal fill after protecting 25 gal)
 
   it("Case C: fall to $3.40", () => {
     expect(settleFill(20, 3.4, strike, boundary)).toMatchObject({ outcome: "fall", stationTotal: 68, fromProtected: 68, fromWallet: 0, coveredByFuelCap: 0, returnedToWallet: 5.5 });
+  });
+
+  it("counts savings as FuelCap payouts plus the drop below today's price", () => {
+    expect(savingOnFill(settleFill(20, 3.9, strike, boundary), 3.5)).toBe(4.5);
+    expect(savingOnFill(settleFill(20, 4.2, strike, boundary), 3.5)).toBe(7);
+    const fall = settleFill(20, 3.4, strike, boundary);
+    expect(savedVsReference(fall, 3.5)).toBe(2);
+    expect(savingOnFill(fall, 3.5)).toBe(2);
+    expect(fall.returnedToWallet).toBe(5.5);
+    // Below the cap but above today's price: money comes back, but nothing was saved vs today.
+    expect(savingOnFill(settleFill(20, 3.6, strike, boundary), 3.5)).toBe(0);
   });
 
   it("walks the wallet from $0: $6.11 after protecting, $11.61 after Case C with $18.38 still held", () => {

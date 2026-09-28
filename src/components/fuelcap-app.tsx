@@ -4,7 +4,7 @@ import { SlidersHorizontal } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MarketCode, markets, money } from "@/lib/markets";
 import { normalizeOptions, shiftOptions, stationsByPrice, type LockScope, type PriceOption } from "@/lib/price-options";
-import { cents, quoteProtection, round4, settleFill, topUpFor } from "@/lib/protection";
+import { cents, quoteProtection, round4, savedVsReference, savingOnFill, settleFill, topUpFor } from "@/lib/protection";
 import { createClient } from "@/lib/supabase/client";
 import { initialDemoControlSnapshot, type DemoControlSnapshot } from "@fuelcap/demo-control";
 import { servicePlans, type LifecycleCommand, type LifecycleCustomer } from "@fuelcap/demo-data/customer-lifecycle";
@@ -30,7 +30,6 @@ type StoredDemo = { market: MarketCode; accounts: Accounts; onboarded: boolean; 
 
 const STORAGE_KEY = "fuelcap-demo-v3";
 const LEGACY_STORAGE_KEYS = ["fuelcap-demo", "fuelcap-demo-v2"];
-const PRESENTER_KEY = "fuelcap-presenter";
 const DEFAULT_CAP_DAYS = 7;
 const DAY_MS = 86_400_000;
 
@@ -131,7 +130,8 @@ export function FuelCapApp() {
   // One normalised price list per market feeds home, protect and the pump.
   const baseOptions = useMemo(() => (optionsMarket === marketCode ? normalizeOptions(rawOptions, markets[marketCode].name) : []), [rawOptions, optionsMarket, marketCode]);
   const usReferenceRaw = baseOptions.find((option) => option.scopeId === US_REFERENCE_STATION_ID)?.unitPrice ?? PRESENTER_REFERENCE;
-  const usShift = marketCode !== "US" ? 0 : pumpOverride !== null ? round4(pumpOverride - usReferenceRaw) : round4(demoControl.displayUnitPrice - US_CONTROL_BASELINE);
+  // The presenter's pump price applies only while the presenter panel is on (?demo=1).
+  const usShift = marketCode !== "US" ? 0 : presenter && pumpOverride !== null ? round4(pumpOverride - usReferenceRaw) : round4(demoControl.displayUnitPrice - US_CONTROL_BASELINE);
   const options = useMemo(() => (usShift ? shiftOptions(baseOptions, usShift) : baseOptions), [baseOptions, usShift]);
   const stationList = useMemo(() => stationsByPrice(options), [options]);
   const pricesLoading = optionsLoading || optionsMarket !== marketCode;
@@ -256,10 +256,8 @@ export function FuelCapApp() {
       } catch {
         localStorage.removeItem(STORAGE_KEY);
       }
-      try {
-        const fromUrl = new URLSearchParams(window.location.search).get("demo") === "1";
-        if (fromUrl || sessionStorage.getItem(PRESENTER_KEY) === "on") setPresenter(true);
-      } catch { /* presenter stays hidden */ }
+      // Presenter controls appear only with ?demo=1 in the URL; customers never see them.
+      setPresenter(new URLSearchParams(window.location.search).get("demo") === "1");
       setHydrated(true);
     }, 0);
   }, []);
@@ -271,21 +269,6 @@ export function FuelCapApp() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch { /* storage unavailable: the session still works in memory */ }
   }, [hydrated, userId, marketCode, accounts, onboarded, lifecycleCustomer, pumpOverride]);
-
-  // Presenter controls: ?demo=1 or Ctrl + . (never shown to customers otherwise).
-  useEffect(() => {
-    function toggle(event: KeyboardEvent) {
-      if ((event.ctrlKey || event.metaKey) && event.key === ".") {
-        event.preventDefault();
-        setPresenter((current) => {
-          try { sessionStorage.setItem(PRESENTER_KEY, current ? "off" : "on"); } catch { /* ignore */ }
-          return !current;
-        });
-      }
-    }
-    window.addEventListener("keydown", toggle);
-    return () => window.removeEventListener("keydown", toggle);
-  }, []);
 
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_FUELCAP_E2E === "true") return;
@@ -385,7 +368,7 @@ export function FuelCapApp() {
         id: crypto.randomUUID(), type: "redemption", amount: -cents(settlement.fromProtected + settlement.fromWallet), volume: fillVolume, unitPrice: pumpPrice,
         description: `Filled ${fillVolume} ${market.unit} at ${perUnit}`,
         detail: settlement.coveredByFuelCap > 0 ? `FuelCap covered ${money(settlement.coveredByFuelCap, market)}` : settlement.outcome === "fall" ? "Paid the lower pump price" : "Paid your cap price",
-        createdAt: new Date(now).toISOString(), saving: settlement.coveredByFuelCap,
+        createdAt: new Date(now).toISOString(), saving: savingOnFill(settlement, lock.referencePrice),
       }];
       if (settlement.returnedToWallet > 0) entries.unshift({
         id: crypto.randomUUID(), type: "refund", amount: settlement.returnedToWallet, volume: fillVolume, unitPrice: pumpPrice,
@@ -403,7 +386,7 @@ export function FuelCapApp() {
       }));
       setBusy(false);
     }
-    setReceipt({ settlement, station: shortLabel(lock.scopeLabel), strike: lock.strike, boundary: lock.boundary });
+    setReceipt({ settlement, station: shortLabel(lock.scopeLabel), strike: lock.strike, boundary: lock.boundary, reference: lock.referencePrice, savedVsToday: savedVsReference(settlement, lock.referencePrice) });
     setFill(fillStep(market.unit)[1]);
     go("receipt");
   }
@@ -422,7 +405,7 @@ export function FuelCapApp() {
   }
   const shareLabel = shared ? "Link copied · share it anywhere" : "Share my win";
   const receiptShareText = receipt ? receipt.settlement.outcome === "fall"
-    ? `Fuel fell to ${money(receipt.settlement.pumpPrice, market)} and FuelCap put ${money(receipt.settlement.returnedToWallet, market)} back in my wallet. Heads I win, tails I win.`
+    ? `Fuel fell to ${money(receipt.settlement.pumpPrice, market)}: FuelCap put ${money(receipt.settlement.returnedToWallet, market)} back in my wallet${receipt.savedVsToday > 0 ? ` and I saved ${money(receipt.savedVsToday, market)} vs the day I protected` : ""}. Heads I win, tails I win.`
     : `Fuel hit ${money(receipt.settlement.pumpPrice, market)} and FuelCap covered ${money(receipt.settlement.coveredByFuelCap, market)} of my fill.` : "";
 
   function resetDemo() {

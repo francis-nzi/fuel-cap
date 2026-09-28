@@ -37,7 +37,7 @@ export type TransactionRecord = {
 export type Account = { wallet: number; locks: LockRecord[]; transactions: TransactionRecord[] };
 export type Accounts = Record<MarketCode, Account>;
 
-export type Receipt = { settlement: Settlement; station: string; strike: number; boundary: number };
+export type Receipt = { settlement: Settlement; station: string; strike: number; boundary: number; reference: number; savedVsToday: number };
 
 export type MarketProps = { market: Market };
 

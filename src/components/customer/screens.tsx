@@ -82,7 +82,7 @@ export function HomeScreen({ market, firstName, showProfile, startProfile, loadi
 
 function SavedCard({ market, savings, share, shareLabel }: MarketProps & { savings: number; share: () => void; shareLabel: string }) {
   return <section className="flex items-center justify-between gap-3 rounded-2xl bg-[#fff3d6] p-4">
-    <div className="flex flex-col gap-0.5"><span className="text-[13px] text-[#6b5310]">Saved with FuelCap so far</span><span className="font-display text-[22px] font-bold">{money(savings, market)}</span></div>
+    <div className="flex flex-col gap-0.5"><span className="text-[13px] text-[#6b5310]">Saved with FuelCap so far</span><span className="font-display text-[22px] font-bold" data-testid="savings-total">{money(savings, market)}</span></div>
     <button type="button" onClick={share} className="min-h-11 rounded-xl bg-[#ffc24b] px-4 text-sm font-bold text-[#0b1b2b]">{shareLabel}</button>
   </section>;
 }
@@ -212,9 +212,9 @@ export function PayScreen({ market, lock, pumpPrice, fills, fill, setFill, code,
 /* ---------- Receipt ---------- */
 
 export function ReceiptScreen({ market, receipt, share, shareLabel, go }: MarketProps & { receipt: Receipt; share: () => void; shareLabel: string; go: (screen: Screen) => void }) {
-  const { settlement: fill, station, strike, boundary } = receipt;
+  const { settlement: fill, station, strike, boundary, reference, savedVsToday } = receipt;
   const hero = {
-    fall: { style: "bg-[#ff5c48] text-[#0b1b2b]", eyebrow: "PRICE DROPPED · TAILS YOU WIN", headline: `${money(fill.returnedToWallet, market)} back in your wallet`, sub: `The pump fell to ${money(fill.pumpPrice, market)}. You paid the lower price, not your ${money(strike, market)} cap.` },
+    fall: { style: "bg-[#ff5c48] text-[#0b1b2b]", eyebrow: "PRICE DROPPED · TAILS YOU WIN", headline: `${money(fill.returnedToWallet, market)} back in your wallet`, extra: savedVsToday > 0 ? ` · you saved ${money(savedVsToday, market)} vs today's price` : "", sub: `The pump fell to ${money(fill.pumpPrice, market)}. You paid the lower price, not your ${money(strike, market)} cap.` },
     rise: { style: "bg-[#0b1b2b] text-white", eyebrow: "PRICE ROSE · HEADS YOU WIN", headline: `FuelCap covered ${money(fill.coveredByFuelCap, market)}`, sub: `The pump hit ${money(fill.pumpPrice, market)}. You paid your cap of ${perUnit(strike, market)}.` },
     spike: { style: "bg-[#0b1b2b] text-white", eyebrow: "PRICE SPIKED PAST YOUR LIMIT", headline: `FuelCap covered ${money(fill.coveredByFuelCap, market)}`, sub: `The pump hit ${money(fill.pumpPrice, market)}. We covered everything up to ${perUnit(boundary, market)}; the ${perUnit(fill.pumpPrice - cents(boundary), market)} above that came from your wallet.` },
     cap: { style: "bg-[#dff5e9] text-[#0b1b2b]", eyebrow: "PAID AT YOUR CAP", headline: `You paid ${perUnit(strike, market)}`, sub: "The pump matched your cap exactly." },
@@ -222,7 +222,7 @@ export function ReceiptScreen({ market, receipt, share, shareLabel, go }: Market
   return <div className="view-enter flex flex-col gap-4">
     <section className={`flex flex-col gap-2 rounded-[20px] p-[22px] ${hero.style}`} aria-label="Fill result">
       <span className="text-[13px] font-bold tracking-wide">{hero.eyebrow}</span>
-      <h1 className="m-0 font-display text-[34px] font-bold leading-tight">{hero.headline}</h1>
+      <h1 className="m-0 font-display text-[34px] font-bold leading-tight">{hero.headline}{"extra" in hero && hero.extra && <span className="block text-xl leading-snug">{hero.extra}</span>}</h1>
       <p className="m-0 text-sm leading-normal">{hero.sub}</p>
     </section>
     <section className={`${card} flex flex-col gap-2.5 p-4`} aria-label="Fill breakdown">
@@ -232,6 +232,7 @@ export function ReceiptScreen({ market, receipt, share, shareLabel, go }: Market
       {fill.coveredByFuelCap > 0 && <Row label="Paid by FuelCap" value={money(fill.coveredByFuelCap, market)} tone="font-bold text-[#0b7a4b]" />}
       {fill.fromWallet > 0 && <Row label="Above your limit, from wallet" value={money(fill.fromWallet, market)} />}
       {fill.returnedToWallet > 0 && <Row label="Returned to your wallet" value={`+${money(fill.returnedToWallet, market)}`} tone="font-bold text-[#b03222]" />}
+      {savedVsToday > 0 && <Row label={`Saved vs today's ${money(reference, market)}`} value={money(savedVsToday, market)} tone="font-bold text-[#0b7a4b]" />}
     </section>
     <div className="flex flex-col gap-2.5">
       <button type="button" onClick={share} className="min-h-[52px] rounded-[14px] bg-[#ffc24b] text-base font-bold text-[#0b1b2b]">{shareLabel}</button>

@@ -43,9 +43,9 @@ async function setPresenterPump(page: Page, click: (locator: Locator) => Promise
 }
 
 const cases = [
-  { name: "A: rise to $3.90", pump: /Price rises/, headline: "FuelCap covered $4.50", eyebrow: "PRICE ROSE · HEADS YOU WIN", rows: ["Pump total (20 × $3.90)$78.00", "Paid from protected fuel$73.50", "Paid by FuelCap$4.50"], absent: ["Returned to your wallet", "Above your limit"], wallet: "$6.11", coral: false },
-  { name: "B: spike to $4.20", pump: /Spike past limit/, headline: "FuelCap covered $7.00", eyebrow: "PRICE SPIKED PAST YOUR LIMIT", rows: ["Pump total (20 × $4.20)$84.00", "Paid from protected fuel$73.50", "Paid by FuelCap$7.00", "Above your limit, from wallet$3.50"], absent: ["Returned to your wallet"], wallet: "$2.61", coral: false },
-  { name: "C: fall to $3.40", pump: /Price falls/, headline: "$5.50 back in your wallet", eyebrow: "PRICE DROPPED · TAILS YOU WIN", rows: ["Pump total (20 × $3.40)$68.00", "Paid from protected fuel$68.00", "Returned to your wallet+$5.50"], absent: ["Paid by FuelCap", "Above your limit"], wallet: "$11.61", coral: true },
+  { name: "A: rise to $3.90", pump: /Price rises/, headline: "FuelCap covered $4.50", eyebrow: "PRICE ROSE · HEADS YOU WIN", rows: ["Pump total (20 × $3.90)$78.00", "Paid from protected fuel$73.50", "Paid by FuelCap$4.50"], absent: ["Returned to your wallet", "Above your limit", "Saved vs today"], wallet: "$6.11", saved: "$4.50", coral: false },
+  { name: "B: spike to $4.20", pump: /Spike past limit/, headline: "FuelCap covered $7.00", eyebrow: "PRICE SPIKED PAST YOUR LIMIT", rows: ["Pump total (20 × $4.20)$84.00", "Paid from protected fuel$73.50", "Paid by FuelCap$7.00", "Above your limit, from wallet$3.50"], absent: ["Returned to your wallet", "Saved vs today"], wallet: "$2.61", saved: "$7.00", coral: false },
+  { name: "C: fall to $3.40", pump: /Price falls/, headline: "$5.50 back in your wallet · you saved $2.00 vs today's price", eyebrow: "PRICE DROPPED · TAILS YOU WIN", rows: ["Pump total (20 × $3.40)$68.00", "Paid from protected fuel$68.00", "Returned to your wallet+$5.50", "Saved vs today's $3.50$2.00"], absent: ["Paid by FuelCap", "Above your limit"], wallet: "$11.61", saved: "$2.00", coral: true },
 ];
 
 for (const scenario of cases) {
@@ -92,6 +92,8 @@ for (const scenario of cases) {
     await expect(page.getByRole("heading", { name: "Your fuel is capped" })).toBeVisible();
     await expect(page.getByTestId("wallet-balance")).toHaveText(scenario.wallet);
     await expect(page.getByText("$18.38 held for it")).toBeVisible();
+    await expect(page.getByText("Saved with FuelCap so far")).toBeVisible();
+    await expect(page.getByTestId("savings-total")).toHaveText(scenario.saved);
     await expect(page.getByText("5 gal at Shell Downtown")).toBeVisible();
   });
 }
@@ -206,6 +208,34 @@ test("onboarding keeps the market and isn't offered again", async ({ page }, tes
   await page.reload();
   await expect(page.getByRole("heading", { name: "Cap your fuel price. Never overpay." })).toBeVisible();
   await expect(page.getByRole("button", { name: "Create your profile" })).toHaveCount(0);
+});
+
+test("presenter controls appear only with ?demo=1, and their pump price only applies there", async ({ page }, testInfo) => {
+  const click = clicker(page, testInfo.project.name);
+  const mobile = testInfo.project.name === "customer-mobile";
+  await mockSupabase(page);
+  const panel = page.getByRole("complementary", { name: "Presenter controls" });
+  const opener = page.getByRole("button", { name: "Open presenter controls" });
+
+  await page.goto("/");
+  await expect(page.getByTestId("headline-unit-price")).toContainText("$3.50");
+  await page.keyboard.press("Control+.");
+  await expect(panel).toHaveCount(0);
+  await expect(opener).toHaveCount(0);
+
+  await page.goto("/?demo=1");
+  await expect(mobile ? opener : panel).toBeVisible();
+  await setPresenterPump(page, click, /Price rises/, mobile);
+  await expect(page.getByTestId("headline-unit-price")).toContainText("$3.90");
+
+  // Same browser, no ?demo=1: no controls, and the presenter's price no longer moves the pump.
+  await page.goto("/");
+  await expect(page.getByTestId("headline-unit-price")).toContainText("$3.50");
+  await expect(panel).toHaveCount(0);
+  await expect(opener).toHaveCount(0);
+
+  await page.goto("/?demo=1");
+  await expect(page.getByTestId("headline-unit-price")).toContainText("$3.90");
 });
 
 test("account authentication dialog is reachable", async ({ page }, testInfo) => {
