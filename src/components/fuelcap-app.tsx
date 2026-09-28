@@ -64,7 +64,7 @@ const isActive = (lock: LockRecord) => ["active", "partially_redeemed"].includes
 
 const demoStations: Record<MarketCode, { id: string; providerId: string; provider: string; label: string; price: number }[]> = {
   US: [
-    { id: "11000000-0000-0000-0000-000000000001", providerId: "10000000-0000-0000-0000-000000000001", provider: "Shell", label: "Shell Downtown - 101 Main St, Austin, TX", price: 3.42 },
+    { id: "11000000-0000-0000-0000-000000000001", providerId: "10000000-0000-0000-0000-000000000001", provider: "Shell", label: "Shell Downtown - 101 Main St, Austin, TX", price: 3.5 },
     { id: "11000000-0000-0000-0000-000000000002", providerId: "10000000-0000-0000-0000-000000000001", provider: "Shell", label: "Shell Riverside - 480 River Rd, Austin, TX", price: 3.49 },
     { id: "11000000-0000-0000-0000-000000000003", providerId: "10000000-0000-0000-0000-000000000002", provider: "BP", label: "BP Central - 220 Congress Ave, Austin, TX", price: 3.39 },
     { id: "11000000-0000-0000-0000-000000000004", providerId: "10000000-0000-0000-0000-000000000002", provider: "BP", label: "BP North - 8150 Burnet Rd, Austin, TX", price: 3.53 },
@@ -88,10 +88,26 @@ const demoStations: Record<MarketCode, { id: string; providerId: string; provide
     { id: "31000000-0000-0000-0000-000000000006", providerId: "30000000-0000-0000-0000-000000000003", provider: "Texaco", label: "Texaco Hackney - 88 Mare St, London", price: 1.479 },
   ],
 };
-// The US demo reference station: the presenter's market control moves every US price by the same amount,
-// so this station always shows the published control price.
+// The US demo reference station (Shell Downtown, $3.50 → max $3.68, limit $4.03, as in the brief's cases A–C).
+// The presenter's market control moves every US price by the control price's change from its baseline.
 const US_REFERENCE_STATION_ID = demoStations.US[0].id;
 const US_BASELINE_PRICE = initialDemoControlSnapshot.displayUnitPrice;
+
+const nav: { id: View; label: string; icon: typeof Home }[] = [
+  { id: "home", label: "Home", icon: Home },
+  { id: "wallet", label: "Wallet", icon: WalletCards },
+  { id: "tank", label: "My tank", icon: Fuel },
+  { id: "lock", label: "Lock price", icon: LockKeyhole },
+  { id: "activity", label: "Activity", icon: Activity },
+  { id: "settings", label: "Settings", icon: Settings },
+];
+// Phones get four labelled tabs; Settings sits behind a header icon and the wallet opens from Home.
+const phoneNav: { id: View; label: string; icon: typeof Home; views: View[] }[] = [
+  { id: "home", label: "Home", icon: Home, views: ["home", "onboarding", "wallet"] },
+  { id: "lock", label: "Protect", icon: ShieldCheck, views: ["lock"] },
+  { id: "tank", label: "Pay", icon: QrCode, views: ["tank"] },
+  { id: "activity", label: "Activity", icon: Activity, views: ["activity"] },
+];
 
 function buildFallbackOptions(marketCode: MarketCode): PriceOption[] {
   const market = markets[marketCode];
@@ -102,15 +118,6 @@ function buildFallbackOptions(marketCode: MarketCode): PriceOption[] {
     currency: market.currency, unit: market.unit, stationCount: 1, observedAt: now,
   }));
 }
-
-const nav: { id: View; label: string; icon: typeof Home }[] = [
-  { id: "home", label: "Home", icon: Home },
-  { id: "wallet", label: "Wallet", icon: WalletCards },
-  { id: "tank", label: "My tank", icon: Fuel },
-  { id: "lock", label: "Lock price", icon: LockKeyhole },
-  { id: "activity", label: "Activity", icon: Activity },
-  { id: "settings", label: "Settings", icon: Settings },
-];
 
 const buttonBase =
   "inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
@@ -141,7 +148,6 @@ export function FuelCapApp() {
   const [notice, setNotice] = useState<string | null>(null);
   const [onboarded, setOnboarded] = useState(false);
   const [demoControl, setDemoControl] = useState<DemoControlSnapshot>(initialDemoControlSnapshot);
-  const [bridgeReachable, setBridgeReachable] = useState(false);
   const [lifecycleCustomer, setLifecycleCustomer] = useState<LifecycleCustomer | null>(null);
   const baseMarket = markets[marketCode];
   const market = { ...baseMarket, livePrice: livePrices[marketCode] ?? baseMarket.livePrice };
@@ -270,9 +276,9 @@ export function FuelCapApp() {
       try {
         const response = await fetch("/api/demo-control", { cache: "no-store" });
         if (!response.ok || cancelled) return;
-        const next = await response.json() as DemoControlSnapshot & { bridgeReachable: boolean };
-        if (!cancelled) { setDemoControl(next); setBridgeReachable(next.bridgeReachable); }
-      } catch { if (!cancelled) setBridgeReachable(false); }
+        const next = await response.json() as DemoControlSnapshot;
+        if (!cancelled) setDemoControl(next);
+      } catch { /* keep the last known control price */ }
     }
     void refreshDemoControl();
     const interval = window.setInterval(refreshDemoControl, 1500);
@@ -537,6 +543,9 @@ export function FuelCapApp() {
             >
               <option value="US">US</option><option value="CA">Canada</option><option value="GB">UK</option>
             </select>
+            <button onClick={() => setView("settings")} className={`grid size-10 place-items-center rounded-md border md:hidden ${view === "settings" ? "border-[#0ba75e] bg-[#dff5e9] text-[#0b7a4b]" : "border-[#dce5df] bg-white"}`} aria-label="Settings">
+              <Settings size={18} />
+            </button>
             <button onClick={() => setShowMenu(true)} className="grid size-10 place-items-center rounded-md bg-[#0b1b2b] text-white" aria-label="Open account menu">
               <Menu size={19} />
             </button>
@@ -544,7 +553,6 @@ export function FuelCapApp() {
         </header>
 
         <main className="mx-auto max-w-6xl px-4 pb-28 pt-6 md:px-8 md:pb-10 md:pt-8">
-          {marketCode === "US" && <section className={`mb-5 rounded-md border p-4 ${quotesPaused ? "border-[#efb0a8] bg-[#fff0ed]" : "border-[#9bc7ad] bg-[#edf8f1]"}`} aria-label="Price protection status" role="status"><div className="flex items-start gap-3"><ShieldCheck className={quotesPaused ? "text-[#a83c30]" : "text-[#0b7a4b]"} size={20} /><div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase tracking-wide text-[#61716b]">Price protection service · {bridgeReachable ? "live status" : "last known safe price"}</p><p className="mt-1 font-semibold">{demoControl.customerMessage.replace("Demo control connected · ", "").replace("Admin published a simulated ", "").replace("Admin withdrew ", "")}</p><p className="mt-1 text-xs text-[#61716b]">{activeLock ? `Your max price of ${money(activeLock.strike, market)}/${market.unit} at ${shortLabel(activeLock.scopeLabel)} remains unchanged.` : `Your accepted protection at ${money(demoControl.acceptedQuote.unitPrice, market)}/${market.unit} remains unchanged.`}</p></div><span className="rounded-md bg-white px-2 py-1 text-xs font-bold">{demoControl.quoteAvailability}</span></div></section>}
           {view === "home" && <HomeView market={market} tankVolume={tankVolume} protectedVolume={protectedVolume} heldValue={heldValue} walletBalance={account.wallet} showWelcome={showWelcome} startCustomer={() => setView("onboarding")} savings={savings} protectedFills={protectedFills} stations={stationList} pricesLoading={optionsLoading || optionsMarket !== marketCode} referenceOption={referenceOption} referencePrice={referencePrice} activeLock={activeLock} pumpPrice={activeLock ? pumpPriceFor(activeLock) : referencePrice ?? 0} lockPeriodDays={lockPeriodDays} setView={setView} redeem={() => setShowRedeem(true)} share={() => void shareSavings()} />}
           {view === "onboarding" && <OnboardingView send={sendLifecycle} complete={(customer) => { setLifecycleCustomer(customer); setOnboarded(true); setView("wallet"); }} />}
           {view === "wallet" && <WalletView market={market} balance={account.wallet} customer={lifecycleCustomer} addFunds={addFunds} changePlan={(planId) => void sendLifecycle({ type: "CHANGE_PLAN", customerId: DEMO_CUSTOMER_ID, planId }).catch(() => undefined)} setView={setView} />}
@@ -555,12 +563,13 @@ export function FuelCapApp() {
         </main>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid h-[76px] grid-cols-6 border-t border-[#dce5df] bg-white px-1 pb-[env(safe-area-inset-bottom)] md:hidden" aria-label="Primary navigation">
-        {nav.map((item) => {
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid h-[76px] grid-cols-4 border-t border-[#dce5df] bg-white px-1 pb-[env(safe-area-inset-bottom)] md:hidden" aria-label="Primary navigation">
+        {phoneNav.map((item) => {
           const Icon = item.icon;
+          const active = item.views.includes(view);
           return (
-            <button key={item.id} onClick={() => setView(item.id)} className={`flex min-w-0 flex-col items-center justify-center gap-1 text-[10px] font-semibold ${view === item.id ? "text-[#0ba75e]" : "text-[#61716b]"}`}>
-              <Icon size={20} strokeWidth={view === item.id ? 2.5 : 2} /><span className="truncate">{item.label}</span>
+            <button key={item.id} onClick={() => setView(item.id)} aria-current={active ? "page" : undefined} className={`flex min-w-0 flex-col items-center justify-center gap-1 text-xs font-semibold ${active ? "text-[#0b7a4b]" : "text-[#52625c]"}`}>
+              <Icon size={22} strokeWidth={active ? 2.5 : 2} /><span>{item.label}</span>
             </button>
           );
         })}
@@ -641,7 +650,7 @@ function HomeView({ market, tankVolume, protectedVolume, heldValue, walletBalanc
         </section>
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-3">
-        <Metric icon={WalletCards} label="Available wallet balance" value={money(walletBalance, market)} detail={walletBalance > 0 ? "Ready to protect fuel" : "You can add funds when you protect"} />
+        <button type="button" onClick={() => setView("wallet")} className="rounded-md text-left outline-offset-2 hover:ring-2 hover:ring-[#dff5e9]" aria-label={`Wallet: ${money(walletBalance, market)}. Open wallet`}><Metric icon={WalletCards} label="Available wallet balance" value={money(walletBalance, market)} detail={walletBalance > 0 ? "Ready to protect fuel · Open wallet" : "Add funds here or when you protect"} /></button>
         <Metric icon={ShieldCheck} label="Protected fuel" value={`${tankVolume} ${market.unit}`} detail={tankVolume > 0 ? `${money(heldValue, market)} held for it` : "Lock a price to protect fuel"} />
         <Metric icon={MapPin} label="Stations priced" value={pricesLoading ? "…" : stations.length.toLocaleString(market.locale)} detail={cheapest ? `Lowest ${money(cheapest.unitPrice, market)}${unit}` : "Loading prices…"} />
       </div>
@@ -770,6 +779,7 @@ function LockView({
       : `This cap works at ${selected?.stationCount ?? 0} eligible stations across ${market.name}.`;
   const confirmText = busy ? "Saving..." : quotesPaused ? "New quotes paused" : topUp ? `Add ${money(topUp, market)} & protect ${volume} ${market.unit}` : quote ? `Protect ${volume} ${market.unit} · ${money(quote.total, market)}` : "Confirm lock";
   return <div className="view-enter mx-auto max-w-3xl"><PageTitle eyebrow="New price lock" title={`Lock today's ${market.fuelWord} price`} />
+    {quotesPaused && <p role="status" className="mb-4 rounded-md border border-[#efb0a8] bg-[#fff0ed] px-4 py-3 text-sm text-[#8a3026]">New protections are paused for a moment. Anything you&apos;ve already protected is unaffected.</p>}
     <section className="rounded-md border border-[#dce5df] bg-white p-5 md:p-7">
       <fieldset>
         <legend className="text-sm font-semibold">Where do you want your cap to work?</legend>
@@ -859,7 +869,11 @@ function EmptyState({ icon: Icon, title, text, action }: { icon: typeof Home; ti
 }
 
 function RedeemDialog({ market, volume, lock, pumpPrice, busy, redeem, close, protect }: MarketProps & { volume: number; lock?: LockRecord; pumpPrice: number; busy: boolean; redeem: (amount: number) => Promise<void>; close: () => void; protect: () => void }) {
-  const fillVolume = Math.min(market.unit === "gal" ? 10 : 20, lock?.remainingVolume ?? 0);
+  const remaining = lock?.remainingVolume ?? 0;
+  const steps = market.unit === "gal" ? [10, 20] : [20, 40];
+  const fillOptions = [...new Set([...steps.filter((step) => step < remaining), remaining])].filter((amount) => amount > 0);
+  const [chosen, setChosen] = useState(steps[1]);
+  const fillVolume = Math.min(chosen, remaining);
   return <div role="dialog" aria-modal="true" aria-labelledby="redeem-title" className="fixed inset-0 z-50 grid place-items-end bg-[#0b1b2b]/55 p-0 sm:place-items-center sm:p-4"><div className="w-full max-w-md rounded-t-lg bg-white p-5 shadow-2xl sm:rounded-lg">
     <div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase text-[#0b7a4b]">Retailer payment</p><h2 id="redeem-title" className="text-xl font-bold">Pay with your tank</h2></div><button onClick={close} className="grid size-9 place-items-center rounded-md border border-[#dce5df]" aria-label="Close"><X size={18} /></button></div>
     {volume <= 0 || !lock ? <div className="mt-6 rounded-md border border-[#dce5df] p-6 text-center">
@@ -869,6 +883,7 @@ function RedeemDialog({ market, volume, lock, pumpPrice, busy, redeem, close, pr
     </div> : <>
       <div className="mx-auto mt-6 w-fit rounded-md border border-[#dce5df] bg-white p-4"><QRCodeSVG value={`fuelcap-demo:${market.code}:${lock.id}:${volume}`} size={210} fgColor="#0b1b2b" /></div>
       <p className="mt-5 text-center font-semibold">{volume} {market.unit} available · max {money(lock.strike, market)}/{market.unit}</p><p className="mt-1 text-center text-sm text-[#61716b]">Pump price now {money(pumpPrice, market)}/{market.unit} at {shortLabel(lock.scopeLabel)}. Show this code to the retailer, who confirms the quantity dispensed.</p>
+      <fieldset className="mt-4"><legend className="text-sm font-semibold">How much are you filling?</legend><div className="mt-2 grid grid-cols-3 gap-2">{fillOptions.map((amount) => <button type="button" key={amount} aria-pressed={amount === fillVolume} onClick={() => setChosen(amount)} className={`h-11 rounded-md border text-sm font-semibold ${amount === fillVolume ? "border-2 border-[#0b7a4b] bg-[#dff5e9] text-[#0b7a4b]" : "border-[#dce5df]"}`}>{amount === remaining && amount !== steps[0] && amount !== steps[1] ? `All ${amount} ${market.unit}` : `${amount} ${market.unit}`}</button>)}</div></fieldset>
       <button disabled={busy || fillVolume <= 0} onClick={() => redeem(fillVolume)} className={`${buttonBase} mt-5 w-full bg-[#0b7a4b] text-white`}>{busy ? "Completing fill..." : `Retailer confirms ${fillVolume} ${market.unit}`}</button>
     </>}
     <button onClick={close} className={`${buttonBase} mt-2 w-full border border-[#dce5df]`}>Cancel</button>

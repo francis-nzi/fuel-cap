@@ -14,25 +14,25 @@ test("admin governs the separate customer demonstrator without mutating an accep
   await admin.goto("http://127.0.0.1:3001/");
   await page.goto("/");
 
+  // The customer app shows no operator banner; the control room's moves show up as the customer's prices.
+  // US demo station: $3.50 at the control baseline ($3.42); the published rise (+$0.25) takes it to $3.75.
   await admin.getByRole("button", { name: /Reset baseline/ }).click();
-  await expect(page.getByRole("status").filter({ hasText: "baseline pricing available" })).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByTestId("headline-unit-price")).toContainText("$3.42/gal");
+  await expect(page.getByTestId("headline-unit-price")).toContainText("$3.50/gal", { timeout: 10_000 });
+  await expect(page.getByText("Price protection service", { exact: false })).toHaveCount(0);
 
   await admin.getByRole("button", { name: /Publish price rise/ }).click();
   await expect(admin.getByRole("status").filter({ hasText: "simulated price rise" })).toBeVisible();
-  await expect(page.getByRole("status").filter({ hasText: "price rise" })).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByTestId("headline-unit-price")).toContainText("$3.67/gal");
+  await expect(page.getByTestId("headline-unit-price")).toContainText("$3.75/gal", { timeout: 10_000 });
   await customerClick(page.getByRole("button", { name: "Lock price" }).first());
-  await expect(page.getByText("$3.67/gal", { exact: false }).first()).toBeVisible();
+  await expect(page.getByText("$3.75/gal", { exact: false }).first()).toBeVisible();
 
   await admin.getByRole("button", { name: /Stop new quotes/ }).click();
-  const customerControl = page.getByRole("status").filter({ hasText: "accepted quote remains protected" });
-  await expect(customerControl).toBeVisible({ timeout: 10_000 });
-  await expect(customerControl).toContainText("$3.42/gal remains unchanged");
+  await expect(page.getByRole("status").filter({ hasText: "New protections are paused" })).toBeVisible({ timeout: 10_000 });
   await expect(page.getByRole("button", { name: "Confirm price lock" })).toBeDisabled();
 
   await admin.getByRole("button", { name: /Reset baseline/ }).click();
-  await expect(page.getByRole("status").filter({ hasText: "baseline pricing available" })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("status").filter({ hasText: "New protections are paused" })).toHaveCount(0, { timeout: 10_000 });
+  await expect(page.getByRole("button", { name: "Confirm price lock" })).toBeEnabled();
 
   await customerClick(page.getByRole("button", { name: "Home", exact: true }));
   await customerClick(page.getByRole("button", { name: "Create your profile" }));

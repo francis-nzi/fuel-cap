@@ -17,7 +17,7 @@ export const markets: Record<MarketCode, Market> = {
   US: {
     code: "US", name: "United States", currency: "USD", locale: "en-US",
     unit: "gal", fuelWord: "gas", livePrice: 3.87, lockedPrice: 3.42,
-    defaultVolume: 45, maxVolume: 80,
+    defaultVolume: 25, maxVolume: 80,
   },
   CA: {
     code: "CA", name: "Canada", currency: "CAD", locale: "en-CA",
