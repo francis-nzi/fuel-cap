@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowUpRight, CheckCircle2, Link2, LockKeyhole, RotateCcw, ShieldOff } from "lucide-react";
 import { initialDemoControlSnapshot, type DemoControlCommandType, type DemoControlSnapshot } from "@fuelcap/demo-control";
 
-export function DemoControlBridge({ actorId, role }: { actorId: string; role: string }) {
+export function DemoControlBridge() {
   const [snapshot, setSnapshot] = useState<DemoControlSnapshot>(initialDemoControlSnapshot);
   const [busy, setBusy] = useState<DemoControlCommandType | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +26,8 @@ export function DemoControlBridge({ actorId, role }: { actorId: string; role: st
   async function dispatch(command: DemoControlCommandType) {
     setBusy(command); setError(null);
     try {
-      const response = await fetch("/api/demo/control", { method: "POST", headers: { "Content-Type": "application/json", "X-FuelCap-Demo-Principal": actorId, "X-FuelCap-Demo-Role": role, "Idempotency-Key": `${command}:${crypto.randomUUID()}` }, body: JSON.stringify({ command }) });
+      // The server takes the actor and role from the signed-in session, not from anything the browser sends.
+      const response = await fetch("/api/demo/control", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": `${command}:${crypto.randomUUID()}` }, body: JSON.stringify({ command }) });
       const result = await response.json() as DemoControlSnapshot & { error?: string };
       if (!response.ok) throw new Error(result.error ?? "Demo control command failed.");
       setSnapshot(result);

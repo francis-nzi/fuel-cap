@@ -1,25 +1,20 @@
 import { NextResponse } from "next/server";
-import { authorizeTenantResource, demoPrincipals, type Environment } from "@fuelcap/authz";
+import { authorizeTenantResource } from "@fuelcap/authz";
 import { fleetForOrganisation } from "@fuelcap/demo-data/fleet";
+import { authzEnvironment } from "@/lib/auth/config";
+import { requireStaffApi } from "@/lib/auth/guard";
 
 export const dynamic = "force-dynamic";
 
-function environment(): Environment {
-  const value = process.env.NEXT_PUBLIC_APP_ENV;
-  if (value === "production" || value === "staging") return value;
-  return "demo";
-}
-
 export async function GET(request: Request, context: { params: Promise<{ organisationId: string }> }) {
+  const staff = await requireStaffApi();
+  if (staff instanceof NextResponse) return staff;
   const { organisationId } = await context.params;
-  const principalId = request.headers.get("x-fuelcap-demo-principal-id") ?? "";
   const activeOrganisationId = request.headers.get("x-fuelcap-active-organisation") ?? "";
-  const principal = demoPrincipals.find((candidate) => candidate.principalId === principalId);
-  if (!principal) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
 
   const decision = authorizeTenantResource({
-    principal,
-    environment: environment(),
+    principal: staff.principal,
+    environment: authzEnvironment(),
     activeOrganisationId,
     resourceOrganisationId: organisationId,
     workspace: "fleets-vehicles",

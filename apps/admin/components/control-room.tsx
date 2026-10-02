@@ -29,7 +29,9 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AUTHZ_POLICY_VERSION, authorize, demoOrganisations, demoPrincipals, evaluateBreakGlass, evaluateGovernedAction, visibleWorkspaces, type Environment as AuthzEnvironment, type Workspace } from "@fuelcap/authz";
+import { AUTHZ_POLICY_VERSION, authorize, demoOrganisations, visibleWorkspaces, type Environment as AuthzEnvironment, type Principal, type Workspace } from "@fuelcap/authz";
+import { SessionTimer, signOut } from "@/components/auth/session-timer";
+import { useStepUp } from "@/components/auth/step-up";
 import { createScenarioRuntime, type DemoEnvironment, type ScenarioReady } from "@fuelcap/demo-data";
 import { INVESTOR_DEMO_VERSION, investorDemoSteps } from "@fuelcap/demo-data/investor-demo";
 import { pricingObservationSets, scenarioOrder, scenarios, type MarketFilter, type ScenarioId } from "@/lib/demo-data";
@@ -63,7 +65,7 @@ const workspaces: readonly { key: Workspace; label: string; icon: typeof LayoutD
 
 type ApprovalState = "idle" | "reviewing" | "approved";
 type ResetState = "idle" | "resetting" | "ready" | "failed";
-type SecurityState = "none" | "permission-denied" | "step-up-required" | "step-up-complete" | "break-glass-denied";
+type SecurityState = "none" | "permission-denied" | "step-up-required" | "step-up-complete" | "break-glass-denied" | "emergency-granted" | "emergency-denied" | "step-up-cancelled";
 type TimeWindow = "24H" | "7D" | "30D";
 
 const marketDefaults: Record<MarketFilter, ScenarioId> = { US: "exposure", UK: "ukQuote", CA: "canadaFraud", MULTI: "fx" };
@@ -81,17 +83,17 @@ function StatusDot({ state }: { state: "healthy" | "watch" | "controlled" }) {
   return <span className={`status-dot status-dot--${state}`} role="img" aria-label={state} />;
 }
 
-export function ControlRoom() {
+/** The control room for the signed-in member of staff; their roles come from the server (admin_staff). */
+export function ControlRoom({ principal }: { principal: Principal }) {
   const [scenarioId, setScenarioId] = useState<ScenarioId>("exposure");
   const [marketFilter, setMarketFilter] = useState<MarketFilter>("US");
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("24H");
   const environment: DemoEnvironment = process.env.NEXT_PUBLIC_APP_ENV === "production" ? "production" : "demo";
   const authzEnvironment: AuthzEnvironment = environment;
-  const [principalId, setPrincipalId] = useState("principal-presenter");
-  const [activeOrganisationId, setActiveOrganisationId] = useState("org-fuelcap-global");
+  const [activeOrganisationId, setActiveOrganisationId] = useState(principal.organisationIds.includes("org-fuelcap-global") ? "org-fuelcap-global" : principal.organisationIds[0]);
+  const { governed, dialog: stepUpDialog } = useStepUp();
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace>("control-room");
   const [platformInitialSelection, setPlatformInitialSelection] = useState<"health" | "approvals" | "case" | "catalogue" | "alerts" | "exceptions" | "ai" | "growth" | "release">("health");
-  const principal = demoPrincipals.find((candidate) => candidate.principalId === principalId) ?? demoPrincipals[0];
   const memberOrganisations = demoOrganisations.filter(({ organisationId }) => principal.organisationIds.includes(organisationId));
   const allowedWorkspaceKeys = visibleWorkspaces(principal, authzEnvironment, activeOrganisationId, workspaces.map(({ key }) => key));
   const visibleNavigation = workspaces.filter(({ key }) => allowedWorkspaceKeys.includes(key));
@@ -199,18 +201,8 @@ export function ControlRoom() {
     };
   }, [selectedFlowKey]);
 
-  function changePrincipal(nextPrincipalId: string) {
-    const nextPrincipal = demoPrincipals.find((candidate) => candidate.principalId === nextPrincipalId) ?? demoPrincipals[0];
-    setPrincipalId(nextPrincipal.principalId);
-    if (!nextPrincipal.organisationIds.includes(activeOrganisationId)) setActiveOrganisationId(nextPrincipal.organisationIds[0]);
-    setActiveWorkspace("control-room");
-    setApprovalState("idle");
-    setSecurityState("none");
-  }
-
   function requestGovernedAction() {
-    const decision = evaluateGovernedAction({ principal, environment: authzEnvironment, activeOrganisationId, workspace: "risk-hedging", verb: "initiate", reconciled: true, priceValid: true, requiresStepUp: false, assurance: "standard" });
-    if (!decision.allowed) {
+    if (!canInitiateHedge) {
       setSecurityState("permission-denied");
       return;
     }
@@ -218,14 +210,29 @@ export function ControlRoom() {
     setSecurityState("step-up-required");
   }
 
-  function confirmStepUp() {
+  // The server checks the role and a fresh (≤5 min) authenticator code before the hedge goes ahead.
+  async function confirmStepUp() {
+    const result = await governed("initiate-hedge", { organisationId: activeOrganisationId });
+    if ("cancelled" in result) return setSecurityState("step-up-cancelled");
+    if (!result.allowed) {
+      setApprovalState("idle");
+      return setSecurityState("permission-denied");
+    }
     setApprovalState("approved");
     setSecurityState("step-up-complete");
   }
 
-  function demonstrateBreakGlassBoundary() {
-    evaluateBreakGlass({ principal, environment: authzEnvironment, assurance: "step-up", requestedCapability: "validate-price" });
+  // Break-glass can never force a price to "valid": the server refuses after a step-up, and audits the attempt.
+  async function demonstrateBreakGlassBoundary() {
+    const result = await governed("validate-price", { organisationId: activeOrganisationId });
+    if ("cancelled" in result) return setSecurityState("step-up-cancelled");
     setSecurityState("break-glass-denied");
+  }
+
+  async function requestEmergencyAccess() {
+    const result = await governed("emergency-access", { organisationId: activeOrganisationId });
+    if ("cancelled" in result) return setSecurityState("step-up-cancelled");
+    setSecurityState(result.allowed ? "emergency-granted" : "emergency-denied");
   }
 
   function changeScenario(id: ScenarioId) {
@@ -251,8 +258,6 @@ export function ControlRoom() {
         headers: {
           "Content-Type": "application/json",
           "Idempotency-Key": `control-room:${scenario.manifestId}:1.0.0`,
-          "X-FuelCap-Demo-Role": principal.roles.includes("DP") ? "demonstrator-presenter" : principal.roles[0],
-          "X-FuelCap-Demo-Principal": principal.email,
         },
         body: JSON.stringify({ scenarioId: scenario.manifestId }),
       });
@@ -270,8 +275,8 @@ export function ControlRoom() {
     const step = investorDemoSteps[index];
     const nextScenarioId = step.scenarioKey as ScenarioId;
     setDemoStepIndex(index);
-    setPrincipalId(step.principalId);
-    setActiveOrganisationId(step.organisationId);
+    // Acts no longer switch person: they run as whoever is signed in, within that person's organisations.
+    if (principal.organisationIds.includes(step.organisationId)) setActiveOrganisationId(step.organisationId);
     setScenarioId(nextScenarioId);
     setMarketFilter(scenarios[nextScenarioId].market);
     setScenarioReady(runtime.reset(scenarios[nextScenarioId].manifestId));
@@ -334,6 +339,11 @@ export function ControlRoom() {
           <div><strong>{principal.name}</strong><span>{principal.roles.join(" · ")} · {AUTHZ_POLICY_VERSION}</span></div>
           <Settings2 size={17} />
         </div>
+        <div className="sidebar-account" role="group" aria-label="Account">
+          {(principal.roles.includes("PA") || principal.roles.includes("AU")) && <a href="/staff">Staff &amp; audit</a>}
+          <a href="/account">Security</a>
+          <button type="button" onClick={() => void signOut()}>Sign out</button>
+        </div>
       </aside>
 
       {mobileNavOpen && <button className="nav-backdrop" aria-label="Close navigation" onClick={closeMobileNavigation} />}
@@ -344,9 +354,14 @@ export function ControlRoom() {
           <div className="breadcrumb"><span>FuelCap Operations</span><span>/</span><strong>{workspaces.find(({ key }) => key === activeWorkspace)?.label}</strong></div>
           <div className="topbar-actions">
             <button className="search-button" type="button"><Search size={17} /><span>Search operations</span><kbd>⌘ K</kbd></button>
-            <div className="context-switcher"><Users size={15} /><select aria-label="Demo principal" value={principal.principalId} onChange={(event) => changePrincipal(event.target.value)}>{demoPrincipals.map((candidate) => <option value={candidate.principalId} key={candidate.principalId}>{candidate.name} · {candidate.roles.join("/")}</option>)}</select></div>
             <div className="context-switcher"><Building2 size={15} /><select aria-label="Active organisation" value={activeOrganisationId} onChange={(event) => setActiveOrganisationId(event.target.value)}>{memberOrganisations.map((organisation) => <option value={organisation.organisationId} key={organisation.organisationId}>{organisation.name}</option>)}</select></div>
-            <div className="top-avatar">{principal.name.split(" ").map((part) => part[0]).join("")}</div>
+            <div className="signed-in" role="group" aria-label="Signed-in account">
+              <div className="top-avatar" aria-hidden="true">{principal.name.split(" ").map((part) => part[0]).join("")}</div>
+              <span className="signed-in__who"><strong>{principal.name}</strong><small>{principal.roles.join(" · ")}</small></span>
+              {(principal.roles.includes("PA") || principal.roles.includes("AU")) && <a className="signed-in__link" href="/staff">Staff &amp; audit</a>}
+              <a className="signed-in__link" href="/account">Security</a>
+              <button type="button" className="signed-in__link" onClick={() => void signOut()}>Sign out</button>
+            </div>
           </div>
         </header>
 
@@ -365,14 +380,9 @@ export function ControlRoom() {
           <label htmlFor="mobile-active-organisation">Organisation</label>
           <select id="mobile-active-organisation" value={activeOrganisationId} onChange={(event) => setActiveOrganisationId(event.target.value)}>{memberOrganisations.map((organisation) => <option value={organisation.organisationId} key={organisation.organisationId}>{organisation.name}</option>)}</select>
         </div>
-        <div className="mobile-principal-switcher">
-          <Users size={15} aria-hidden="true" />
-          <label htmlFor="mobile-demo-principal">Principal</label>
-          <select id="mobile-demo-principal" value={principal.principalId} onChange={(event) => changePrincipal(event.target.value)}>{demoPrincipals.map((candidate) => <option value={candidate.principalId} key={candidate.principalId}>{candidate.name} · {candidate.roles.join("/")}</option>)}</select>
-        </div>
 
         {activeWorkspace === "customers" ? <CustomerWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "fleets-vehicles" ? <FleetWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "pricing-data" ? <PricingDataWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "spread-fx" ? <SpreadFxWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "risk-hedging" ? <RiskHedgingWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "transactions-ledger" ? <TransactionsLedgerWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "billing-reconciliation" ? <BillingReconciliationWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "fraud-cases" ? <FraudCasesWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "rules-automation" ? <RulesAutomationWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "communications" ? <CommunicationsWorkspace key={activeOrganisationId} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} /> : activeWorkspace === "platform-integrations-audit" ? <PlatformIntegrationsAuditWorkspace key={`${activeOrganisationId}-${platformInitialSelection}`} organisationId={activeOrganisationId} principal={principal} environment={authzEnvironment} initialSelection={platformInitialSelection} /> : <>
-        <BusinessOverview actorId={principal.principalId} role={principal.roles[0]} />
+        <BusinessOverview />
         <details className="advanced-operations"><summary>Advanced operations and technical controls</summary>
         <section className="operating-strip" aria-label="Operating status" tabIndex={0}>
           <div className="operating-strip__intro"><Activity size={15} /><strong>Operating state</strong><span className={`state-pill state-pill--${scenario.status.toLowerCase().replaceAll(" ", "-")}`}>{scenario.status}</span></div>
@@ -526,15 +536,31 @@ export function ControlRoom() {
               <div className="ai-assurance"><span><FileCheck2 size={13} /> 3/3 claims cited</span><span>Confidence floor · 80%</span><span>Projection assertions · passed</span><span>Action envelope · recommendation only</span></div>
               <div className="policy-box"><ShieldCheck size={18} /><div><strong>Policy boundary</strong><span>{scenario.recommendation.policy}</span></div></div>
               <div className="impact-row"><span>Expected impact</span><strong>{scenario.recommendation.impact}</strong></div>
-              {securityState !== "none" && <div className={`security-state security-state--${securityState}`} role="status"><LockKeyhole size={17} /><div><strong>{securityState === "permission-denied" ? "Permission denied" : securityState === "step-up-required" ? "Step-up authentication required" : securityState === "step-up-complete" ? "Fresh assurance verified" : "Break-glass boundary enforced"}</strong><span>{securityState === "permission-denied" ? `${principal.roles.join("/")} cannot initiate this action under ${AUTHZ_POLICY_VERSION}.` : securityState === "step-up-required" ? "Approval is paused until the different approver re-authenticates with MFA." : securityState === "step-up-complete" ? "Maker-checker and fresh assurance are recorded in the audit lineage." : "Emergency access cannot fabricate a valid price or override an integrity block. An incident is opened."}</span></div></div>}
+              {securityState !== "none" && <div className={`security-state security-state--${securityState}`} role="status"><LockKeyhole size={17} /><div><strong>{{
+                "permission-denied": "Permission denied",
+                "step-up-required": "Step-up authentication required",
+                "step-up-complete": "Fresh assurance verified",
+                "break-glass-denied": "Break-glass boundary enforced",
+                "emergency-granted": "Emergency access granted",
+                "emergency-denied": "Emergency access refused",
+                "step-up-cancelled": "Step-up cancelled",
+              }[securityState]}</strong><span>{{
+                "permission-denied": `${principal.roles.join("/")} cannot do this under ${AUTHZ_POLICY_VERSION}.`,
+                "step-up-required": "Approval is paused until you confirm with a fresh code from your authenticator app.",
+                "step-up-complete": "Your authenticator code was verified by the server; maker-checker and fresh assurance are in the audit log.",
+                "break-glass-denied": "Emergency access cannot fabricate a valid price or override an integrity block. The attempt is audited and an incident is opened.",
+                "emergency-granted": "Temporary support access is open for this incident and recorded in the audit log.",
+                "emergency-denied": "Only a platform administrator can open emergency access. The attempt is recorded in the audit log.",
+                "step-up-cancelled": "Nothing happened. The action needs a fresh authenticator code.",
+              }[securityState]}</span></div></div>}
 
               {approvalState === "approved" ? (
                 <div className="approval-result" role="status"><div><Check size={18} /></div><span><strong>Simulated action approved</strong>Maker-checker complete · {auditId}</span></div>
               ) : approvalState === "reviewing" ? (
                 <div className="approval-review">
                   <div><span>Initiated by</span><strong>R. Singh · Risk Treasury</strong></div>
-                  <div><span>Approver</span><strong>A. Morgan · Treasury Lead</strong></div>
-                  <button type="button" onClick={confirmStepUp}><LockKeyhole size={15} />Confirm with step-up MFA</button>
+                  <div><span>Approver</span><strong>{principal.name} (you)</strong></div>
+                  <button type="button" onClick={() => void confirmStepUp()}><LockKeyhole size={15} />Confirm with step-up MFA</button>
                   <button className="button-secondary" type="button" onClick={() => setApprovalState("idle")}>Cancel</button>
                 </div>
               ) : (
@@ -556,7 +582,8 @@ export function ControlRoom() {
               </ol>
               <div className="audit-id"><span>Audit record</span><strong>{auditId}</strong></div>
               <button className="audit-link" type="button">View complete lineage <span>→</span></button>
-              <button className="audit-link" type="button" onClick={demonstrateBreakGlassBoundary}>Test break-glass boundary <span>→</span></button>
+              <button className="audit-link" type="button" onClick={() => void demonstrateBreakGlassBoundary()}>Test break-glass boundary <span>→</span></button>
+              <button className="audit-link" type="button" onClick={() => void requestEmergencyAccess()}>Request emergency access <span>→</span></button>
             </aside>
           </div>
 
@@ -565,6 +592,8 @@ export function ControlRoom() {
         </details>
         </>}
       </main>
+      <SessionTimer />
+      {stepUpDialog}
     </div>
   );
 }
