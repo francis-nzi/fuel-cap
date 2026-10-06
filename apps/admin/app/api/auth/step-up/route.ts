@@ -5,7 +5,7 @@ import { decodeIssuedToken } from "@/lib/auth/claims";
 import { STEP_UP_WINDOW_SECONDS } from "@/lib/auth/config";
 import { grantStepUp } from "@/lib/auth/cookies";
 import { requireStaffApi } from "@/lib/auth/guard";
-import { isSixDigitCode, totpFactors, verifyCode } from "@/lib/auth/mfa";
+import { classifyVerifyError, failureResponse, isSixDigitCode, logVerifyFailure, mostUsefulFailure, totpFactors, verifyCode, type SupabaseError, type VerifyFailure } from "@/lib/auth/mfa";
 
 export const dynamic = "force-dynamic";
 const noStore = { "Cache-Control": "no-store" };
@@ -26,13 +26,19 @@ export async function POST(request: NextRequest) {
 
   const { verified } = await totpFactors(supabase);
   let verifiedAccessToken: string | null = null;
+  const failures: { reason: VerifyFailure; error: SupabaseError; factorId: string }[] = [];
   for (const factor of verified) {
     const result = await verifyCode(supabase, factor.id, body.code);
     if (!result.error && result.data) { verifiedAccessToken = result.data.access_token; break; }
+    const error: SupabaseError = result.error ?? { code: "no_session" };
+    failures.push({ reason: classifyVerifyError(error), error, factorId: factor.id });
   }
   if (!verifiedAccessToken) {
-    await audit(config, "STEP_UP_FAILED", "failure", { userId: claims.sub, email: claims.email }, meta, { action });
-    return NextResponse.json({ error: "INVALID_CODE" }, { status: 401, headers: noStore });
+    const failure = failures.length ? mostUsefulFailure(failures) : null;
+    if (failure) logVerifyFailure("step_up", failure.factorId, failure.error);
+    await audit(config, "STEP_UP_FAILED", "failure", { userId: claims.sub, email: claims.email }, meta, { action, reason: failure?.reason ?? "NO_AUTHENTICATOR", supabaseCode: failure?.error.code ?? null, supabaseStatus: failure?.error.status ?? null });
+    const { status, error } = failureResponse[failure?.reason ?? "WRONG_CODE"];
+    return NextResponse.json({ error, reference: failure?.reason === "VERIFY_UNAVAILABLE" ? failure.error.code ?? "unknown" : undefined }, { status, headers: noStore });
   }
   const sessionId = decodeIssuedToken(verifiedAccessToken).session_id ?? claims.session_id ?? "";
   grantStepUp(await cookies(), config, claims.sub, sessionId);

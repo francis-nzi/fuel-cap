@@ -2,6 +2,7 @@
 
 import { LockKeyhole } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { codeErrorMessage, sessionEnded } from "./code-errors";
 import { hardNavigate } from "./session-timer";
 
 export type GovernedResult = { allowed: boolean; reasonCode: string } | { cancelled: true };
@@ -31,12 +32,10 @@ function StepUpDialog({ action, onDone }: { action: string; onDone: (ok: boolean
     const response = await fetch("/api/auth/step-up", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, action }) });
     setBusy(false);
     if (response.ok) return onDone(true);
-    if (response.status === 401 || response.status === 403) {
-      const body = await response.json().catch(() => ({})) as { error?: string };
-      if (body.error === "UNAUTHENTICATED" || body.error === "SESSION_EXPIRED") { hardNavigate("/login?reason=timeout"); return; }
-    }
+    const body = await response.json().catch(() => ({})) as { error?: string; reference?: string };
+    if (sessionEnded(body.error)) { hardNavigate("/login?reason=timeout"); return; }
     setCode("");
-    setError("That code didn't work. Check your authenticator app and try the current code.");
+    setError(codeErrorMessage("step_up", body.error, body.reference));
     input.current?.focus();
   }
 

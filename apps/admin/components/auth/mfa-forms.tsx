@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { codeErrorMessage, sessionEnded } from "./code-errors";
 import { hardNavigate } from "./session-timer";
 
 type Enrolment = { factorId: string; qrCode: string; secret: string };
@@ -18,6 +19,7 @@ export function EnrolAuthenticator({ onDone, backup = false }: { onDone: () => v
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expired, setExpired] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,16 +38,19 @@ export function EnrolAuthenticator({ onDone, backup = false }: { onDone: () => v
     setBusy(true);
     setError(null);
     const response = await fetch("/api/auth/mfa/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ factorId: enrolment.factorId, code }) });
-    setBusy(false);
     if (response.ok) return onDone();
+    const body = await response.json().catch(() => ({})) as { error?: string; reference?: string };
+    if (sessionEnded(body.error)) { hardNavigate("/login?reason=timeout"); return; }
+    setBusy(false);
     setCode("");
-    setError("That code didn't match. Wait for the next code in your app and try again.");
+    setExpired(body.error === "SETUP_EXPIRED");
+    setError(codeErrorMessage("enrol", body.error, body.reference));
   }
 
   return <form className="auth-form" onSubmit={submit} aria-label={backup ? "Add a backup authenticator" : "Set up your authenticator app"}>
     <ol className="auth-steps">
       <li>Open an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, Authy…).</li>
-      <li>Scan this QR code, or type the setup key.</li>
+      <li>Scan this QR code, or type the setup key. If your app already has a &quot;FuelCap Control Room&quot; entry from an earlier attempt, delete it first: only this newest one will work.</li>
       <li>Enter the 6-digit code the app shows.</li>
     </ol>
     {enrolment ? <div className="auth-qr">
@@ -55,7 +60,8 @@ export function EnrolAuthenticator({ onDone, backup = false }: { onDone: () => v
     </div> : !error && <p className="auth-hint" role="status">Preparing your QR code…</p>}
     <CodeField value={code} onChange={setCode} />
     {error && <p className="auth-error" role="alert">{error}</p>}
-    <button type="submit" disabled={busy || !enrolment || code.length !== 6}>{busy ? "Checking…" : backup ? "Add backup authenticator" : "Turn on and continue"}</button>
+    {expired && <button type="button" onClick={() => window.location.reload()}>Get a new QR code</button>}
+    <button type="submit" disabled={busy || !enrolment || expired || code.length !== 6}>{busy ? "Checking…" : backup ? "Add backup authenticator" : "Turn on and continue"}</button>
     {!backup && <p className="auth-hint">Tip: add the same key to a second device now (for example a phone and a password manager). Supabase has no backup codes, so a second authenticator is your fastest way back in if you lose a phone.</p>}
   </form>;
 }
@@ -71,12 +77,12 @@ export function VerifyAuthenticator() {
     setBusy(true);
     setError(null);
     const response = await fetch("/api/auth/mfa/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
-    const body = await response.json().catch(() => ({})) as { next?: string; error?: string };
+    const body = await response.json().catch(() => ({})) as { next?: string; error?: string; reference?: string };
     if (response.ok) { hardNavigate(body.next ?? "/"); return; }
-    if (body.error === "UNAUTHENTICATED" || body.error === "SESSION_EXPIRED") { hardNavigate("/login?reason=timeout"); return; }
+    if (sessionEnded(body.error)) { hardNavigate("/login?reason=timeout"); return; }
     setBusy(false);
     setCode("");
-    setError("That code didn't match. Try the current code in your authenticator app.");
+    setError(codeErrorMessage("sign_in", body.error, body.reference));
   }
 
   return <form className="auth-form" onSubmit={submit}>

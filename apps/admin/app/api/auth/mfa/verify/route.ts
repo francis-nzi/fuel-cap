@@ -4,7 +4,7 @@ import { audit, requestMeta } from "@/lib/auth/audit";
 import { decodeIssuedToken, type AuthClaims } from "@/lib/auth/claims";
 import { authConfig } from "@/lib/auth/config";
 import { touchIdleClock } from "@/lib/auth/cookies";
-import { isSixDigitCode, totpFactors, verifyCode } from "@/lib/auth/mfa";
+import { classifyVerifyError, failureResponse, isSixDigitCode, logVerifyFailure, mostUsefulFailure, totpFactors, verifyCode, type SupabaseError, type VerifyFailure } from "@/lib/auth/mfa";
 import { createRouteClient } from "@/lib/auth/supabase";
 
 export const dynamic = "force-dynamic";
@@ -26,21 +26,36 @@ export async function POST(request: NextRequest) {
 
   const factors = await totpFactors(supabase);
   const pending = typeof body.factorId === "string" ? factors.unverified.find((factor) => factor.id === body.factorId) : undefined;
+  const stage = typeof body.factorId === "string" ? "enrol" : "sign_in";
+  const who = { userId: claims.sub, email: claims.email };
+  // Enrolment that names a factor which no longer exists (replaced by a newer QR code, or removed): the person must
+  // start again with the newest QR code. Not a wrong code.
+  if (stage === "enrol" && !pending) {
+    await audit(config, "MFA_VERIFY_FAILED", "failure", who, meta, { stage, reason: "SETUP_EXPIRED", supabaseCode: null });
+    return NextResponse.json({ error: failureResponse.SETUP_EXPIRED.error }, { status: failureResponse.SETUP_EXPIRED.status, headers: noStore });
+  }
   // First-time enrolment only verifies the pending factor; otherwise any of the user's verified authenticators.
   const candidates = pending ? [pending] : factors.verified;
   if (!candidates.length) return NextResponse.json({ error: "NO_AUTHENTICATOR" }, { status: 400, headers: noStore });
 
   let result: Awaited<ReturnType<typeof verifyCode>> | null = null;
+  const failures: { reason: VerifyFailure; error: SupabaseError; factorId: string }[] = [];
   for (const factor of candidates) {
     result = await verifyCode(supabase, factor.id, body.code);
-    if (!result.error) break;
+    if (!result.error && result.data) break;
+    const error: SupabaseError = result.error ?? { code: "no_session" };
+    failures.push({ reason: classifyVerifyError(error), error, factorId: factor.id });
+    result = null;
   }
-  if (!result || result.error || !result.data) {
-    await audit(config, "MFA_VERIFY_FAILED", "failure", { userId: claims.sub, email: claims.email }, meta, { stage: pending ? "enrol" : "sign_in" });
-    return NextResponse.json({ error: "INVALID_CODE" }, { status: 401, headers: noStore });
+  if (!result?.data) {
+    const failure = mostUsefulFailure(failures);
+    logVerifyFailure(stage, failure.factorId, failure.error);
+    await audit(config, "MFA_VERIFY_FAILED", "failure", who, meta, { stage, reason: failure.reason, supabaseCode: failure.error.code ?? null, supabaseStatus: failure.error.status ?? null });
+    const { status, error } = failureResponse[failure.reason];
+    return NextResponse.json({ error, reference: failure.reason === "VERIFY_UNAVAILABLE" ? failure.error.code ?? "unknown" : undefined }, { status, headers: noStore });
   }
   const sessionId = decodeIssuedToken(result.data.access_token).session_id ?? claims.session_id;
   if (sessionId) touchIdleClock(await cookies(), config, sessionId);
-  await audit(config, pending ? "MFA_ENROLLED" : "MFA_VERIFY_SUCCEEDED", "success", { userId: claims.sub, email: claims.email }, meta, pending ? { factorId: pending.id } : {});
+  await audit(config, pending ? "MFA_ENROLLED" : "MFA_VERIFY_SUCCEEDED", "success", who, meta, pending ? { factorId: pending.id } : {});
   return NextResponse.json({ next: "/" }, { headers: noStore });
 }

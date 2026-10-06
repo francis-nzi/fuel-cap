@@ -106,8 +106,8 @@ test("roles come from the server: the presenter is refused hedging without being
   expect(await response.json()).toMatchObject({ allowed: false, reasonCode: "DENY_POLICY" });
 });
 
-/** Platform admin (already signed in on `page`) invites a new member of staff, who accepts and enrols. */
-async function inviteAndEnrol(page: Page, browser: Browser, testInfo: TestInfo, label: string) {
+/** Platform admin (already signed in on `page`) invites a new member of staff, who accepts and reaches enrolment. */
+async function acceptInvite(page: Page, browser: Browser, testInfo: TestInfo, label: string) {
   const email = `${label}-${Date.now()}-${testInfo.project.name}@fuelcap.test`;
   const password = "invitee-password-2026";
   await page.goto("/staff", { waitUntil: "networkidle" });
@@ -129,6 +129,12 @@ async function inviteAndEnrol(page: Page, browser: Browser, testInfo: TestInfo, 
   await invitee.getByLabel("Confirm password").fill(password);
   await invitee.getByRole("button", { name: "Save and continue" }).click();
   await expect(invitee.getByRole("heading", { name: "Set up your authenticator app" })).toBeVisible();
+  return { email, password, invitee };
+}
+
+/** Platform admin (already signed in on `page`) invites a new member of staff, who accepts and enrols. */
+async function inviteAndEnrol(page: Page, browser: Browser, testInfo: TestInfo, label: string) {
+  const { email, password, invitee } = await acceptInvite(page, browser, testInfo, label);
   // Nothing else is reachable until the authenticator is set up.
   await invitee.goto("/");
   await expect(invitee).toHaveURL(/\/mfa$/);
@@ -270,6 +276,46 @@ test("a staff password reset emails a link that opens the control room, not the 
 
   await page.reload();
   await expect(page.getByRole("region", { name: "Recent security events" }).getByText("PASSWORD_RESET_SENT", { exact: true }).first()).toBeVisible();
+});
+
+test("authenticator set-up tells a wrong code apart from a QR code that a newer one replaced (REQ-002)", async ({ page, browser }, testInfo) => {
+  test.slow(); // two people, several screens and a step-up
+  await signIn(page, staff.admin);
+  const { email, invitee } = await acceptInvite(page, browser, testInfo, "setup");
+  await invitee.waitForLoadState("networkidle");
+  const firstSecret = (await invitee.getByTestId("totp-secret").innerText()).trim();
+  const turnOn = invitee.getByRole("button", { name: "Turn on and continue" });
+
+  // A wrong code is called a wrong code, with the hint about older entries in the app.
+  await invitee.getByLabel("6-digit code").fill(wrongCode(firstSecret));
+  await turnOn.click();
+  await expect(invitee.getByRole("alert").filter({ hasText: "didn't match this QR code" })).toBeVisible();
+
+  // Opening set-up again (another tab, a reload) replaces the QR code. A code for the old one now says so.
+  const other = await invitee.context().newPage();
+  await other.goto("/mfa", { waitUntil: "networkidle" });
+  await expect(other.getByTestId("totp-secret")).not.toHaveText(firstSecret);
+  await other.close();
+  await invitee.getByLabel("6-digit code").fill(await freshCode(firstSecret));
+  await turnOn.click();
+  await expect(invitee.getByRole("alert").filter({ hasText: "This setup has expired" })).toBeVisible();
+  await expect(turnOn).toBeDisabled();
+
+  // "Get a new QR code" starts again; the new one works.
+  await invitee.getByRole("button", { name: "Get a new QR code" }).click();
+  await invitee.waitForLoadState("networkidle");
+  const newSecret = (await invitee.getByTestId("totp-secret").innerText()).trim();
+  expect(newSecret).not.toBe(firstSecret);
+  await invitee.getByLabel("6-digit code").fill(await freshCode(newSecret));
+  await turnOn.click();
+  await expect(controlRoomHeading(invitee)).toBeVisible();
+  await invitee.context().close();
+
+  // The audit log records the reason for each failure.
+  await page.goto("/staff");
+  const failures = page.getByRole("region", { name: "Recent security events" }).getByRole("row").filter({ hasText: "MFA_VERIFY_FAILED" }).filter({ hasText: email });
+  await expect(failures.filter({ hasText: "SETUP_EXPIRED" }).first()).toBeVisible();
+  await expect(failures.filter({ hasText: "mfa_verification_failed" }).first()).toBeVisible();
 });
 
 test("30 minutes without activity signs you out on the server", async ({ page }) => {
