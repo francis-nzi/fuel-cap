@@ -15,11 +15,11 @@ export const PRESENTER_REFERENCE = 3.5;
 
 export type RunOfShow = { protected: boolean; moved: boolean; paid: boolean; fell: boolean; shared: boolean };
 
-export function PresenterPanel({ pump, setPump, steps, reset, available, close }: { pump: number; setPump: (price: number) => void; steps: RunOfShow; reset: () => void; available: boolean; close?: () => void }) {
+export function PresenterPanel({ pump, setPump, steps, reset, available, chargeRate, planName, endWindow, close }: { pump: number; setPump: (price: number) => void; steps: RunOfShow; reset: () => void; available: boolean; chargeRate: number; planName: string; endWindow?: () => void; close?: () => void }) {
   const market = markets.US;
-  const reference = quoteProtection(PRESENTER_REFERENCE, 1);
+  const reference = quoteProtection(PRESENTER_REFERENCE, 1, undefined, chargeRate);
   const checklist: [string, boolean][] = [
-    ["Protect 25 gal. Funds are added in the same step.", steps.protected],
+    ["Add $100. We protect the usual week's fuel automatically.", steps.protected],
     ["Move the pump price.", steps.moved],
     ["Pay at the pump.", steps.paid],
     ["Show a price fall, the “tails you win” moment.", steps.fell],
@@ -58,13 +58,14 @@ export function PresenterPanel({ pump, setPump, steps, reset, available, close }
         </ol>
       </section>
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-        {[["Today's price", money(PRESENTER_REFERENCE, market)], ["Cap (+5%)", money(reference.strike, market)], ["Limit (+15%)", money(reference.boundary, market)], ["Charge (2.3%)", `${money(reference.chargePerUnit, market)}/gal`]].map(([label, value]) => (
+        {[["Today's price", money(PRESENTER_REFERENCE, market)], ["Cap (+5%)", money(reference.strike, market)], ["Limit (+15%)", money(reference.boundary, market)], [`Charge (${planName}, ${(chargeRate * 100).toFixed(2)}%)`, `${money(reference.chargePerUnit, market, 4)}/gal`]].map(([label, value]) => (
           <div key={label} className="flex flex-col gap-0.5 rounded-[14px] border border-[#d3ded8] bg-[#f4f8f6] p-3"><span className="text-xs text-[#52625c]">{label}</span><span className="text-[17px] font-bold">{value}</span></div>
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" onClick={reset} className="min-h-[46px] rounded-xl border border-[#0b1b2b] bg-white px-5 text-[15px] font-bold">Reset demo</button>
-        <span className="text-[13px] text-[#52625c]">Numbers match Cost of Protection §5.3, cases A, B and C. Simulated money only.</span>
+        <button type="button" onClick={endWindow} disabled={!endWindow} className="min-h-[46px] rounded-xl border border-[#0b1b2b] bg-white px-5 text-[15px] font-bold disabled:opacity-40">End this window (auto-renew)</button>
+        <span className="text-[13px] text-[#52625c]">Cap +5%, limit +15%, charge at the customer&apos;s plan spread (DEC-065). Simulated money only.</span>
       </div>
     </aside>
   );

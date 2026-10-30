@@ -27,12 +27,13 @@ export type Quote = {
 
 /**
  * Quote `volume` at today's `reference` price. Adding fuel to an existing protection keeps its
- * cap (`existing` strike and boundary) and charges at today's rate.
+ * cap (`existing` strike and boundary) and charges at today's rate. `chargeRate` is the customer's plan spread
+ * (DEC-065: Basic 350, Standard 225, Plus 125 bps); it defaults to the Spread & FX 230 bps.
  */
-export function quoteProtection(reference: number, volume: number, existing?: { strike: number; boundary: number }): Quote {
+export function quoteProtection(reference: number, volume: number, existing?: { strike: number; boundary: number }, chargeRate = CHARGE_RATE): Quote {
   const strike = existing?.strike ?? round4(reference * (1 + STRIKE_MARKUP));
   const boundary = existing?.boundary ?? round4(reference * (1 + BOUNDARY_MARKUP));
-  const chargePerUnit = round4(reference * CHARGE_RATE);
+  const chargePerUnit = round4(reference * chargeRate);
   const held = round4(volume * strike);
   const charge = round4(volume * chargePerUnit);
   // The wallet is debited in cents; FuelCap absorbs the sub-cent remainder.

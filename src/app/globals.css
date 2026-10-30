@@ -40,3 +40,17 @@
   to { opacity: 1; transform: translateY(0); }
 }
 .view-enter { animation: enter 180ms ease-out; }
+
+/* Station map price pins (Leaflet divIcons). */
+.fc-map { z-index: 0; }
+.fc-pin {
+  position: relative; display: inline-block; transform: translate(-50%, calc(-100% - 6px)); white-space: nowrap;
+  padding: 3px 8px; border-radius: 999px; background: #fff; color: #0b1b2b;
+  border: 1.5px solid #0b7a4b; font: 700 12px/1.3 var(--font-inter), Arial, sans-serif;
+  box-shadow: 0 2px 6px rgba(11, 27, 43, 0.25); cursor: pointer;
+}
+.fc-pin::after {
+  content: ""; position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%);
+  border: 5px solid transparent; border-top-color: #0b7a4b;
+}
+.fc-pin-on { background: #0b7a4b; color: #fff; padding: 5px 10px; font-size: 13px; }

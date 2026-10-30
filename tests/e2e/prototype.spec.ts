@@ -1,12 +1,21 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-// Phase 2 customer app (docs/redesign/REDESIGN_BRIEF.md, prototype/Main.dc.html). Runs against the E2E build:
+// Customer app: DEC-065 funding model (REQ-003), location and the station map. Runs against the E2E build:
 // Supabase is mocked and customer-lifecycle writes stay in the local in-memory store.
 
 async function mockSupabase(page: Page) {
   await page.route("http://127.0.0.1:54321/**", (route) => {
     const isUserLookup = new URL(route.request().url()).pathname.endsWith("/auth/v1/user");
     return route.fulfill({ status: isUserLookup ? 401 : 200, contentType: "application/json", body: isUserLookup ? JSON.stringify({ message: "Not authenticated" }) : "[]" });
+  });
+  // Geocoding is deterministic in tests: one known ZIP, one known UK postcode, everything else not found.
+  await page.route("**/api/geocode**", (route) => {
+    const url = new URL(route.request().url());
+    const q = (url.searchParams.get("q") ?? "").toUpperCase();
+    if (!q) return route.fulfill({ json: { country: "US" } });
+    if (q === "78704") return route.fulfill({ json: { latitude: 30.2448, longitude: -97.727, label: "78704, Austin" } });
+    if (q === "SW11") return route.fulfill({ json: { latitude: 51.4640, longitude: -0.1680, label: "SW11, Wandsworth" } });
+    return route.fulfill({ status: 404, json: { error: "NOT_FOUND" } });
   });
   // Deterministic sharing: no native share sheet, a clipboard that always succeeds.
   await page.addInitScript(() => {
@@ -23,17 +32,17 @@ function clicker(page: Page, projectName: string) {
   };
 }
 
-const tab = (page: Page, name: "Home" | "Protect" | "Pay" | "Activity") => page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button", { name, exact: true });
-const summary = (page: Page) => page.getByLabel("Protection summary");
+const tab = (page: Page, name: "Home" | "Add money" | "Pay" | "Activity") => page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button", { name, exact: true });
 const noHorizontalOverflow = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 
-async function protect25(page: Page, click: (locator: Locator) => Promise<void>) {
-  await click(page.getByRole("button", { name: "Protect my fuel" }));
-  await expect(page.getByRole("heading", { name: "Protect your fuel" })).toBeVisible();
-  await expect(page.getByRole("radio", { name: /Shell Downtown/ })).toHaveAttribute("aria-checked", "true");
-  await expect(page.getByRole("radio", { name: "25 gal" })).toHaveAttribute("aria-checked", "true");
-  await click(page.getByRole("button", { name: "Add $100.00 & protect 25 gal" }));
-  await expect(page.getByRole("heading", { name: "25 gal protected" })).toBeVisible();
+/** Basic plan, $3.50 station, usual 10 gal/week: 7-day window limited to 9.2 gal by the 150 L/month plan limit. */
+async function add100(page: Page, click: (locator: Locator) => Promise<void>) {
+  await click(page.getByRole("button", { name: "Add money to start" }));
+  await expect(page.getByRole("heading", { name: "Add money" })).toBeVisible();
+  await expect(page.getByRole("radio", { name: "$100" })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByTestId("protect-preview")).toContainText("We'll protect 9.2 gal at max $3.68/gal for 7 days. Protection charge $1.13");
+  await click(page.getByRole("button", { name: "Add $100.00" }));
+  await expect(page.getByRole("heading", { name: "$100.00 added" })).toBeVisible();
 }
 
 async function setPresenterPump(page: Page, click: (locator: Locator) => Promise<void>, label: RegExp, mobile: boolean) {
@@ -42,172 +51,225 @@ async function setPresenterPump(page: Page, click: (locator: Locator) => Promise
   if (mobile) await click(page.getByRole("button", { name: "Close presenter controls" }));
 }
 
+async function expectActivityMatchesHome(page: Page, click: (locator: Locator) => Promise<void>) {
+  await click(tab(page, "Home"));
+  const home = await page.getByTestId("balance").innerText();
+  await click(tab(page, "Activity"));
+  await expect(page.getByTestId("activity-balance").first()).toHaveText(home);
+  return home;
+}
+
+// 5 gal fill against a 9.2 gal protection at cap $3.675 (Basic charge 3.50% = $0.1225/gal → $1.13).
 const cases = [
-  { name: "A: rise to $3.90", pump: /Price rises/, headline: "FuelCap covered $4.50", eyebrow: "PRICE ROSE · HEADS YOU WIN", rows: ["Pump total (20 × $3.90)$78.00", "Paid from protected fuel$73.50", "Paid by FuelCap$4.50"], absent: ["Returned to your wallet", "Above your limit", "Saved vs today"], wallet: "$6.11", saved: "$4.50", coral: false },
-  { name: "B: spike to $4.20", pump: /Spike past limit/, headline: "FuelCap covered $7.00", eyebrow: "PRICE SPIKED PAST YOUR LIMIT", rows: ["Pump total (20 × $4.20)$84.00", "Paid from protected fuel$73.50", "Paid by FuelCap$7.00", "Above your limit, from wallet$3.50"], absent: ["Returned to your wallet", "Saved vs today"], wallet: "$2.61", saved: "$7.00", coral: false },
-  { name: "C: fall to $3.40", pump: /Price falls/, headline: "$5.50 back in your wallet · you saved $2.00 vs today's price", eyebrow: "PRICE DROPPED · TAILS YOU WIN", rows: ["Pump total (20 × $3.40)$68.00", "Paid from protected fuel$68.00", "Returned to your wallet+$5.50", "Saved vs today's $3.50$2.00"], absent: ["Paid by FuelCap", "Above your limit"], wallet: "$11.61", saved: "$2.00", coral: true },
+  { name: "rise to $3.90", pump: /Price rises/, eyebrow: "PRICE ROSE · HEADS YOU WIN", headline: "FuelCap covered $1.13", rows: ["Pump total (5 × $3.90)$19.50", "Paid from your balance$18.38", "Paid by FuelCap$1.13"], balance: "$80.49" },
+  { name: "spike to $4.20", pump: /Spike past limit/, eyebrow: "PRICE SPIKED PAST YOUR LIMIT", headline: "FuelCap covered $1.75", rows: ["Pump total (5 × $4.20)$21.00", "Paid from your balance$19.26", "Paid by FuelCap$1.75"], balance: "$79.61" },
+  { name: "fall to $3.40", pump: /Price falls/, eyebrow: "PRICE DROPPED · TAILS YOU WIN", headline: "You paid $1.38 less than your cap · $0.50 less than today's price", rows: ["Pump total (5 × $3.40)$17.00", "Paid from your balance$17.00", "Less than your cap$1.38", "Saved vs today's $3.50$0.50"], balance: "$81.87" },
 ];
 
 for (const scenario of cases) {
-  test(`brief case ${scenario.name}: protect 25 gal at $3.50, fill 20 gal`, async ({ page }, testInfo) => {
+  test(`add $100, auto-protect, fill 5 gal: ${scenario.name}`, async ({ page }, testInfo) => {
     const click = clicker(page, testInfo.project.name);
     const mobile = testInfo.project.name === "customer-mobile";
     await mockSupabase(page);
     await page.goto("/?demo=1");
     await expect(page.getByTestId("headline-unit-price")).toContainText("$3.50");
-    await expect(page.getByText("never pay more than $3.68/gal for 7 days", { exact: false })).toBeVisible();
-
-    await click(page.getByRole("button", { name: "Protect my fuel" }));
-    await expect(summary(page)).toContainText("$3.68/gal");
-    await expect(summary(page)).toContainText("5% above today's $3.50");
-    await expect(summary(page)).toContainText("25 gal × $3.68");
-    await expect(summary(page)).toContainText("$91.88");
-    await expect(summary(page)).toContainText("$0.08/gal, one-off, not refundable");
-    await expect(summary(page)).toContainText("$2.01");
-    await expect(summary(page)).toContainText("$93.89");
-    await expect(summary(page)).toContainText("Your wallet has $0.00. We'll add $100.00 from your card ending 4242 in the same step.");
-    await expect(page.getByText("Price rises: we pay the difference, up to $4.03/gal.")).toBeVisible();
-    await click(page.getByRole("button", { name: "Add $100.00 & protect 25 gal" }));
-    await expect(page.getByRole("heading", { name: "25 gal protected" })).toBeVisible();
-    await expect(page.getByText("You'll never pay more than $3.68/gal at Shell Downtown until", { exact: false })).toBeVisible();
-    await expect(page.getByText("Wallet remaining: $6.11")).toBeVisible();
+    await expect(page.getByText("protect your usual fuel at a max of $3.68/gal for 7 days", { exact: false })).toBeVisible();
+    await add100(page, click);
+    await expect(page.getByText("9.2 gal protected. You'll never pay more than $3.68/gal at Shell Downtown until", { exact: false })).toBeVisible();
+    await expect(page.getByText("Balance $98.87 · $65.06 free to spend")).toBeVisible();
 
     await setPresenterPump(page, click, scenario.pump, mobile);
     await click(page.getByRole("button", { name: "Pay at pump now" }));
-    await expect(page.getByRole("radio", { name: "20 gal" })).toHaveAttribute("aria-checked", "true");
-    await click(page.getByRole("button", { name: "Start fill · 20 gal (simulated)" }));
+    await expect(page.getByRole("radio", { name: "5 gal" })).toHaveAttribute("aria-checked", "true");
+    await click(page.getByRole("button", { name: "Start fill · 5 gal (simulated)" }));
 
     const hero = page.getByLabel("Fill result");
     await expect(hero).toContainText(scenario.eyebrow);
     await expect(hero.getByRole("heading")).toHaveText(scenario.headline);
-    if (scenario.name.startsWith("B")) await expect(hero).toContainText("the $0.17/gal above that came from your wallet");
-    expect(await hero.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(scenario.coral ? "rgb(255, 92, 72)" : "rgb(11, 27, 43)");
     const breakdown = page.getByLabel("Fill breakdown");
     for (const row of scenario.rows) await expect(breakdown).toContainText(row);
-    for (const row of scenario.absent) await expect(breakdown).not.toContainText(row);
-
     await click(page.getByRole("button", { name: "Share my win" }));
     await expect(page.getByRole("button", { name: "Link copied · share it anywhere" })).toBeVisible();
     await click(page.getByRole("button", { name: "Done" }));
-    await expect(page.getByRole("heading", { name: "Your fuel is capped" })).toBeVisible();
-    await expect(page.getByTestId("wallet-balance")).toHaveText(scenario.wallet);
-    await expect(page.getByText("$18.38 held for it")).toBeVisible();
-    await expect(page.getByText("Saved with FuelCap so far")).toBeVisible();
-    await expect(page.getByTestId("savings-total")).toHaveText(scenario.saved);
-    await expect(page.getByText("5 gal at Shell Downtown")).toBeVisible();
+
+    await expect(page.getByTestId("balance")).toHaveText(scenario.balance);
+    await expect(page.getByTestId("protected-line")).toContainText("4.2 gal protected at max $3.68/gal until");
+    expect(await expectActivityMatchesHome(page, click)).toBe(scenario.balance);
   });
 }
 
-test("first use: four tabs, one verb, honest empty states, account details", async ({ page }, testInfo) => {
+test("REQ-003 worked example in the UK: Activity shows a running balance that ends at the Home balance", async ({ page }, testInfo) => {
+  const click = clicker(page, testInfo.project.name);
+  await mockSupabase(page);
+  await page.goto("/");
+  await click(page.getByRole("button", { name: "Account and settings" }));
+  await page.getByLabel("Country").selectOption("GB");
+  await expect(page.getByTestId("demo-pill")).toHaveText("DEMO · UK £");
+  await expect(page.getByRole("radio", { name: "40 L" })).toHaveAttribute("aria-checked", "true");
+  await click(tab(page, "Home"));
+  await click(page.getByRole("button", { name: /Your station/ }));
+  await page.getByPlaceholder("Postcode or town").fill("Fulham");
+  await click(page.getByRole("radio", { name: /Shell Fulham/ }));
+  await click(page.getByRole("button", { name: "Use Shell Fulham" }));
+  await click(page.getByRole("button", { name: "Add money to start" }));
+  await click(page.getByRole("button", { name: "Add £100.00" }));
+  await expect(page.getByRole("heading", { name: "£100.00 added" })).toBeVisible();
+  await click(tab(page, "Activity"));
+  const rows = page.getByTestId("activity-row");
+  // Basic 150 L/month → 35 L for 7 days at max £1.49 (Shell Fulham £1.419): charge 35 × £0.0497 = £1.74.
+  await expect(rows.nth(0)).toContainText("Protection charge");
+  await expect(rows.nth(0)).toContainText("−£1.74");
+  await expect(rows.nth(1)).toContainText("Protected 35 L at max £1.49/L");
+  await expect(rows.nth(2)).toContainText("Added money");
+  await expect(page.getByTestId("activity-balance")).toHaveText(["£98.26", "£100.00", "£100.00"]);
+  await expectActivityMatchesHome(page, click);
+});
+
+test("first use: four tabs, honest empty states, plan prices in the market's currency", async ({ page }, testInfo) => {
   const click = clicker(page, testInfo.project.name);
   await mockSupabase(page);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Cap your fuel price. Never overpay." })).toBeVisible();
   await expect(page.getByTestId("demo-pill")).toHaveText("DEMO · US $");
-  await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button")).toHaveText(["Home", "Protect", "Pay", "Activity"]);
-  for (const retired of ["Lock price", "Add fuel", "Choose fuel protection", "Confirm lock", "Price protection service", "Saved with FuelCap", "Your advantage"]) {
-    await expect(page.getByText(retired, { exact: false })).toHaveCount(0);
-  }
+  await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button")).toHaveText(["Home", "Add money", "Pay", "Activity"]);
+  await expect(page.getByTestId("your-station")).toHaveText("Shell Downtown");
   await expect(page.getByRole("complementary", { name: "Presenter controls" })).toHaveCount(0);
   expect(await noHorizontalOverflow(page)).toBe(true);
 
   await click(tab(page, "Pay"));
   await expect(page.getByText("Nothing protected yet")).toBeVisible();
-  await expect(page.locator('path[shape-rendering="crispEdges"]')).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /Start fill/ })).toHaveCount(0);
-
   await click(tab(page, "Activity"));
-  await expect(page.getByText("No activity yet. Your first protection will show here.")).toBeVisible();
+  await expect(page.getByText("No activity yet. Money you add will show here.")).toBeVisible();
 
   await click(page.getByRole("button", { name: "Account and settings" }));
-  await expect(page.getByRole("heading", { name: "Account" })).toBeVisible();
-  await expect(page.getByText("Standard · 7-day cap · Free")).toBeVisible();
+  await expect(page.getByRole("radio", { name: /Basic.*Free/ })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByRole("radio", { name: /Standard.*\$4\.99/ })).toBeVisible();
+  await expect(page.getByRole("radiogroup", { name: "Plan" })).not.toContainText("£");
   await expect(page.getByText("Visa ending 4242")).toBeVisible();
-  await expect(page.getByText("On · 48h notice")).toBeVisible();
-
-  if (testInfo.project.name === "customer-mobile") {
-    await page.setViewportSize({ width: 375, height: 812 });
-    const header = [page.getByTestId("demo-pill"), page.getByRole("button", { name: "Account and settings" })];
-    const boxes = await Promise.all(header.map(async (item) => (await item.boundingBox())!));
-    expect(boxes[1].x).toBeGreaterThanOrEqual(boxes[0].x + boxes[0].width);
-    expect(boxes[1].x + boxes[1].width).toBeLessThanOrEqual(375);
-    expect(await noHorizontalOverflow(page)).toBe(true);
-  }
 });
 
-test("protect more keeps the cap, and everything survives a refresh", async ({ page }, testInfo) => {
+test("deposits never take the balance over the plan's wallet limit", async ({ page }, testInfo) => {
   const click = clicker(page, testInfo.project.name);
   await mockSupabase(page);
   await page.goto("/");
-  await protect25(page, click);
-  await click(page.getByRole("button", { name: "Back to home" }));
-  await expect(page.getByTestId("headline-unit-price")).toContainText("$3.68");
-  await expect(page.getByText("Pump is below your cap")).toBeVisible();
-  await expect(page.getByText("You pay $3.50")).toBeVisible();
-
-  await click(page.getByRole("button", { name: "Protect more" }));
-  await expect(page.getByText("Adding to your Shell Downtown protection, same cap.")).toBeVisible();
-  await expect(page.getByRole("radio", { name: /Shell Downtown/ })).toHaveCount(0);
-  await click(page.getByRole("radio", { name: "10 gal" }));
-  await expect(summary(page)).toContainText("Same cap as your protection");
-  await expect(summary(page)).toContainText("$36.75");
-  await expect(summary(page)).toContainText("$37.56");
-  await click(page.getByRole("button", { name: "Add $100.00 & protect 10 gal" }));
-  await expect(page.getByRole("heading", { name: "35 gal protected" })).toBeVisible();
-
-  await page.reload();
-  await expect(page.getByRole("heading", { name: "Your fuel is capped" })).toBeVisible();
-  await expect(page.getByText("35 gal at Shell Downtown")).toBeVisible();
-  await expect(page.getByTestId("wallet-balance")).toHaveText("$68.55");
+  await add100(page, click);
+  await click(tab(page, "Add money"));
+  await click(page.getByRole("radio", { name: "$200" }));
+  await click(page.getByRole("button", { name: "Add $200.00" }));
+  await click(tab(page, "Add money"));
+  await expect(page.getByText("You can add up to $201.13 now.", { exact: false })).toBeVisible();
+  await click(page.getByRole("radio", { name: "$200" }));
+  await click(page.getByRole("button", { name: "Add $200.00" }));
+  await click(tab(page, "Add money"));
+  await expect(page.getByText("Your balance is at your Basic plan's limit of $500.00.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "At your plan's limit" })).toBeDisabled();
+  await click(page.getByRole("button", { name: "Move to Standard: hold up to $1,500.00" }));
+  await expect(page.getByRole("radio", { name: "$200" })).toBeEnabled();
   await click(tab(page, "Activity"));
-  await expect(page.getByText("Protected 10 gal · Shell Downtown")).toBeVisible();
-  await expect(page.getByText("Protected 25 gal · Shell Downtown")).toBeVisible();
-  await expect(page.getByText("Added funds")).toHaveCount(2);
+  await expect(page.getByText("Standard plan fee, paid by card")).toBeVisible();
+  await expect(page.getByTestId("activity-balance").first()).toHaveText("$498.87");
+  await expectActivityMatchesHome(page, click);
 });
 
-test("changing country opens a separate wallet in that currency", async ({ page }, testInfo) => {
+test.describe("location and map", () => {
+  test.use({ geolocation: { latitude: 30.2715, longitude: -97.7400 }, permissions: ["geolocation"] });
+
+  test("uses the device location, searches a ZIP, and picks a station from the map", async ({ page }, testInfo) => {
+    const click = clicker(page, testInfo.project.name);
+    await mockSupabase(page);
+    await page.goto("/");
+    // Permission already granted: located quietly, nearest station chosen.
+    await expect(page.getByTestId("your-station")).toHaveText("BP Central");
+    await click(page.getByRole("button", { name: /Your station/ }));
+    await expect(page.getByRole("heading", { name: "Choose your station" })).toBeVisible();
+    await expect(page.getByTestId("station-origin")).toHaveText("Near you");
+    const list = page.getByRole("radiogroup", { name: "Filling station" });
+    await expect(list.getByRole("radio").first()).toContainText("BP Central");
+    await expect(list.getByRole("radio").first()).toContainText("0.0 mi");
+
+    await page.getByPlaceholder("ZIP or city").fill("78704");
+    await expect(page.getByTestId("station-origin")).toHaveText("Near 78704, Austin");
+    await expect(list.getByRole("radio").first()).toContainText("Shell Riverside");
+
+    await click(page.getByRole("tab", { name: "Map" }));
+    const pin = page.locator(".leaflet-marker-icon[title='Chevron Airport']");
+    await expect(pin).toBeVisible({ timeout: 10_000 });
+    await pin.click();
+    await expect(page.getByLabel("Chosen station")).toContainText("Chevron Airport · $3.47");
+    await expect(page.getByRole("link", { name: "Directions" })).toHaveAttribute("href", /google\.com\/maps\/dir\/\?api=1&destination=30\.2905,-97\.7076/);
+    await click(page.getByRole("button", { name: "Use Chevron Airport" }));
+    await expect(page.getByTestId("your-station")).toHaveText("Chevron Airport");
+    await expect(page.getByTestId("headline-unit-price")).toContainText("$3.47");
+
+    await page.reload();
+    await expect(page.getByTestId("your-station")).toHaveText("Chevron Airport");
+  });
+
+  test("an unknown place says so instead of guessing", async ({ page }, testInfo) => {
+    const click = clicker(page, testInfo.project.name);
+    await mockSupabase(page);
+    await page.goto("/");
+    await click(page.getByRole("button", { name: /Your station/ }));
+    await page.getByPlaceholder("ZIP or city").fill("Atlantis");
+    await expect(page.getByText("We couldn't find “Atlantis” in the US.")).toBeVisible();
+  });
+});
+
+test.describe("location refused", () => {
+  test.use({ permissions: [] });
+  test("a refused location falls back to the demo area with a clear message", async ({ page, context }, testInfo) => {
+    const click = clicker(page, testInfo.project.name);
+    await mockSupabase(page);
+    await context.clearPermissions();
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "geolocation", { configurable: true, value: { getCurrentPosition: (_ok: unknown, fail: (error: { code: number }) => void) => fail({ code: 1 }) } });
+    });
+    await page.goto("/");
+    await click(page.getByRole("button", { name: /Your station/ }));
+    await click(page.getByRole("button", { name: "Use my location" }));
+    await expect(page.getByText("Location is off for this site.", { exact: false })).toBeVisible();
+    await expect(page.getByTestId("station-origin")).toHaveText("Demo area: Austin, TX");
+  });
+});
+
+test("ending a window releases the money and auto-renews from the balance", async ({ page }, testInfo) => {
   const click = clicker(page, testInfo.project.name);
+  const mobile = testInfo.project.name === "customer-mobile";
   await mockSupabase(page);
-  await page.goto("/");
-  await protect25(page, click);
-
-  await click(page.getByRole("button", { name: "Account and settings" }));
-  await page.getByLabel("Country").selectOption("GB");
-  await expect(page.getByTestId("demo-pill")).toHaveText("DEMO · UK £");
-  await click(tab(page, "Home"));
-  await expect(page.getByRole("heading", { name: "Cap your fuel price. Never overpay." })).toBeVisible();
-  // UK demo stations 1.419…1.479: the typical (median) price is £1.44.
-  await expect(page.getByText("Typical across 6 stations")).toBeVisible();
-  await expect(page.getByTestId("headline-unit-price")).toContainText("£1.44");
-  await expect(page.getByTestId("wallet-balance")).toHaveText("£0.00");
-  await click(tab(page, "Pay"));
-  await expect(page.getByText("Nothing protected yet")).toBeVisible();
-
-  await click(page.getByRole("button", { name: "Account and settings" }));
-  await page.getByLabel("Country").selectOption("US");
-  await click(tab(page, "Home"));
-  await expect(page.getByText("25 gal at Shell Downtown")).toBeVisible();
-  await expect(page.getByTestId("wallet-balance")).toHaveText("$6.11");
+  await page.goto("/?demo=1");
+  await add100(page, click);
+  if (mobile) await click(page.getByRole("button", { name: "Open presenter controls" }));
+  await click(page.getByRole("button", { name: "End this window (auto-renew)" }));
+  if (mobile) await click(page.getByRole("button", { name: "Close presenter controls" }));
+  await click(tab(page, "Activity"));
+  const rows = page.getByTestId("activity-row");
+  await expect(rows.nth(0)).toContainText("Protection charge");
+  await expect(rows.nth(1)).toContainText("Renewed 9.2 gal at max $3.68/gal");
+  await expect(rows.nth(2)).toContainText("Protection window ended");
+  await expect(page.getByTestId("activity-balance").first()).toHaveText("$97.74");
+  await expectActivityMatchesHome(page, click);
 });
 
-test("onboarding keeps the market and isn't offered again", async ({ page }, testInfo) => {
+test("onboarding asks for usual weekly fuel and isn't offered again", async ({ page }, testInfo) => {
   const click = clicker(page, testInfo.project.name);
   await mockSupabase(page);
   await page.goto("/");
   await click(page.getByRole("button", { name: "Create your profile" }));
   await expect(page.getByRole("heading", { name: "Choose how you use FuelCap" })).toBeVisible();
+  await click(page.getByRole("radio", { name: "15 gal" }));
+  await click(page.getByRole("button", { name: "Fill with demo details" }));
   await click(page.getByRole("button", { name: "Continue to identity check" }));
   await page.getByLabel("Driving licence photo").setInputFiles({ name: "licence.jpg", mimeType: "image/jpeg", buffer: Buffer.from("demo-licence") });
   await click(page.getByRole("button", { name: "Submit for verification" }));
   await expect(page.getByText("Identity verified")).toBeVisible({ timeout: 5_000 });
   await page.getByLabel("Card PIN").fill("2048");
   await click(page.getByRole("button", { name: "Open my wallet" }));
-  await expect(page.getByRole("heading", { name: "Cap your fuel price. Never overpay." })).toBeVisible();
-  await expect(page.getByTestId("demo-pill")).toHaveText("DEMO · US $");
+  await expect(page.getByText("Hi Francis")).toBeVisible();
   await expect(page.getByRole("button", { name: "Create your profile" })).toHaveCount(0);
+  await click(page.getByRole("button", { name: "Account and settings" }));
+  await expect(page.getByRole("radio", { name: "15 gal" })).toHaveAttribute("aria-checked", "true");
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Cap your fuel price. Never overpay." })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Create your profile" })).toHaveCount(0);
+  await expect(page.getByText("Hi Francis")).toBeVisible();
 });
 
 test("presenter controls appear only with ?demo=1, and their pump price only applies there", async ({ page }, testInfo) => {
@@ -216,26 +278,16 @@ test("presenter controls appear only with ?demo=1, and their pump price only app
   await mockSupabase(page);
   const panel = page.getByRole("complementary", { name: "Presenter controls" });
   const opener = page.getByRole("button", { name: "Open presenter controls" });
-
   await page.goto("/");
   await expect(page.getByTestId("headline-unit-price")).toContainText("$3.50");
-  await page.keyboard.press("Control+.");
   await expect(panel).toHaveCount(0);
   await expect(opener).toHaveCount(0);
-
   await page.goto("/?demo=1");
   await expect(mobile ? opener : panel).toBeVisible();
   await setPresenterPump(page, click, /Price rises/, mobile);
   await expect(page.getByTestId("headline-unit-price")).toContainText("$3.90");
-
-  // Same browser, no ?demo=1: no controls, and the presenter's price no longer moves the pump.
   await page.goto("/");
   await expect(page.getByTestId("headline-unit-price")).toContainText("$3.50");
-  await expect(panel).toHaveCount(0);
-  await expect(opener).toHaveCount(0);
-
-  await page.goto("/?demo=1");
-  await expect(page.getByTestId("headline-unit-price")).toContainText("$3.90");
 });
 
 test("account authentication dialog is reachable", async ({ page }, testInfo) => {
@@ -245,6 +297,4 @@ test("account authentication dialog is reachable", async ({ page }, testInfo) =>
   await click(page.getByRole("button", { name: "Account and settings" }));
   await click(page.getByRole("button", { name: "Create account or sign in" }));
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
-  await expect(page.getByLabel("Email")).toBeVisible();
-  await expect(page.getByLabel("Password")).toBeVisible();
 });

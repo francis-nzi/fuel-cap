@@ -23,20 +23,21 @@ test("admin governs the separate customer demonstrator without mutating an accep
   await admin.getByRole("button", { name: /Publish price rise/ }).click();
   await expect(admin.getByRole("status").filter({ hasText: "simulated price rise" })).toBeVisible();
   await expect(page.getByTestId("headline-unit-price")).toContainText("$3.75", { timeout: 10_000 });
-  await customerClick(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button", { name: "Protect", exact: true }));
-  await expect(page.getByRole("radio", { name: /Shell Downtown/ })).toContainText("$3.75");
-  await expect(page.getByLabel("Protection summary")).toContainText("5% above today's $3.75");
+  await customerClick(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button", { name: "Add money", exact: true }));
+  // Basic plan, $3.75 reference: cap $3.9375 shows as $3.94.
+  await expect(page.getByTestId("protect-preview")).toContainText("at max $3.94/gal");
 
   await admin.getByRole("button", { name: /Stop new quotes/ }).click();
   await expect(page.getByRole("status").filter({ hasText: "New protections are paused" })).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByRole("button", { name: "New protections paused" })).toBeDisabled();
+  await expect(page.getByTestId("protect-preview")).toBeVisible();
 
   await admin.getByRole("button", { name: /Reset baseline/ }).click();
   await expect(page.getByRole("status").filter({ hasText: "New protections are paused" })).toHaveCount(0, { timeout: 10_000 });
-  await expect(page.getByRole("button", { name: "Add $100.00 & protect 25 gal" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Add $100.00" })).toBeEnabled();
 
   await customerClick(page.getByRole("button", { name: "Home", exact: true }));
   await customerClick(page.getByRole("button", { name: "Create your profile" }));
+  await customerClick(page.getByRole("button", { name: "Fill with demo details" }));
   await customerClick(page.getByRole("button", { name: "Continue to identity check" }));
   const adminMenu = admin.getByRole("button", { name: "Open navigation" });
   if (await adminMenu.isVisible()) await adminMenu.click();

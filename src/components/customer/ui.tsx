@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Home, List, QrCode, ShieldCheck } from "lucide-react";
+import { Home, List, QrCode, Wallet } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Screen } from "./types";
 
@@ -34,7 +34,7 @@ export function Header({ pill, initials, openAccount, accountOpen }: { pill: str
 
 const tabs: { label: string; target: Screen; screens: Screen[]; icon: typeof Home }[] = [
   { label: "Home", target: "home", screens: ["home", "onboarding"], icon: Home },
-  { label: "Protect", target: "protect", screens: ["protect", "done"], icon: ShieldCheck },
+  { label: "Add money", target: "add", screens: ["add", "done", "station"], icon: Wallet },
   { label: "Pay", target: "pay", screens: ["pay", "receipt"], icon: QrCode },
   { label: "Activity", target: "activity", screens: ["activity"], icon: List },
 ];
