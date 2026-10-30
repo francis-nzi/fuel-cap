@@ -71,7 +71,7 @@ for (const scenario of cases) {
     const click = clicker(page, testInfo.project.name);
     const mobile = testInfo.project.name === "customer-mobile";
     await mockSupabase(page);
-    await page.goto("/?demo=1");
+    await page.goto("/?demo=1&market=US");
     await expect(page.getByTestId("headline-unit-price")).toContainText("$3.50");
     await expect(page.getByText("protect your usual fuel at a max of $3.68/gal for 7 days", { exact: false })).toBeVisible();
     await add100(page, click);
@@ -98,13 +98,12 @@ for (const scenario of cases) {
   });
 }
 
-test("REQ-003 worked example in the UK: Activity shows a running balance that ends at the Home balance", async ({ page }, testInfo) => {
+test("REQ-003 worked example in the UK (the default market): Activity shows a running balance that ends at the Home balance", async ({ page }, testInfo) => {
   const click = clicker(page, testInfo.project.name);
   await mockSupabase(page);
   await page.goto("/");
-  await click(page.getByRole("button", { name: "Account and settings" }));
-  await page.getByLabel("Country").selectOption("GB");
   await expect(page.getByTestId("demo-pill")).toHaveText("DEMO · UK £");
+  await click(page.getByRole("button", { name: "Account and settings" }));
   await expect(page.getByRole("radio", { name: "40 L" })).toHaveAttribute("aria-checked", "true");
   await click(tab(page, "Home"));
   await click(page.getByRole("button", { name: /Your station/ }));
@@ -128,7 +127,7 @@ test("REQ-003 worked example in the UK: Activity shows a running balance that en
 test("first use: four tabs, honest empty states, plan prices in the market's currency", async ({ page }, testInfo) => {
   const click = clicker(page, testInfo.project.name);
   await mockSupabase(page);
-  await page.goto("/");
+  await page.goto("/?market=US");
   await expect(page.getByRole("heading", { name: "Cap your fuel price. Never overpay." })).toBeVisible();
   await expect(page.getByTestId("demo-pill")).toHaveText("DEMO · US $");
   await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button")).toHaveText(["Home", "Add money", "Pay", "Activity"]);
@@ -151,7 +150,7 @@ test("first use: four tabs, honest empty states, plan prices in the market's cur
 test("deposits never take the balance over the plan's wallet limit", async ({ page }, testInfo) => {
   const click = clicker(page, testInfo.project.name);
   await mockSupabase(page);
-  await page.goto("/");
+  await page.goto("/?market=US");
   await add100(page, click);
   await click(tab(page, "Add money"));
   await click(page.getByRole("radio", { name: "$200" }));
@@ -177,7 +176,7 @@ test.describe("location and map", () => {
   test("uses the device location, searches a ZIP, and picks a station from the map", async ({ page }, testInfo) => {
     const click = clicker(page, testInfo.project.name);
     await mockSupabase(page);
-    await page.goto("/");
+    await page.goto("/?market=US");
     // Permission already granted: located quietly, nearest station chosen.
     await expect(page.getByTestId("your-station")).toHaveText("BP Central");
     await click(page.getByRole("button", { name: /Your station/ }));
@@ -208,7 +207,7 @@ test.describe("location and map", () => {
   test("an unknown place says so instead of guessing", async ({ page }, testInfo) => {
     const click = clicker(page, testInfo.project.name);
     await mockSupabase(page);
-    await page.goto("/");
+    await page.goto("/?market=US");
     await click(page.getByRole("button", { name: /Your station/ }));
     await page.getByPlaceholder("ZIP or city").fill("Atlantis");
     await expect(page.getByText("We couldn't find “Atlantis” in the US.")).toBeVisible();
@@ -224,7 +223,7 @@ test.describe("location refused", () => {
     await page.addInitScript(() => {
       Object.defineProperty(navigator, "geolocation", { configurable: true, value: { getCurrentPosition: (_ok: unknown, fail: (error: { code: number }) => void) => fail({ code: 1 }) } });
     });
-    await page.goto("/");
+    await page.goto("/?market=US");
     await click(page.getByRole("button", { name: /Your station/ }));
     await click(page.getByRole("button", { name: "Use my location" }));
     await expect(page.getByText("Location is off for this site.", { exact: false })).toBeVisible();
@@ -236,7 +235,7 @@ test("ending a window releases the money and auto-renews from the balance", asyn
   const click = clicker(page, testInfo.project.name);
   const mobile = testInfo.project.name === "customer-mobile";
   await mockSupabase(page);
-  await page.goto("/?demo=1");
+  await page.goto("/?demo=1&market=US");
   await add100(page, click);
   if (mobile) await click(page.getByRole("button", { name: "Open presenter controls" }));
   await click(page.getByRole("button", { name: "End this window (auto-renew)" }));
@@ -253,7 +252,7 @@ test("ending a window releases the money and auto-renews from the balance", asyn
 test("onboarding asks for usual weekly fuel and isn't offered again", async ({ page }, testInfo) => {
   const click = clicker(page, testInfo.project.name);
   await mockSupabase(page);
-  await page.goto("/");
+  await page.goto("/?market=US");
   await click(page.getByRole("button", { name: "Create your profile" }));
   await expect(page.getByRole("heading", { name: "Choose how you use FuelCap" })).toBeVisible();
   await click(page.getByRole("radio", { name: "15 gal" }));
@@ -278,23 +277,35 @@ test("presenter controls appear only with ?demo=1, and their pump price only app
   await mockSupabase(page);
   const panel = page.getByRole("complementary", { name: "Presenter controls" });
   const opener = page.getByRole("button", { name: "Open presenter controls" });
-  await page.goto("/");
+  await page.goto("/?market=US");
   await expect(page.getByTestId("headline-unit-price")).toContainText("$3.50");
   await expect(panel).toHaveCount(0);
   await expect(opener).toHaveCount(0);
-  await page.goto("/?demo=1");
+  await page.goto("/?demo=1&market=US");
   await expect(mobile ? opener : panel).toBeVisible();
   await setPresenterPump(page, click, /Price rises/, mobile);
   await expect(page.getByTestId("headline-unit-price")).toContainText("$3.90");
-  await page.goto("/");
+  await page.goto("/?market=US");
   await expect(page.getByTestId("headline-unit-price")).toContainText("$3.50");
 });
 
 test("account authentication dialog is reachable", async ({ page }, testInfo) => {
   const click = clicker(page, testInfo.project.name);
   await mockSupabase(page);
-  await page.goto("/");
+  await page.goto("/?market=US");
   await click(page.getByRole("button", { name: "Account and settings" }));
   await click(page.getByRole("button", { name: "Create account or sign in" }));
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+});
+
+test("presenter moves work in the UK too, measured from your station", async ({ page }, testInfo) => {
+  const click = clicker(page, testInfo.project.name);
+  const mobile = testInfo.project.name === "customer-mobile";
+  await mockSupabase(page);
+  await page.goto("/?demo=1");
+  await expect(page.getByTestId("demo-pill")).toHaveText("DEMO · UK £");
+  const before = await page.getByTestId("headline-unit-price").innerText();
+  await setPresenterPump(page, click, /Price rises/, mobile);
+  await expect(page.getByTestId("headline-unit-price")).not.toHaveText(before);
+  await expect(page.getByTestId("headline-unit-price")).toContainText("£1.6"); // £1.459 × 3.9/3.5 = £1.6257
 });

@@ -27,6 +27,9 @@
     color: var(--midnight);
     font-family: var(--font-inter), Arial, sans-serif;
     letter-spacing: 0;
+    /* Tabular figures: prices and balances keep the same width as they change, so columns line up and live
+       price moves don't make numbers jump. Inter and Space Grotesk both include them. */
+    font-variant-numeric: tabular-nums;
   }
   button, input, select { font: inherit; }
   button, a { -webkit-tap-highlight-color: transparent; }

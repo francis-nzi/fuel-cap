@@ -12,7 +12,7 @@ import { initialDemoControlSnapshot, type DemoControlSnapshot } from "@fuelcap/d
 import { servicePlans, type LifecycleCommand, type LifecycleCustomer, type PlanId, type ServicePlan } from "@fuelcap/demo-data/customer-lifecycle";
 import { AuthDialog } from "./customer/auth-dialog";
 import { DEMO_CUSTOMER_ID, OnboardingView } from "./customer/onboarding";
-import { PRESENTER_REFERENCE, PresenterPanel, type RunOfShow } from "./customer/presenter-panel";
+import { PresenterPanel, type RunOfShow } from "./customer/presenter-panel";
 import { AccountScreen, ActivityScreen, AddMoneyScreen, DoneScreen, HomeScreen, PayScreen, ReceiptScreen, type StationSummary } from "./customer/screens";
 import { StationPicker, useOrigin } from "./customer/station-picker";
 import { emptyAccounts, formatVolume, isActive, shortLabel, type Account, type Accounts, type LockRecord, type Receipt, type Screen, type TransactionRecord } from "./customer/types";
@@ -30,10 +30,13 @@ type LockOptionRow = {
   station_count: number | string;
   observed_at: string;
 };
-type StoredDemo = { market: MarketCode; accounts: Accounts; onboarded: boolean; customer: LifecycleCustomer | null; pumpOverride: number | null; planId: PlanId };
+type StoredDemo = { market: MarketCode; accounts: Accounts; onboarded: boolean; customer: LifecycleCustomer | null; pumpRatio: number | null; planId: PlanId };
 
-const STORAGE_KEY = "fuelcap-demo-v4";
-const LEGACY_STORAGE_KEYS = ["fuelcap-demo", "fuelcap-demo-v2", "fuelcap-demo-v3"];
+const STORAGE_KEY = "fuelcap-demo-v5";
+const LEGACY_STORAGE_KEYS = ["fuelcap-demo", "fuelcap-demo-v2", "fuelcap-demo-v3", "fuelcap-demo-v4"];
+/** New visitors start in the UK, the market with live station prices. `?market=us|ca|uk` overrides it. */
+const DEFAULT_MARKET: MarketCode = "GB";
+const marketFromUrl = (value: string | null): MarketCode | null => { const code = value?.toUpperCase() === "UK" ? "GB" : value?.toUpperCase(); return code && code in markets ? code as MarketCode : null; };
 const DAY_MS = 86_400_000;
 
 // Demo stations (illustrative names, prices and positions) for markets without a live feed. UK prices come live
@@ -100,7 +103,7 @@ const nextSeq = (account: Account) => account.transactions.reduce((max, row) => 
 export function FuelCapApp() {
   const [screen, setScreen] = useState<Screen>("home");
   const [returnTo, setReturnTo] = useState<Screen>("home");
-  const [marketCode, setMarketCode] = useState<MarketCode>("US");
+  const [marketCode, setMarketCode] = useState<MarketCode>(DEFAULT_MARKET);
   const [fill, setFill] = useState(5);
   const [amount, setAmount] = useState(100);
   const [monthly, setMonthly] = useState(false);
@@ -119,7 +122,7 @@ export function FuelCapApp() {
   const [planId, setPlanId] = useState<PlanId>("BASIC");
   const [demoControl, setDemoControl] = useState<DemoControlSnapshot>(initialDemoControlSnapshot);
   const [lifecycleCustomer, setLifecycleCustomer] = useState<LifecycleCustomer | null>(null);
-  const [pumpOverride, setPumpOverride] = useState<number | null>(null);
+  const [pumpRatio, setPumpRatio] = useState<number | null>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [shared, setShared] = useState(false);
   const [sharedEver, setSharedEver] = useState(false);
@@ -145,23 +148,28 @@ export function FuelCapApp() {
 
   // One normalised price list per market feeds home, add money and the pump.
   const baseOptions = useMemo(() => (optionsMarket === marketCode ? normalizeOptions(withDemoCoords(rawOptions), markets[marketCode].name) : []), [rawOptions, optionsMarket, marketCode]);
-  const usReferenceRaw = baseOptions.find((option) => option.scopeId === US_REFERENCE_STATION_ID)?.unitPrice ?? PRESENTER_REFERENCE;
-  // The presenter's pump price applies only while the presenter panel is on (?demo=1).
-  const usShift = marketCode !== "US" ? 0 : presenter && pumpOverride !== null ? round4(pumpOverride - usReferenceRaw) : round4(demoControl.displayUnitPrice - US_CONTROL_BASELINE);
-  const options = useMemo(() => (usShift ? shiftOptions(baseOptions, usShift) : baseOptions), [baseOptions, usShift]);
-  const stationList = useMemo(() => stationsByPrice(options), [options]);
+  const baseStations = useMemo(() => stationsByPrice(baseOptions), [baseOptions]);
   const pricesLoading = optionsLoading || optionsMarket !== marketCode;
   const quotesPaused = marketCode === "US" && demoControl.quoteAvailability === "PAUSED";
 
-  // Your station: the one you chose, otherwise the nearest to you (or to the demo area).
-  const origin = useOrigin(marketCode, stationList, device, null);
+  // Your station: the one you chose, otherwise the nearest to you (or to the demo area). Price moves shift every
+  // station equally, so the choice is made on the unshifted list.
+  const origin = useOrigin(marketCode, baseStations, device, null);
   const defaultStationId = useMemo(() => {
-    if (marketCode === "US" && !device.coords && stationList.some((option) => option.scopeId === US_REFERENCE_STATION_ID)) return US_REFERENCE_STATION_ID;
-    const located = stationList.filter((option) => option.latitude !== undefined && option.longitude !== undefined);
+    if (marketCode === "US" && !device.coords && baseStations.some((option) => option.scopeId === US_REFERENCE_STATION_ID)) return US_REFERENCE_STATION_ID;
+    const located = baseStations.filter((option) => option.latitude !== undefined && option.longitude !== undefined);
     const nearest = [...located].sort((a, b) => milesBetween(origin.coords, a as never) - milesBetween(origin.coords, b as never))[0];
-    return nearest?.scopeId ?? stationList[0]?.scopeId ?? null;
-  }, [marketCode, stationList, origin.coords, device.coords]);
-  const stationId = account.stationId && stationList.some((option) => option.scopeId === account.stationId) ? account.stationId : defaultStationId;
+    return nearest?.scopeId ?? baseStations[0]?.scopeId ?? null;
+  }, [marketCode, baseStations, origin.coords, device.coords]);
+  const stationId = account.stationId && baseStations.some((option) => option.scopeId === account.stationId) ? account.stationId : defaultStationId;
+
+  // Price moves: the presenter's move (?demo=1 only) is relative to your station's price today, in any market;
+  // otherwise the control room's published move applies to the US demo market.
+  const presenterReference = baseStations.find((option) => option.scopeId === stationId)?.unitPrice ?? null;
+  const shift = presenter && pumpRatio !== null && presenterReference !== null ? round4(presenterReference * pumpRatio - presenterReference)
+    : marketCode === "US" ? round4(demoControl.displayUnitPrice - US_CONTROL_BASELINE) : 0;
+  const options = useMemo(() => (shift ? shiftOptions(baseOptions, shift) : baseOptions), [baseOptions, shift]);
+  const stationList = useMemo(() => stationsByPrice(options), [options]);
   const station = stationList.find((option) => option.scopeId === stationId);
   const stationMiles = (option?: PriceOption) => option && option.latitude !== undefined && option.longitude !== undefined && !origin.demo ? milesBetween(origin.coords, option as never) : null;
   const stationSummary: StationSummary = station ? { name: shortLabel(station.label), price: station.unitPrice, miles: stationMiles(station) } : null;
@@ -261,13 +269,16 @@ export function FuelCapApp() {
           if (data.onboarded) setOnboarded(true);
           if (data.customer) setLifecycleCustomer(data.customer);
           if (data.planId) setPlanId(data.planId);
-          if (typeof data.pumpOverride === "number") setPumpOverride(data.pumpOverride);
+          if (typeof data.pumpRatio === "number") setPumpRatio(data.pumpRatio);
         }
       } catch {
         localStorage.removeItem(STORAGE_KEY);
       }
       // Presenter controls appear only with ?demo=1 in the URL; customers never see them.
-      setPresenter(new URLSearchParams(window.location.search).get("demo") === "1");
+      const params = new URLSearchParams(window.location.search);
+      setPresenter(params.get("demo") === "1");
+      const linked = marketFromUrl(params.get("market"));
+      if (linked) setMarketCode(linked);
       setHydrated(true);
     }, 0);
   }, []);
@@ -275,10 +286,10 @@ export function FuelCapApp() {
   useEffect(() => {
     if (!hydrated) return;
     try {
-      const data: StoredDemo = { market: marketCode, accounts, onboarded, customer: lifecycleCustomer, pumpOverride, planId };
+      const data: StoredDemo = { market: marketCode, accounts, onboarded, customer: lifecycleCustomer, pumpRatio, planId };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch { /* storage unavailable: the session still works in memory */ }
-  }, [hydrated, marketCode, accounts, onboarded, lifecycleCustomer, pumpOverride, planId]);
+  }, [hydrated, marketCode, accounts, onboarded, lifecycleCustomer, pumpRatio, planId]);
 
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_FUELCAP_E2E === "true") return;
@@ -477,10 +488,10 @@ export function FuelCapApp() {
     setOnboarded(false);
     setLifecycleCustomer(null);
     setPlanId("BASIC");
-    setPumpOverride(null);
+    setPumpRatio(null);
     setReceipt(null);
     setSharedEver(false);
-    setMarketCode("US");
+    setMarketCode(DEFAULT_MARKET);
     setAmount(100);
     setFill(5);
     setPresenterSheet(false);
@@ -488,18 +499,15 @@ export function FuelCapApp() {
     flash("Demo reset.", 2400);
   }
 
-  const us = accounts.US;
-  const usActive = us.locks.find(isActive);
   const runOfShow: RunOfShow = {
-    protected: us.transactions.some((transaction) => transaction.type === "protection"),
-    moved: pumpOverride !== null && pumpOverride !== PRESENTER_REFERENCE,
-    paid: us.transactions.some((transaction) => transaction.type === "fuel"),
-    fell: us.transactions.some((transaction) => transaction.type === "price_fall"),
+    protected: account.transactions.some((transaction) => transaction.type === "protection"),
+    moved: pumpRatio !== null && pumpRatio !== 1,
+    paid: account.transactions.some((transaction) => transaction.type === "fuel"),
+    fell: account.transactions.some((transaction) => transaction.type === "price_fall"),
     shared: sharedEver,
   };
-  const presenterPump = pumpOverride ?? round4(usReferenceRaw + round4(demoControl.displayUnitPrice - US_CONTROL_BASELINE));
-  const endUsWindow = usActive ? () => endWindow("US", usActive.id) : undefined;
-  const panel = (close?: () => void) => <PresenterPanel pump={presenterPump} setPump={setPumpOverride} steps={runOfShow} reset={resetDemo} available={marketCode === "US"} chargeRate={chargeRate(plan)} planName={plan.name} endWindow={endUsWindow} close={close} />;
+  const endCurrentWindow = activeLock ? () => endWindow(marketCode, activeLock.id) : undefined;
+  const panel = (close?: () => void) => <PresenterPanel market={market} reference={presenterReference} ratio={pumpRatio ?? 1} setRatio={setPumpRatio} stationName={station ? shortLabel(station.label) : "your station"} steps={runOfShow} reset={resetDemo} chargeRate={chargeRate(plan)} planName={plan.name} endWindow={endCurrentWindow} close={close} />;
 
   const firstName = lifecycleCustomer?.name.split(" ")[0] ?? "there";
   const initials = lifecycleCustomer ? lifecycleCustomer.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase() : "FC";

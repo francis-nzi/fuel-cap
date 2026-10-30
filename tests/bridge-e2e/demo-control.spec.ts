@@ -12,7 +12,7 @@ test("admin governs the separate customer demonstrator without mutating an accep
   });
   const admin = await context.newPage();
   await admin.goto("http://127.0.0.1:3001/");
-  await page.goto("/");
+  await page.goto("/?market=US");
 
   // The customer app shows no operator banner; the control room's moves show up as the customer's prices.
   // US demo station: $3.50 at the control baseline ($3.42); the published rise (+$0.25) takes it to $3.75.
