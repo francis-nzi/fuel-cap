@@ -90,6 +90,12 @@ const withDemoCoords = (options: PriceOption[]) => options.map((option) => {
   return known && option.latitude === undefined ? { ...option, latitude: known.latitude, longitude: known.longitude } : option;
 });
 
+/** The last UK postcode in a station label, normalised without spaces (e.g. "SW61AA"). */
+function postcodeOf(label: string) {
+  const matches = label.toUpperCase().match(/[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}/g);
+  return matches ? matches[matches.length - 1].replace(/\s+/g, "") : null;
+}
+
 /** A short cashier fallback code derived from the protection id, e.g. FC-4821. */
 function cashierCode(id: string) {
   let hash = 0;
@@ -129,6 +135,7 @@ export function FuelCapApp() {
   const [presenter, setPresenter] = useState(false);
   const [presenterSheet, setPresenterSheet] = useState(false);
   const content = useRef<HTMLDivElement>(null);
+  const triedPostcodes = useRef(new Set<string>());
   const device = useDeviceLocation();
   const market = markets[marketCode];
   const unit = market.unit as Unit;
@@ -226,8 +233,14 @@ export function FuelCapApp() {
           }
         } catch { /* use the verified database or demonstrator fallback below */ }
       }
-      const { data } = await createClient().rpc("get_current_lock_options", { p_market: marketCode, p_fuel_grade: "regular" });
-      const remoteOptions = ((data ?? []) as LockOptionRow[]).map((row: LockOptionRow) => ({
+      // The API returns at most 1,000 rows per request, so read it in pages (the UK has about 8,000 stations).
+      const rows: LockOptionRow[] = [];
+      for (let page = 0; page < 12; page += 1) {
+        const { data } = await createClient().rpc("get_current_lock_options", { p_market: marketCode, p_fuel_grade: "regular" }).range(page * 1000, page * 1000 + 999);
+        rows.push(...((data ?? []) as LockOptionRow[]));
+        if (!data || data.length < 1000) break;
+      }
+      const remoteOptions = rows.map((row: LockOptionRow) => ({
         scopeType: row.scope_type as LockScope, scopeId: row.scope_id, label: row.label, providerName: row.provider_name,
         unitPrice: Number(row.unit_price), currency: row.currency, unit: row.unit, stationCount: Number(row.station_count), observedAt: row.observed_at,
       }));
@@ -236,6 +249,32 @@ export function FuelCapApp() {
     void loadPriceOptions();
     return () => { cancelled = true; };
   }, [marketCode]);
+
+  // UK stations from the database have a postcode in the address but no coordinates yet: look them up so the map
+  // and "nearest" work. Results merge in as they arrive.
+  useEffect(() => {
+    if (optionsMarket !== "GB") return;
+    const tried = triedPostcodes.current;
+    const postcodes = [...new Set(rawOptions.filter((option) => option.scopeType === "station" && option.latitude === undefined).map((option) => postcodeOf(option.label)).filter((postcode): postcode is string => Boolean(postcode) && !tried.has(postcode!)))];
+    if (!postcodes.length) return;
+    postcodes.forEach((postcode) => tried.add(postcode));
+    // Not cancelled on re-render: results are merged by postcode, so applying them late is harmless.
+    async function locateStations() {
+      for (let index = 0; index < postcodes.length; index += 1000) {
+        try {
+          const response = await fetch("/api/postcodes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ postcodes: postcodes.slice(index, index + 1000) }) });
+          if (!response.ok) continue;
+          const { coords } = await response.json() as { coords: Record<string, [number, number]> };
+          if (!Object.keys(coords).length) continue;
+          setRawOptions((current) => current.map((option) => {
+            const found = option.latitude === undefined ? coords[postcodeOf(option.label) ?? ""] : undefined;
+            return found ? { ...option, latitude: found[0], longitude: found[1] } : option;
+          }));
+        } catch { /* keep going without coordinates */ }
+      }
+    }
+    void locateStations();
+  }, [rawOptions, optionsMarket]);
 
   // The control room's published US price and quote availability. Only the US demo market follows it, and only
   // while the page is visible.
