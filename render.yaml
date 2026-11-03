@@ -10,7 +10,7 @@ services:
     autoDeployTrigger: commit
     envVars:
       - key: NODE_VERSION
-        value: 22.22.0
+        value: 22.23.4
       - key: NEXT_PUBLIC_APP_ENV
         value: production
       - key: NEXT_PUBLIC_SUPABASE_URL
